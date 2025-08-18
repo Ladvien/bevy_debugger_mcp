@@ -1,0 +1,59 @@
+# Bevy Debugger MCP Server Configuration Example
+# Copy this file to ~/.config/bevy-debugger/config.toml and customize as needed
+
+[connection]
+# Bevy Remote Protocol connection settings
+bevy_host = "localhost"
+bevy_port = 15702
+
+# MCP server port (used only in TCP mode, not stdio)
+mcp_port = 3000
+
+# Connection timeout in seconds
+timeout = 10
+
+# Enable auto-reconnection to Bevy game
+auto_reconnect = true
+
+[logging]
+# Log level: trace, debug, info, warn, error
+level = "info"
+
+# Enable debug mode for verbose output
+debug_mode = false
+
+# Log file path (optional, logs to stdout if not specified)
+# log_file = "~/.local/share/bevy-debugger/debug.log"
+
+[features]
+# Checkpoint interval in milliseconds for error recovery
+checkpoint_interval = 1000
+
+# Maximum recording size before rotation
+max_recording_size = "100MB"
+
+# Enable performance monitoring
+performance_monitoring = true
+
+# Enable anomaly detection
+anomaly_detection = true
+
+[performance]
+# Memory usage threshold for warnings (in MB)
+memory_threshold = 512
+
+# CPU usage threshold for warnings (percentage)
+cpu_threshold = 80
+
+# Frame time threshold for warnings (in ms)
+frame_time_threshold = 16.67
+
+[security]
+# Redact sensitive information from logs
+redact_sensitive_data = true
+
+# List of environment variables to redact
+redacted_env_vars = ["API_KEY", "TOKEN", "SECRET", "PASSWORD"]
+
+# Enable data encryption for recordings
+encrypt_recordings = true
