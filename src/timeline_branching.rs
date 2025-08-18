@@ -656,7 +656,7 @@ impl TimelineBranchManager {
         &self,
         frame_a: &Frame,
         frame_b: &Frame,
-        frame_number: usize,
+        _frame_number: usize,
     ) -> Vec<EntityDifference> {
         let mut differences = Vec::new();
 

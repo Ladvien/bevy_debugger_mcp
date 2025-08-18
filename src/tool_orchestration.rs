@@ -415,7 +415,7 @@ impl ToolOrchestrator {
     ) -> Result<PipelineResult> {
         let start_time = Instant::now();
         let execution_id = ExecutionId::new();
-        let mut step_results = Vec::new();
+        let step_results;
 
         // Enforce execution bounds
         if pipeline.steps.len() > 100 {

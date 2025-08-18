@@ -124,13 +124,20 @@ impl BrpClient {
 
         let start_time = Instant::now();
         let result = self.send_request_internal(request).await;
+        let duration = start_time.elapsed();
 
         // Record success/failure for circuit breaker
         if let Some(ref rm) = self.resource_manager {
             let resource_manager = rm.read().await;
             match &result {
-                Ok(_) => resource_manager.record_operation_success().await,
-                Err(_) => resource_manager.record_operation_failure().await,
+                Ok(_) => {
+                    resource_manager.record_operation_success().await;
+                    debug!("Request completed in {:?}", duration);
+                }
+                Err(_) => {
+                    resource_manager.record_operation_failure().await;
+                    debug!("Request failed after {:?}", duration);
+                }
             }
         }
 

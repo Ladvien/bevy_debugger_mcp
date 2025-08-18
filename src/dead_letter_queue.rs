@@ -220,13 +220,6 @@ impl DeadLetterQueue {
     /// Get statistics about the dead letter queue
     pub async fn get_statistics(&self) -> DeadLetterStats {
         let queue = self.queue.read().await;
-        let now = SystemTime::now()
-            .duration_since(UNIX_EPOCH)
-            .unwrap_or_else(|_| {
-                tracing::warn!("Failed to get system time for failed operation, using epoch");
-                std::time::Duration::from_secs(0)
-            })
-            .as_secs();
 
         let mut stats = DeadLetterStats {
             total_count: queue.len(),

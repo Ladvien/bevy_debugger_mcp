@@ -424,7 +424,7 @@ impl ResourceManager {
 
         let metrics = self.metrics.clone();
         let system = self.system.clone();
-        let pid = self.pid;
+        let _pid = self.pid;
         let config = self.config.clone();
         let circuit_breaker = self.circuit_breaker.clone();
         let adaptive_sampler = self.adaptive_sampler.clone();
@@ -443,7 +443,6 @@ impl ResourceManager {
                         Self::update_metrics(
                             &metrics,
                             &system,
-                            pid,
                             &circuit_breaker,
                             &adaptive_sampler,
                             &rate_limiter,
@@ -469,7 +468,6 @@ impl ResourceManager {
     async fn update_metrics(
         metrics: &Arc<RwLock<ResourceMetrics>>,
         system: &Arc<RwLock<System>>,
-        pid: usize,
         circuit_breaker: &Arc<CircuitBreaker>,
         adaptive_sampler: &Arc<AdaptiveSampler>,
         rate_limiter: &Arc<RateLimiter>,

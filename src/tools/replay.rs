@@ -13,8 +13,8 @@ use crate::timeline_branching::{
     BranchId, MergeStrategy, Modification, ModificationLayer, TimelineBranchManager,
 };
 
-/// Global recording state
 lazy_static::lazy_static! {
+    // Global recording state
     static ref RECORDING_STATE: RecordingState = RecordingState::new(RecordingConfig::default());
     static ref PLAYBACK_CONTROLLER: Arc<RwLock<PlaybackController>> = Arc::new(RwLock::new(
         PlaybackController::new(Box::new(DirectSync))

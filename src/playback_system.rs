@@ -1,5 +1,5 @@
 use async_trait::async_trait;
-use futures_util::stream::{Stream, StreamExt};
+use futures_util::stream::Stream;
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;
 use std::time::{Duration, Instant};
@@ -116,19 +116,19 @@ impl InterpolatedSync {
 
 #[async_trait]
 impl PlaybackSync for InterpolatedSync {
-    async fn sync_frame(&self, frame: &Frame, brp_client: &mut BrpClient) -> Result<()> {
+    async fn sync_frame(&self, frame: &Frame, _brp_client: &mut BrpClient) -> Result<()> {
         debug!("Syncing frame {} with interpolation", frame.frame_number);
         // TODO: Implement interpolated sync
         // This would interpolate between frames for smooth playback
         Ok(())
     }
 
-    async fn prepare(&self, brp_client: &mut BrpClient) -> Result<()> {
+    async fn prepare(&self, _brp_client: &mut BrpClient) -> Result<()> {
         debug!("Preparing for interpolated sync playback");
         Ok(())
     }
 
-    async fn cleanup(&self, brp_client: &mut BrpClient) -> Result<()> {
+    async fn cleanup(&self, _brp_client: &mut BrpClient) -> Result<()> {
         debug!("Cleaning up after interpolated sync playback");
         Ok(())
     }
@@ -389,18 +389,18 @@ impl PlaybackController {
 
     /// Start the playback stream
     async fn start_playback_stream(&self, brp_client: Arc<RwLock<BrpClient>>) -> Result<()> {
-        let (frame_tx, frame_rx) = mpsc::channel::<Frame>(100);
+        let (frame_tx, _frame_rx) = mpsc::channel::<Frame>(100);
         let (control_tx, mut control_rx) = mpsc::channel::<PlaybackControl>(10);
 
         *self.frame_sender.lock().await = Some(frame_tx.clone());
         *self.control_sender.lock().await = Some(control_tx.clone());
+        // Note: frame_rx would be used by external consumers via frame_stream()
 
         let timeline = self.timeline.clone();
         let state = self.state.clone();
         let speed = self.speed.clone();
         let sync_strategy = self.sync_strategy.clone();
         let playback_time = self.playback_time.clone();
-        let playback_task = self.playback_task.clone();
 
         // Spawn playback task and store handle
         let task = tokio::spawn(async move {

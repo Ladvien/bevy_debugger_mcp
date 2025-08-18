@@ -8,7 +8,7 @@ use tracing::{debug, info, warn};
 
 use crate::brp_client::BrpClient;
 use crate::error::{Error, Result};
-use crate::experiment_system::{Action, ActionExecutor, ComponentSpec};
+use crate::experiment_system::{Action, ActionExecutor};
 
 /// Represents a testable hypothesis about game behavior
 #[derive(Debug, Clone, Serialize, Deserialize)]

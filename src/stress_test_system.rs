@@ -345,12 +345,12 @@ impl StressTest for SpawnManyTest {
 impl SpawnManyTest {
     fn random_float(&self) -> f32 {
         use rand::Rng;
-        rand::thread_rng().gen()
+        rand::rng().random()
     }
 
     fn random_u32(&self) -> u32 {
         use rand::Rng;
-        rand::thread_rng().gen()
+        rand::rng().random()
     }
 
     fn create_entity_components(&self) -> Vec<ComponentSpec> {
@@ -465,7 +465,7 @@ impl StressTest for RapidChangesTest {
 
                 let entity_id = entities[{
                     use rand::Rng;
-                    rand::thread_rng().gen_range(0..entities.len())
+                    rand::rng().random_range(0..entities.len())
                 }];
                 let components = self.create_random_changes();
 
@@ -518,15 +518,15 @@ impl StressTest for RapidChangesTest {
 impl RapidChangesTest {
     fn create_random_changes(&self) -> Vec<ComponentSpec> {
         use rand::Rng;
-        let mut rng = rand::thread_rng();
+        let mut rng = rand::rng();
         let mut components = Vec::new();
 
         for component_type in &self.component_types {
             let value = match component_type.as_str() {
                 "Transform" => {
-                    let x = rng.gen::<f32>() * 10.0;
-                    let y = rng.gen::<f32>() * 10.0;
-                    let z = rng.gen::<f32>() * 10.0;
+                    let x = rng.random::<f32>() * 10.0;
+                    let y = rng.random::<f32>() * 10.0;
+                    let z = rng.random::<f32>() * 10.0;
                     serde_json::json!({
                         "translation": {
                             "x": x,
@@ -536,16 +536,16 @@ impl RapidChangesTest {
                     })
                 }
                 "Velocity" => {
-                    let x = rng.gen::<f32>() * 5.0;
-                    let y = rng.gen::<f32>() * 5.0;
-                    let z = rng.gen::<f32>() * 5.0;
+                    let x = rng.random::<f32>() * 5.0;
+                    let y = rng.random::<f32>() * 5.0;
+                    let z = rng.random::<f32>() * 5.0;
                     serde_json::json!({
                         "x": x,
                         "y": y,
                         "z": z,
                     })
                 }
-                _ => serde_json::json!(rng.gen::<f32>()),
+                _ => serde_json::json!(rng.random::<f32>()),
             };
 
             components.push(ComponentSpec {
@@ -672,14 +672,14 @@ impl StressTest for MemoryPressureTest {
 impl MemoryPressureTest {
     fn create_complex_entity(&self, component_count: usize) -> Vec<ComponentSpec> {
         use rand::Rng;
-        let mut rng = rand::thread_rng();
+        let mut rng = rand::rng();
         let mut components = Vec::new();
 
         for i in 0..component_count {
             // Create various types of components with data
             let component = match i % 5 {
                 0 => {
-                    let data: Vec<f32> = (0..100).map(|_| rng.gen()).collect();
+                    let data: Vec<f32> = (0..100).map(|_| rng.random()).collect();
                     ComponentSpec {
                         type_id: format!("Component_{i}"),
                         value: serde_json::json!({
@@ -697,7 +697,7 @@ impl MemoryPressureTest {
                     }),
                 },
                 2 => {
-                    let arr: Vec<f32> = (0..50).map(|_| rng.gen()).collect();
+                    let arr: Vec<f32> = (0..50).map(|_| rng.random()).collect();
                     ComponentSpec {
                         type_id: format!("ArrayComponent_{i}"),
                         value: serde_json::json!(arr),
@@ -708,14 +708,14 @@ impl MemoryPressureTest {
                     value: {
                         let mut map = HashMap::new();
                         for j in 0..20 {
-                            map.insert(format!("key_{j}"), rng.gen::<f32>());
+                            map.insert(format!("key_{j}"), rng.random::<f32>());
                         }
                         serde_json::json!(map)
                     },
                 },
                 _ => ComponentSpec {
                     type_id: format!("SimpleComponent_{i}"),
-                    value: serde_json::json!(rng.gen::<f32>()),
+                    value: serde_json::json!(rng.random::<f32>()),
                 },
             };
 
@@ -779,11 +779,11 @@ impl StressTestRunner {
                 let mut metrics = metrics_clone.write().await;
                 {
                     use rand::Rng;
-                    let mut rng = rand::thread_rng();
-                    metrics.frame_times_ms.push(16.67 + rng.gen::<f64>() * 10.0);
+                    let mut rng = rand::rng();
+                    metrics.frame_times_ms.push(16.67 + rng.random::<f64>() * 10.0);
                     metrics
                         .cpu_usage_percent
-                        .push(50.0 + rng.gen::<f64>() * 30.0);
+                        .push(50.0 + rng.random::<f64>() * 30.0);
                 }
 
                 tokio::time::sleep(Duration::from_millis(100)).await;

@@ -396,11 +396,6 @@ impl CheckpointManager {
         checkpoints: &std::sync::Arc<std::sync::RwLock<HashMap<String, Checkpoint>>>,
         config: &CheckpointConfig,
     ) {
-        let now = SystemTime::now()
-            .duration_since(UNIX_EPOCH)
-            .unwrap_or_default()
-            .as_secs();
-
         let max_age = config.max_age_seconds;
         let mut to_remove = Vec::new();
 
