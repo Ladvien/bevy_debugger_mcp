@@ -187,6 +187,36 @@ async fn handle_mcp_request(server: &McpServer, request: Value) -> Value {
                                     }
                                 }
                             }
+                        },
+                        {
+                            "name": "screenshot",
+                            "description": "Capture a screenshot of the Bevy game window for visual debugging and documentation. This tool captures exactly what the game is rendering, not the entire screen, making it perfect for bug reports, feature documentation, and visual testing. Supports timing controls to handle game startup and ensure proper frame rendering.",
+                            "inputSchema": {
+                                "type": "object",
+                                "properties": {
+                                    "path": {
+                                        "type": "string",
+                                        "description": "File path where to save the screenshot. Supports .png, .jpg, .bmp, .tga formats. Defaults to './screenshot.png'. Example: 'debug/player-bug.png'"
+                                    },
+                                    "warmup_duration": {
+                                        "type": "integer",
+                                        "description": "Time in milliseconds to wait after game connection before taking screenshot. Allows game systems to initialize properly. Default: 1000ms. Range: 0-30000ms. Use 2000-5000ms for complex scenes."
+                                    },
+                                    "capture_delay": {
+                                        "type": "integer", 
+                                        "description": "Additional delay in milliseconds before screenshot capture. Useful for waiting for animations to reach specific states. Default: 500ms. Range: 0-10000ms."
+                                    },
+                                    "wait_for_render": {
+                                        "type": "boolean",
+                                        "description": "Whether to wait for at least one frame to render before capture. Ensures the screenshot contains actual game content. Default: true. Set false only for debugging render issues."
+                                    },
+                                    "description": {
+                                        "type": "string",
+                                        "description": "Optional description of what this screenshot captures (e.g., 'Player UI bug with overlapping healthbars'). Logged for debugging and documentation purposes."
+                                    }
+                                },
+                                "required": []
+                            }
                         }
                     ]
                 }

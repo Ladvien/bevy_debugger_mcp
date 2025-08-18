@@ -912,6 +912,7 @@ pub struct FailureExample {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::experiment_system::ComponentSpec;
 
     #[test]
     fn test_hypothesis_builder() {

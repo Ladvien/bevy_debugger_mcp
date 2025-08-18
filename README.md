@@ -14,6 +14,7 @@ A powerful Model Context Protocol (MCP) server that enables AI-assisted debuggin
 - **📊 Performance Analysis**: Identify bottlenecks and optimize game performance  
 - **🚨 Anomaly Detection**: Automatically spot unusual patterns in game behavior
 - **📹 Session Recording**: Record and replay debugging sessions for analysis
+- **📸 Screenshot Capture**: Take window-specific screenshots of your game for visual debugging
 - **🛡️ Error Recovery**: Robust error handling with automatic diagnostics
 
 ## 🚀 Quick Start
@@ -45,20 +46,47 @@ Add the RemotePlugin to your Bevy app:
 
 ```rust
 use bevy::prelude::*;
-use bevy::remote::RemotePlugin;
+use bevy::remote::{RemotePlugin, BrpResult};
+use bevy::render::view::screenshot::{save_to_disk, Screenshot};
+use serde_json::Value;
 
 fn main() {
     App::new()
         .add_plugins(DefaultPlugins)
-        .add_plugins(RemotePlugin::default()) // Enable remote debugging
+        .add_plugins(
+            RemotePlugin::default()
+                .with_method("bevy_debugger/screenshot", screenshot_handler)
+        )
         .run();
+}
+
+// Enable screenshot functionality
+fn screenshot_handler(
+    In(params): In<Option<Value>>, 
+    mut commands: Commands,
+) -> BrpResult {
+    let path = params
+        .as_ref()
+        .and_then(|p| p.get("path"))
+        .and_then(|p| p.as_str())
+        .unwrap_or("./screenshot.png")
+        .to_string();
+
+    commands
+        .spawn(Screenshot::primary_window())
+        .observe(save_to_disk(path.clone()));
+    
+    Ok(serde_json::json!({
+        "path": path,
+        "success": true
+    }))
 }
 ```
 
 ```toml
 # Cargo.toml
 [dependencies]
-bevy = { version = "0.14", features = ["remote"] }
+bevy = { version = "0.16", features = ["default", "bevy_remote"] }
 ```
 
 ### Start Debugging
@@ -69,6 +97,7 @@ bevy = { version = "0.14", features = ["remote"] }
    - "Show me all entities in the game"
    - "Monitor the player's health component"
    - "Test what happens when I spawn 100 enemies"
+   - "Take a screenshot of the current game state"
    - "Record this gameplay session for analysis"
 
 ## 🎮 Example Usage
@@ -153,9 +182,32 @@ We welcome contributions! Please see our [contribution guidelines](CONTRIBUTING.
 # Development setup
 git clone https://github.com/ladvien/bevy_debugger_mcp.git
 cd bevy_debugger_mcp
-cargo test                      # Run tests
+cargo test                      # Run basic tests
+cargo test --ignored           # Run full integration tests
+cargo test screenshot_integration_wrapper::test_screenshot_ci_suite  # Fast screenshot tests
 cargo fmt                       # Format code
 cargo clippy                    # Lint code
+```
+
+### Running Screenshot Tests
+
+The screenshot functionality has comprehensive test coverage:
+
+```bash
+# Fast screenshot tests (suitable for CI/development)
+cargo test screenshot_integration_wrapper::test_screenshot_ci_suite
+
+# Full screenshot integration suite  
+cargo test screenshot_integration_wrapper::test_screenshot_integration_suite -- --ignored
+
+# Individual test categories
+cargo test screenshot_integration_wrapper::test_screenshot_utilities
+cargo test screenshot_integration_wrapper::test_screenshot_basic_functionality
+cargo test screenshot_integration_wrapper::test_screenshot_parameter_validation
+cargo test screenshot_integration_wrapper::test_screenshot_timing_controls
+
+# Performance testing
+cargo test screenshot_integration_wrapper::test_screenshot_performance
 ```
 
 ## 📚 Documentation

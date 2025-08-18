@@ -23,6 +23,11 @@ exclude = [
 name = "bevy-debugger-mcp"
 path = "src/main.rs"
 
+# Test configuration for screenshot integration
+[[test]]
+name = "screenshot_integration_wrapper"
+path = "tests/screenshot_integration_wrapper.rs"
+
 [dependencies]
 tokio = { version = "1", features = ["full"] }
 tokio-tungstenite = "0.24"
@@ -54,4 +59,8 @@ atty = "0.2"
 
 [dev-dependencies]
 tokio-test = "0.4"
+bevy = { version = "0.16", features = ["default", "bevy_remote"] }
+nix = { version = "0.27", features = ["signal", "process"] }
+tempfile = "3.0"
+sha2 = "0.10"
 

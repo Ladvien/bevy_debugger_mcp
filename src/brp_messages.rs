@@ -69,6 +69,21 @@ pub enum BrpRequest {
         filter: Option<QueryFilter>,
     },
 
+    /// Take a screenshot of the primary window
+    #[serde(rename = "bevy_debugger/screenshot")]
+    Screenshot {
+        /// Path where to save the screenshot (optional)
+        path: Option<String>,
+        /// Time in milliseconds to wait before capture (game warmup)
+        warmup_duration: Option<u64>,
+        /// Additional delay in milliseconds before capture
+        capture_delay: Option<u64>,
+        /// Whether to wait for at least one frame to render
+        wait_for_render: Option<bool>,
+        /// Optional description for logging/debugging
+        description: Option<String>,
+    },
+
     /// Spawn a new entity (for experiment system)
     SpawnEntity {
         components: Vec<(ComponentTypeId, ComponentValue)>,
@@ -178,6 +193,15 @@ pub enum BrpResult {
 
     /// Entity deleted successfully
     EntityDeleted,
+
+    /// Screenshot taken successfully
+    #[serde(rename = "screenshot")]
+    Screenshot {
+        /// Path where the screenshot was saved
+        path: String,
+        /// Success status
+        success: bool,
+    },
 }
 
 /// Entity data with components

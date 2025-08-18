@@ -1,0 +1,202 @@
+name: Screenshot E2E Tests
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main ]
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  screenshot-tests:
+    runs-on: ubuntu-latest
+    
+    services:
+      # Virtual display for headless screenshot testing
+      xvfb:
+        image: selenoid/vnc:chrome_78.0
+        options: --shm-size=2g
+
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Install Rust
+      uses: dtolnay/rust-toolchain@stable
+      with:
+        targets: x86_64-unknown-linux-gnu
+
+    - name: Install system dependencies
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y \
+          libasound2-dev \
+          libudev-dev \
+          libxkbcommon-x11-0 \
+          libwayland-dev \
+          libxinput-dev \
+          libxrandr-dev \
+          libxcursor-dev \
+          libxcomposite-dev \
+          libxdamage-dev \
+          libxrender-dev \
+          libxss-dev \
+          libxtst-dev \
+          libxext-dev \
+          libxi-dev \
+          xvfb \
+          mesa-utils \
+          libegl1-mesa-dev
+
+    - name: Cache cargo dependencies
+      uses: actions/cache@v3
+      with:
+        path: |
+          ~/.cargo/bin/
+          ~/.cargo/registry/index/
+          ~/.cargo/registry/cache/
+          ~/.cargo/git/db/
+          target/
+        key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
+        restore-keys: |
+          ${{ runner.os }}-cargo-
+
+    - name: Setup virtual display
+      run: |
+        export DISPLAY=:99
+        Xvfb :99 -screen 0 1024x768x24 > /dev/null 2>&1 &
+        echo "DISPLAY=:99" >> $GITHUB_ENV
+
+    - name: Run screenshot validation tests
+      run: |
+        export CI=true
+        export DISPLAY=:99
+        cargo test screenshot_test_utils --lib -- --nocapture
+      timeout-minutes: 5
+
+    - name: Run E2E screenshot tests (without real games)
+      run: |
+        export CI=true
+        export DISPLAY=:99
+        # Run tests that don't require actual Bevy games
+        cargo test test_screenshot_file_validation -- --exact --nocapture
+        cargo test test_screenshot_wait_timeout -- --exact --nocapture  
+        cargo test test_screenshot_directory_structure -- --exact --nocapture
+        cargo test test_screenshot_tool_schema_validation -- --exact --nocapture
+        cargo test test_screenshot_parameter_validation -- --exact --nocapture
+      timeout-minutes: 10
+
+    - name: Run screenshot timing tests
+      run: |
+        export CI=true
+        export DISPLAY=:99
+        # Test timing behavior without actual game connections
+        cargo test test_screenshot_timing_parameters -- --exact --nocapture
+      timeout-minutes: 10
+
+    - name: Upload test artifacts
+      uses: actions/upload-artifact@v3
+      if: always()
+      with:
+        name: screenshot-test-outputs
+        path: |
+          target/debug/
+          test_output/
+          /tmp/screenshot*.png
+        retention-days: 3
+
+  screenshot-integration-tests:
+    runs-on: ubuntu-latest
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Install Rust
+      uses: dtolnay/rust-toolchain@stable
+
+    - name: Install system dependencies (full)
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y \
+          libasound2-dev \
+          libudev-dev \
+          libxkbcommon-x11-0 \
+          libwayland-dev \
+          libxinput-dev \
+          libxrandr-dev \
+          libxcursor-dev \
+          libxcomposite-dev \
+          libxdamage-dev \
+          libxrender-dev \
+          libxss-dev \
+          libxtst-dev \
+          libxext-dev \
+          libxi-dev \
+          xvfb \
+          mesa-utils \
+          libegl1-mesa-dev \
+          pkg-config
+
+    - name: Setup virtual display
+      run: |
+        export DISPLAY=:99
+        Xvfb :99 -screen 0 1024x768x24 > /dev/null 2>&1 &
+        echo "DISPLAY=:99" >> $GITHUB_ENV
+
+    # This would run full integration tests with actual Bevy games
+    # Currently commented out until test games are properly implemented
+    # - name: Run full integration tests
+    #   run: |
+    #     export CI=true
+    #     export DISPLAY=:99
+    #     cargo test test_screenshot_with_static_game -- --exact --nocapture
+    #   timeout-minutes: 15
+
+    - name: Check compilation of all screenshot components
+      run: |
+        cargo check --example screenshot_setup
+        cargo check --test screenshot_e2e_tests
+      timeout-minutes: 5
+
+  screenshot-cross-platform:
+    strategy:
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+    runs-on: ${{ matrix.os }}
+    
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Install Rust
+      uses: dtolnay/rust-toolchain@stable
+
+    - name: Install Linux dependencies
+      if: runner.os == 'Linux'
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y libasound2-dev libudev-dev
+
+    - name: Install macOS dependencies  
+      if: runner.os == 'macOS'
+      run: |
+        # macOS typically has what we need built-in
+        echo "macOS dependencies ready"
+
+    - name: Setup Windows dependencies
+      if: runner.os == 'Windows'
+      run: |
+        # Windows typically has DirectX/etc built-in
+        echo "Windows dependencies ready"
+
+    - name: Test screenshot utilities compilation
+      run: |
+        cargo check --test screenshot_e2e_tests
+        cargo check tests/helpers/screenshot_test_utils.rs
+      timeout-minutes: 5
+
+    - name: Run platform-agnostic tests
+      run: |
+        cargo test screenshot_test_utils -- --nocapture
+      timeout-minutes: 5

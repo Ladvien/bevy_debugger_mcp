@@ -809,6 +809,7 @@ pub enum DifferenceType {
 mod tests {
     use super::*;
     use crate::recording_system::RecordingConfig;
+    use std::time::Duration;
 
     #[test]
     fn test_branch_id_creation() {
@@ -861,7 +862,7 @@ mod tests {
             config: RecordingConfig::default(),
             frames: vec![Frame {
                 frame_number: 0,
-                timestamp: chrono::Duration::seconds(0),
+                timestamp: Duration::from_secs(0),
                 entities: std::collections::HashMap::new(),
                 events: Vec::new(),
                 checksum: None,

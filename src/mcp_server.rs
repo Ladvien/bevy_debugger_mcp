@@ -132,6 +132,7 @@ impl McpServer {
         let result = match tool_name {
             "observe" => observe::handle(arguments, self.brp_client.clone()).await,
             "experiment" => experiment::handle(arguments, self.brp_client.clone()).await,
+            "screenshot" => self.handle_screenshot(arguments).await,
             "hypothesis" => hypothesis::handle(arguments, self.brp_client.clone()).await,
             "stress" => stress::handle(arguments, self.brp_client.clone()).await,
             "replay" => replay::handle(arguments, self.brp_client.clone()).await,
@@ -352,6 +353,132 @@ impl McpServer {
             "uptime_seconds": metrics.timestamp.duration_since(UNIX_EPOCH)
                 .unwrap_or_default().as_secs()
         }))
+    }
+
+    /// Handle screenshot requests
+    async fn handle_screenshot(&self, arguments: Value) -> Result<Value> {
+        debug!("Screenshot tool called with arguments: {}", arguments);
+
+        // Check BRP connection
+        let is_connected = {
+            let client = self.brp_client.read().await;
+            client.is_connected()
+        };
+
+        if !is_connected {
+            warn!("BRP client not connected for screenshot");
+            return Ok(json!({
+                "error": "BRP client not connected",
+                "message": "Cannot take screenshot - not connected to Bevy game",
+                "brp_connected": false
+            }));
+        }
+
+        // Extract and validate parameters
+        let path = arguments
+            .get("path")
+            .and_then(|p| p.as_str())
+            .unwrap_or("./screenshot.png")
+            .to_string();
+
+        let warmup_duration = arguments
+            .get("warmup_duration")
+            .and_then(|d| d.as_u64())
+            .unwrap_or(1000) // Default 1 second warmup
+            .min(30000); // Max 30 seconds
+
+        let capture_delay = arguments
+            .get("capture_delay")
+            .and_then(|d| d.as_u64())
+            .unwrap_or(500) // Default 500ms capture delay
+            .min(10000); // Max 10 seconds
+
+        let wait_for_render = arguments
+            .get("wait_for_render")
+            .and_then(|w| w.as_bool())
+            .unwrap_or(true); // Default to waiting for render
+
+        let description = arguments
+            .get("description")
+            .and_then(|d| d.as_str())
+            .map(|s| s.to_string());
+
+        // Log the screenshot request for debugging
+        if let Some(ref desc) = description {
+            info!("Taking screenshot: {} -> {}", desc, path);
+        } else {
+            info!("Taking screenshot -> {}", path);
+        }
+
+        // Apply warmup duration
+        if warmup_duration > 0 {
+            debug!("Waiting {}ms for game warmup", warmup_duration);
+            tokio::time::sleep(tokio::time::Duration::from_millis(warmup_duration)).await;
+        }
+
+        // Apply capture delay (for animation timing, etc.)
+        if capture_delay > 0 {
+            debug!("Waiting {}ms capture delay", capture_delay);
+            tokio::time::sleep(tokio::time::Duration::from_millis(capture_delay)).await;
+        }
+
+        // Send BRP screenshot request
+        let request = crate::brp_messages::BrpRequest::Screenshot {
+            path: Some(path.clone()),
+            warmup_duration: Some(warmup_duration),
+            capture_delay: Some(capture_delay),
+            wait_for_render: Some(wait_for_render),
+            description: description.clone(),
+        };
+
+        let mut client = self.brp_client.write().await;
+        match client.send_request(&request).await {
+            Ok(response) => match response {
+                crate::brp_messages::BrpResponse::Success(
+                    crate::brp_messages::BrpResult::Screenshot { path, success }
+                ) => {
+                    if success {
+                        Ok(json!({
+                            "success": true,
+                            "message": "Screenshot saved successfully",
+                            "path": path,
+                            "timestamp": SystemTime::now().duration_since(UNIX_EPOCH)
+                                .unwrap_or_default().as_secs()
+                        }))
+                    } else {
+                        Ok(json!({
+                            "success": false,
+                            "error": "Screenshot failed",
+                            "message": "Screenshot operation failed in Bevy game"
+                        }))
+                    }
+                }
+                crate::brp_messages::BrpResponse::Error(error) => {
+                    warn!("Screenshot BRP request failed: {:?}", error);
+                    Ok(json!({
+                        "success": false,
+                        "error": "BRP request failed",
+                        "message": format!("Screenshot request failed: {}", error.message)
+                    }))
+                }
+                _ => {
+                    warn!("Unexpected BRP response for screenshot");
+                    Ok(json!({
+                        "success": false,
+                        "error": "Unexpected response",
+                        "message": "Received unexpected response type from Bevy game"
+                    }))
+                }
+            },
+            Err(e) => {
+                error!("Failed to send screenshot BRP request: {}", e);
+                Ok(json!({
+                    "success": false,
+                    "error": "Request failed",
+                    "message": format!("Failed to send screenshot request: {e}")
+                }))
+            }
+        }
     }
 
     /// Handle dead letter queue operations
