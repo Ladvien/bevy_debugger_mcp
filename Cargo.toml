@@ -9,7 +9,7 @@ repository = "https://github.com/ladvien/bevy_debugger_mcp"
 readme = "README.md"
 license = "GPL-3.0"
 keywords = ["bevy", "debugging", "mcp", "claude", "gamedev"]
-categories = ["game-development", "development-tools", "debugging"]
+categories = ["game-development", "development-tools", "command-line-utilities"]
 rust-version = "1.70"
 exclude = [
     "target/*",
