@@ -7,6 +7,31 @@
 
 A powerful Model Context Protocol (MCP) server that enables AI-assisted debugging of Bevy games through Claude Code. Debug your game state, analyze performance, and test hypotheses with natural language commands.
 
+## 🎯 Quick Start (5 minutes)
+
+```bash
+# 1. Install the debugger
+cargo install bevy_debugger_mcp
+
+# 2. Add RemotePlugin to your Bevy game
+# In your game's main.rs:
+# .add_plugins(RemotePlugin::default())
+
+# 3. Configure Claude Code (add to ~/.config/claude/claude_code_config.json)
+echo '{
+  "mcpServers": {
+    "bevy-debugger": {
+      "command": "bevy-debugger-mcp",
+      "args": []
+    }
+  }
+}' >> ~/.config/claude/claude_code_config.json
+
+# 4. Run your game and start debugging!
+cargo run  # In your game directory
+# Then open Claude Code and say: "Help me debug my Bevy game"
+```
+
 ## ✨ Features
 
 - **🔍 Real-time Observation**: Monitor entities, components, and resources as your game runs
@@ -181,17 +206,17 @@ bevy = { version = "0.16", features = ["default", "bevy_remote"] }
    - "Take a screenshot of the current game state"
    - "Record this gameplay session for analysis"
 
-### Claude Code Integration
+## 🤖 Claude Code Integration Guide
 
-The MCP server runs in stdio mode when invoked by Claude Code. The `bevy-debugger-control` script is primarily for testing and troubleshooting:
+### Setting Up Claude Code
 
+1. **Install the MCP Server**:
 ```bash
-# For testing/troubleshooting - run server in background
-bevy-debugger-control start
-bevy-debugger-control status
+cargo install bevy_debugger_mcp
+```
 
-# Claude Code automatically manages the server via stdio
-# Just ensure your claude_code_config.json includes:
+2. **Configure Claude Code** - Add to your `claude_code_config.json`:
+```json
 {
   "mcpServers": {
     "bevy-debugger": {
@@ -200,21 +225,177 @@ bevy-debugger-control status
     }
   }
 }
-
-# If Claude Code can't connect, test manually:
-echo '{"jsonrpc": "2.0", "method": "initialize", "params": {"capabilities": {}}, "id": 1}' | bevy-debugger-mcp
 ```
 
-## 🎮 Example Usage
+3. **Verify Installation**:
+```bash
+# Test the MCP server responds correctly
+echo '{"jsonrpc": "2.0", "method": "initialize", "params": {"capabilities": {}}, "id": 1}' | bevy-debugger-mcp
+# Should return: {"id":1,"jsonrpc":"2.0","result":{"capabilities":...}}
+```
 
+### How Claude Uses the MCP Tools
+
+When you ask Claude to debug your Bevy game, it has access to powerful MCP tools that communicate with your running game:
+
+#### 🔍 **Observation Tools**
+Claude can monitor your game state in real-time:
 ```markdown
-Human: My player is randomly teleporting. Can you help debug this?
+You: "Show me all enemies in the game"
+Claude: [Uses observe tool to query entities with Enemy component]
+        "I found 5 enemies. Here are their positions and health values..."
 
-Claude: I'll help investigate the teleportation issue. Let me examine the player's Transform component and movement system.
+You: "Track the player's velocity over time"
+Claude: [Uses observe tool with continuous monitoring]
+        "The player's velocity spikes to 500 units when jumping, which seems abnormal..."
+```
 
-[Uses MCP tools to observe player entity, analyze movement patterns, and identify the bug]
+#### 🧪 **Experimentation Tools**
+Claude can test hypotheses by modifying game state:
+```markdown
+You: "Test what happens if we spawn 100 enemies at once"
+Claude: [Uses experiment tool to spawn entities and measure performance]
+        "Spawning 100 enemies causes frame rate to drop to 15 FPS. The bottleneck is..."
 
-I found the issue! The player's position is being reset every frame due to a conflicting movement system. The `PlayerController` and `PhysicsSystem` are both trying to control the transform simultaneously.
+You: "Try doubling the player's speed and see if collision still works"
+Claude: [Uses experiment tool to modify components with automatic rollback]
+        "At 2x speed, the player clips through thin walls. The physics system needs..."
+```
+
+#### 🚨 **Anomaly Detection**
+Claude can identify unusual patterns:
+```markdown
+You: "Something is causing random lag spikes"
+Claude: [Uses anomaly tool to monitor performance metrics]
+        "I detected memory allocations spike every 5 seconds, coinciding with..."
+
+You: "Find any entities behaving strangely"
+Claude: [Uses anomaly tool with pattern matching]
+        "Entity #42 is teleporting between positions, likely due to..."
+```
+
+#### 📊 **Performance Analysis**
+Claude can profile and optimize:
+```markdown
+You: "Why is my game running slowly?"
+Claude: [Uses stress tool to identify bottlenecks]
+        "The render system is taking 45ms per frame. The main issue is..."
+
+You: "Optimize the enemy AI system"
+Claude: [Uses performance profiling tools]
+        "The pathfinding is recalculating every frame. We can cache results..."
+```
+
+### Real-World Debugging Sessions
+
+#### Example 1: Physics Bug
+```markdown
+Human: My character falls through the floor randomly
+
+Claude: I'll investigate this physics issue. Let me start by observing the player's Transform and Collider components.
+
+[Uses observe tool to monitor player entity]
+I'm tracking the player's Y position... I notice it suddenly changes from 0.0 to -100.0 without intermediate values.
+
+[Uses experiment tool to test collision]
+Let me test the collision system by spawning a test entity at the player's position...
+The collision detection is failing when the player's velocity exceeds 1000 units/frame.
+
+Solution: Add a velocity cap or use continuous collision detection for high-speed entities.
+```
+
+#### Example 2: Performance Investigation
+```markdown
+Human: The game freezes every few seconds
+
+Claude: I'll analyze the performance patterns to identify the cause of these freezes.
+
+[Uses anomaly detection on frame times]
+I've detected periodic spikes in frame time every 3.2 seconds, lasting about 200ms.
+
+[Uses observe tool on system metrics]
+Monitoring system activity... The "EnemySpawnSystem" is creating 50 entities at once every 3 seconds.
+
+[Uses experiment tool to test optimization]
+Let me test spreading the spawning over multiple frames...
+Spawning 5 entities per frame over 10 frames eliminates the freezes.
+
+Solution: Implement batched spawning to distribute the load across frames.
+```
+
+#### Example 3: Visual Debugging
+```markdown
+Human: Can you show me what the AI sees?
+
+Claude: I'll visualize the AI's perception system for you.
+
+[Uses visual overlay tools]
+I'm enabling debug overlays for:
+- AI vision cones (showing field of view)
+- Pathfinding waypoints (showing planned routes)  
+- Detection ranges (showing awareness zones)
+
+[Takes screenshot]
+Here's a screenshot showing the AI's perception. The red cones are vision, blue lines are paths.
+
+The AI at position (100, 50) can't see the player because there's an obstacle blocking line of sight.
+```
+
+### Advanced Usage Patterns
+
+#### Continuous Monitoring
+```markdown
+Human: Monitor the game for any issues while I playtest
+
+Claude: I'll set up continuous monitoring for common issues.
+
+[Sets up multiple observe and anomaly detection tasks]
+Monitoring:
+- Memory usage (alerting if >2GB)
+- Frame time (alerting if >16ms)
+- Entity count (alerting if >10000)
+- Error patterns in components
+
+[After 5 minutes]
+Alert: Memory usage increased by 500MB in the last minute.
+Investigating... Found 5000 orphaned bullet entities not being destroyed.
+```
+
+#### Automated Testing
+```markdown
+Human: Test if my save system works correctly
+
+Claude: I'll test the save/load system comprehensively.
+
+[Uses orchestration tool to chain operations]
+1. Capturing current game state...
+2. Modifying player position, inventory, and score...
+3. Triggering save...
+4. Resetting game...
+5. Triggering load...
+6. Comparing states...
+
+Results: Save system works correctly for position and score, but inventory items are duplicated on load.
+```
+
+### Troubleshooting Claude Code Connection
+
+If Claude can't connect to your game:
+
+```bash
+# 1. Ensure your Bevy game is running with RemotePlugin
+# 2. Check the MCP server can connect to Bevy:
+bevy-debugger-control start
+bevy-debugger-control logs
+
+# 3. Verify Claude Code configuration:
+cat ~/.config/claude/claude_code_config.json
+
+# 4. Test manual connection:
+echo '{"jsonrpc": "2.0", "method": "tools/list", "id": 2}' | bevy-debugger-mcp
+
+# 5. Check Bevy is listening:
+curl -X POST http://localhost:15702/query -d '{"data": "list"}'
 ```
 
 ## 🛠️ Configuration
@@ -248,16 +429,62 @@ bevy_debugger_mcp/
 └── README.md
 ```
 
-## 🧪 Available Tools
+## 📚 Complete Developer Workflow
 
-| Tool | Description |
-|------|-------------|
-| `observe` | Monitor game entities, components, and resources |
-| `experiment` | Test changes to game state with automatic rollback |
-| `stress` | Performance testing and bottleneck identification |
-| `anomaly` | Detect unusual patterns in game behavior |
-| `replay` | Record and replay debugging sessions |
-| `orchestrate` | Chain multiple debugging operations |
+### Step 1: Prepare Your Bevy Game
+
+```rust
+// In your main.rs or lib.rs
+use bevy::prelude::*;
+use bevy::remote::RemotePlugin;
+
+fn main() {
+    App::new()
+        .add_plugins(DefaultPlugins)
+        .add_plugins(RemotePlugin::default()) // Essential for debugging
+        .add_systems(Update, your_game_systems)
+        .run();
+}
+```
+
+### Step 2: Install and Configure
+
+```bash
+# Install the debugger
+cargo install bevy_debugger_mcp
+
+# Add to Claude Code config (~/.config/claude/claude_code_config.json)
+{
+  "mcpServers": {
+    "bevy-debugger": {
+      "command": "bevy-debugger-mcp",
+      "args": []
+    }
+  }
+}
+```
+
+### Step 3: Start Debugging Session
+
+1. **Run your Bevy game**: `cargo run`
+2. **Open Claude Code** in your project
+3. **Start debugging** with natural language:
+   - "What entities are in my game?"
+   - "Why is performance dropping?"
+   - "Monitor the player's health"
+   - "Test spawning 1000 enemies"
+
+## 🧪 Available MCP Tools
+
+| Tool | Description | Example Usage |
+|------|-------------|---------------|
+| `observe` | Monitor game entities, components, and resources | "Show me all entities with Health component" |
+| `experiment` | Test changes to game state with automatic rollback | "Set player speed to 2x and test collision" |
+| `stress` | Performance testing and bottleneck identification | "Stress test the physics system with 500 objects" |
+| `anomaly` | Detect unusual patterns in game behavior | "Find any entities with abnormal velocities" |
+| `replay` | Record and replay debugging sessions | "Record the next 30 seconds of gameplay" |
+| `orchestrate` | Chain multiple debugging operations | "Test save, modify state, load, and compare" |
+| `screenshot` | Capture game visuals | "Take a screenshot of the current scene" |
 
 ## 🖥️ Platform Support
 
