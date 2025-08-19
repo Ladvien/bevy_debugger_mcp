@@ -6,14 +6,34 @@ use tokio::sync::RwLock;
 use tracing::{debug, error, info, warn};
 
 use crate::brp_client::BrpClient;
+use crate::brp_messages::DebugCommand;
 use crate::checkpoint::{CheckpointConfig, CheckpointManager};
 use crate::config::Config;
 use crate::dead_letter_queue::{DeadLetterConfig, DeadLetterQueue};
+use crate::debug_command_processor::{
+    DebugCommandRequest, DebugCommandRouter, 
+    EntityInspectionProcessor, DebugMetrics,
+};
+use crate::visual_debug_overlay_processor::VisualDebugOverlayProcessor;
+use crate::query_builder_processor::QueryBuilderProcessor;
+use crate::memory_profiler_processor::MemoryProfilerProcessor;
+use crate::session_processor::SessionProcessor;
+use crate::issue_detector_processor::IssueDetectorProcessor;
+use crate::performance_budget_processor::PerformanceBudgetProcessor;
+use crate::entity_inspector::EntityInspector;
+use crate::system_profiler::SystemProfiler;
+use crate::system_profiler_processor::SystemProfilerProcessor;
 use crate::diagnostics::{create_bug_report, DiagnosticCollector};
 use crate::error::{Error, ErrorContext, ErrorSeverity, Result};
 use crate::resource_manager::{ResourceConfig, ResourceManager};
 use crate::tool_orchestration::{ToolContext, ToolOrchestrator, ToolPipeline};
 use crate::tools::{anomaly, experiment, hypothesis, observe, orchestration, replay, stress};
+use crate::lazy_init::{LazyComponents, preload_critical_components};
+use crate::command_cache::{CommandCache, CacheConfig, CacheKey};
+use crate::response_pool::{ResponsePool, ResponsePoolConfig};
+use crate::profiling::{init_profiler, get_profiler, PerfMeasurement};
+use crate::{profile_block, profile_async_block};
+use crate::compile_opts::{CompileConfig, inline_hot_path, cold_path};
 
 pub struct McpServer {
     config: Config,
@@ -23,6 +43,9 @@ pub struct McpServer {
     dead_letter_queue: Arc<RwLock<DeadLetterQueue>>,
     diagnostic_collector: Arc<DiagnosticCollector>,
     checkpoint_manager: Arc<RwLock<CheckpointManager>>,
+    lazy_components: Arc<LazyComponents>,
+    command_cache: Arc<CommandCache>,
+    response_pool: Arc<ResponsePool>,
     debug_mode: bool,
 }
 
@@ -36,6 +59,31 @@ impl McpServer {
         let diagnostic_collector = Arc::new(DiagnosticCollector::new(100)); // Keep 100 recent errors
         let checkpoint_manager = CheckpointManager::new(CheckpointConfig::default());
 
+        // Initialize lazy components manager for optimized startup
+        let lazy_components = Arc::new(LazyComponents::new(brp_client.clone()));
+
+        // Initialize command result cache for performance optimization
+        let cache_config = CacheConfig {
+            max_entries: 500,
+            default_ttl: Duration::from_secs(300), // 5 minutes
+            cleanup_interval: Duration::from_secs(60), // 1 minute
+            max_response_size: 512 * 1024, // 512KB per response
+        };
+        let command_cache = Arc::new(CommandCache::new(cache_config));
+
+        // Initialize response pool for memory optimization
+        let response_pool_config = ResponsePoolConfig {
+            max_small_buffers: 100,
+            max_medium_buffers: 50,
+            max_large_buffers: 20,
+            small_buffer_capacity: 1024,      // 1KB
+            medium_buffer_capacity: 32768,    // 32KB
+            large_buffer_capacity: 524288,    // 512KB
+            track_utilization: true,
+            cleanup_interval: Duration::from_secs(120), // 2 minutes
+        };
+        let response_pool = Arc::new(ResponsePool::new(response_pool_config));
+
         // Check for debug mode from environment
         let debug_mode = std::env::var("DEBUG_MODE")
             .map(|v| v.to_lowercase() == "true" || v == "1")
@@ -45,6 +93,19 @@ impl McpServer {
             info!("Debug mode enabled - verbose logging and diagnostics active");
         }
 
+        // Optionally preload critical components based on feature flags
+        let lazy_components_clone = lazy_components.clone();
+        tokio::spawn(async move {
+            if let Err(e) = preload_critical_components(&lazy_components_clone).await {
+                error!("Failed to preload critical components: {}", e);
+            }
+        });
+
+        // Initialize performance profiler
+        let _profiler = init_profiler();
+        
+        info!("MCP Server initialized with lazy component loading, command caching, response pooling, and hot path profiling for optimal startup performance");
+
         McpServer {
             config,
             brp_client,
@@ -53,6 +114,9 @@ impl McpServer {
             dead_letter_queue: Arc::new(RwLock::new(dead_letter_queue)),
             diagnostic_collector,
             checkpoint_manager: Arc::new(RwLock::new(checkpoint_manager)),
+            lazy_components,
+            command_cache,
+            response_pool,
             debug_mode,
         }
     }
@@ -124,49 +188,87 @@ impl McpServer {
     }
 
     pub async fn handle_tool_call(&self, tool_name: &str, arguments: Value) -> Result<Value> {
-        debug!("Handling tool call: {} with args: {}", tool_name, arguments);
+        profile_async_block!(format!("handle_tool_call_{}", tool_name), {
+            debug!("Handling tool call: {} with args: {}", tool_name, arguments);
 
-        // Clone arguments for error reporting later
-        let args_for_error = arguments.clone();
+            // Try to get cached result first (for cacheable tools)
+            let cache_key = if self.is_tool_cacheable(tool_name) {
+                profile_async_block!("cache_lookup", {
+                    match CacheKey::new(tool_name, &arguments) {
+                        Ok(key) => {
+                            if let Some(cached_result) = self.command_cache.get(&key).await {
+                                debug!("Returning cached result for tool: {}", tool_name);
+                                return Ok(cached_result);
+                            }
+                            Some(key)
+                        }
+                        Err(e) => {
+                            warn!("Failed to create cache key for {}: {}", tool_name, e);
+                            None
+                        }
+                    }
+                })
+            } else {
+                None
+            };
 
-        let result = match tool_name {
-            "observe" => observe::handle(arguments, self.brp_client.clone()).await,
-            "experiment" => experiment::handle(arguments, self.brp_client.clone()).await,
-            "screenshot" => self.handle_screenshot(arguments).await,
-            "hypothesis" => hypothesis::handle(arguments, self.brp_client.clone()).await,
-            "stress" => stress::handle(arguments, self.brp_client.clone()).await,
-            "replay" => replay::handle(arguments, self.brp_client.clone()).await,
-            "anomaly" => anomaly::handle(arguments, self.brp_client.clone()).await,
-            "orchestrate" => self.handle_orchestration(arguments).await,
-            "pipeline" => self.handle_pipeline_execution(arguments).await,
-            "resource_metrics" => self.handle_resource_metrics(arguments).await,
-            "performance_dashboard" => self.handle_performance_dashboard(arguments).await,
-            "health_check" => self.handle_health_check(arguments).await,
-            // New diagnostic and error recovery endpoints
-            "dead_letter_queue" => self.handle_dead_letter_queue(arguments).await,
-            "diagnostic_report" => self.handle_diagnostic_report(arguments).await,
-            "checkpoint" => self.handle_checkpoint(arguments).await,
-            "bug_report" => self.handle_bug_report(arguments).await,
-            _ => Err(Error::Mcp(format!("Unknown tool: {tool_name}"))),
-        };
+            // Clone arguments for error reporting later
+            let args_for_error = arguments.clone();
 
-        // Record errors for diagnostics
-        if let Err(ref error) = result {
-            let error_context = ErrorContext::new(tool_name, "mcp_server")
-                .add_cause(&error.to_string())
-                .add_context("tool", tool_name)
-                .add_context("arguments", &format!("{args_for_error}"))
-                .set_retryable(true)
-                .set_severity(ErrorSeverity::Error);
+            let result = profile_async_block!(format!("tool_execution_{}", tool_name), {
+                match tool_name {
+                    "observe" => observe::handle(arguments, self.brp_client.clone()).await,
+                    "experiment" => experiment::handle(arguments, self.brp_client.clone()).await,
+                    "screenshot" => self.handle_screenshot(arguments).await,
+                    "hypothesis" => hypothesis::handle(arguments, self.brp_client.clone()).await,
+                    "stress" => stress::handle(arguments, self.brp_client.clone()).await,
+                    "replay" => replay::handle(arguments, self.brp_client.clone()).await,
+                    "anomaly" => anomaly::handle(arguments, self.brp_client.clone()).await,
+                    "orchestrate" => self.handle_orchestration(arguments).await,
+                    "pipeline" => self.handle_pipeline_execution(arguments).await,
+                    "resource_metrics" => self.handle_resource_metrics(arguments).await,
+                    "performance_dashboard" => self.handle_performance_dashboard(arguments).await,
+                    "health_check" => self.handle_health_check(arguments).await,
+                    // New diagnostic and error recovery endpoints
+                    "dead_letter_queue" => self.handle_dead_letter_queue(arguments).await,
+                    "diagnostic_report" => self.handle_diagnostic_report(arguments).await,
+                    "checkpoint" => self.handle_checkpoint(arguments).await,
+                    "bug_report" => self.handle_bug_report(arguments).await,
+                    "debug" => self.handle_debug_command(arguments).await,
+                    _ => Err(Error::Mcp(format!("Unknown tool: {tool_name}"))),
+                }
+            });
 
-            self.diagnostic_collector.record_error(error_context);
-
-            if self.debug_mode {
-                warn!("Tool call failed: {} - {}", tool_name, error);
+            // Cache successful results for cacheable tools
+            if let (Ok(ref response), Some(cache_key)) = (&result, cache_key) {
+                profile_async_block!("cache_store", {
+                    let tags = self.get_cache_tags_for_tool(tool_name);
+                    if let Err(e) = self.command_cache.put(&cache_key, response.clone(), tags).await {
+                        warn!("Failed to cache result for {}: {}", tool_name, e);
+                    }
+                });
             }
-        }
 
-        result
+            // Record errors for diagnostics
+            if let Err(ref error) = result {
+                profile_block!("error_reporting", {
+                    let error_context = ErrorContext::new(tool_name, "mcp_server")
+                        .add_cause(&error.to_string())
+                        .add_context("tool", tool_name)
+                        .add_context("arguments", &format!("{args_for_error}"))
+                        .set_retryable(true)
+                        .set_severity(ErrorSeverity::Error);
+
+                    self.diagnostic_collector.record_error(error_context);
+
+                    if self.debug_mode {
+                        warn!("Tool call failed: {} - {}", tool_name, error);
+                    }
+                });
+            }
+
+            result
+        })
     }
 
     /// Handle orchestration tool calls
@@ -435,21 +537,29 @@ impl McpServer {
         match client.send_request(&request).await {
             Ok(response) => match response {
                 crate::brp_messages::BrpResponse::Success(
-                    crate::brp_messages::BrpResult::Screenshot { path, success }
+                    boxed_result
                 ) => {
-                    if success {
-                        Ok(json!({
-                            "success": true,
-                            "message": "Screenshot saved successfully",
-                            "path": path,
-                            "timestamp": SystemTime::now().duration_since(UNIX_EPOCH)
-                                .unwrap_or_default().as_secs()
-                        }))
+                    if let crate::brp_messages::BrpResult::Screenshot { path, success } = boxed_result.as_ref() {
+                        if *success {
+                            Ok(json!({
+                                "success": true,
+                                "message": "Screenshot saved successfully",
+                                "path": path,
+                                "timestamp": SystemTime::now().duration_since(UNIX_EPOCH)
+                                    .unwrap_or_default().as_secs()
+                            }))
+                        } else {
+                            Ok(json!({
+                                "success": false,
+                                "error": "Screenshot failed",
+                                "message": "Screenshot operation failed in Bevy game"
+                            }))
+                        }
                     } else {
                         Ok(json!({
                             "success": false,
-                            "error": "Screenshot failed",
-                            "message": "Screenshot operation failed in Bevy game"
+                            "error": "Unexpected response",
+                            "message": "Received unexpected response type from Bevy game"
                         }))
                     }
                 }
@@ -459,14 +569,6 @@ impl McpServer {
                         "success": false,
                         "error": "BRP request failed",
                         "message": format!("Screenshot request failed: {}", error.message)
-                    }))
-                }
-                _ => {
-                    warn!("Unexpected BRP response for screenshot");
-                    Ok(json!({
-                        "success": false,
-                        "error": "Unexpected response",
-                        "message": "Received unexpected response type from Bevy game"
                     }))
                 }
             },
@@ -696,6 +798,194 @@ impl McpServer {
             "generated_at": diagnostic_report.generated_at
         }))
     }
+
+    /// Handle debug command execution
+    async fn handle_debug_command(&self, arguments: Value) -> Result<Value> {
+        // Extract command from arguments
+        let command: DebugCommand = serde_json::from_value(
+            arguments.get("command")
+                .ok_or_else(|| Error::Validation("Missing 'command' field".to_string()))?
+                .clone()
+        ).map_err(|e| Error::Validation(format!("Invalid debug command: {}", e)))?;
+        
+        // Extract correlation_id and priority
+        let correlation_id = arguments
+            .get("correlation_id")
+            .and_then(|id| id.as_str())
+            .map(|s| s.to_string())
+            .unwrap_or_else(|| {
+                // Generate a unique correlation ID
+                uuid::Uuid::new_v4().to_string()
+            });
+            
+        let priority = arguments
+            .get("priority")
+            .and_then(|p| p.as_u64())
+            .map(|p| p as u8);
+        
+        // Create debug command request
+        let request = DebugCommandRequest::new(command, correlation_id.clone(), priority);
+        
+        // Get the debug command router (lazy initialization)
+        let debug_command_router = self.lazy_components.get_debug_command_router().await;
+        
+        // Queue the command for processing
+        debug_command_router.queue_command(request).await?;
+        
+        // For synchronous response, process immediately
+        // In production, this could be made fully async with webhooks
+        let result = debug_command_router.process_next().await;
+        
+        match result {
+            Some(Ok((corr_id, response))) => {
+                // Convert debug response to JSON
+                let response_json = serde_json::to_value(response)?;
+                Ok(json!({
+                    "correlation_id": corr_id,
+                    "response": response_json,
+                    "status": "success"
+                }))
+            }
+            Some(Err(e)) => {
+                // Return error response
+                Ok(json!({
+                    "correlation_id": correlation_id,
+                    "error": e.to_string(),
+                    "status": "error"
+                }))
+            }
+            None => {
+                // Return correlation ID for async processing
+                Ok(json!({
+                    "correlation_id": correlation_id,
+                    "status": "queued",
+                    "message": "Command queued for processing"
+                }))
+            }
+        }
+    }
+
+    /// Get debug metrics
+    pub async fn get_debug_metrics(&self) -> DebugMetrics {
+        let debug_command_router = self.lazy_components.get_debug_command_router().await;
+        debug_command_router.get_metrics().await
+    }
+
+    /// Clean up expired debug responses periodically
+    pub async fn cleanup_debug_responses(&self) {
+        let debug_command_router = self.lazy_components.get_debug_command_router().await;
+        debug_command_router.cleanup_expired_responses().await;
+    }
+    
+    /// Get lazy component initialization status for debugging
+    pub fn get_lazy_init_status(&self) -> serde_json::Value {
+        self.lazy_components.get_initialization_status()
+    }
+    
+    /// Check if a tool should be cached
+    #[inline(always)]
+    fn is_tool_cacheable(&self, tool_name: &str) -> bool {
+        // Optimize for most common tools first
+        if matches!(tool_name, "observe" | "health_check" | "resource_metrics") {
+            true
+        } else {
+            match tool_name {
+                // Less common cacheable tools
+                "diagnostic_report" | "anomaly" | "debug" => true,
+                
+                // Non-cacheable tools (stateful or time-sensitive operations)
+                "experiment" | "screenshot" | "hypothesis" | "stress" | "replay" |
+                "orchestrate" | "pipeline" | "performance_dashboard" | 
+                "dead_letter_queue" | "checkpoint" | "bug_report" => false,
+                
+                _ => false,
+            }
+        }
+    }
+    
+    /// Get cache tags for a tool to enable selective invalidation
+    #[inline(always)]
+    fn get_cache_tags_for_tool(&self, tool_name: &str) -> Vec<String> {
+#[cfg(feature = "caching")]
+        {
+            // Pre-allocate common tag combinations to reduce allocations
+            static ENTITY_GAME_TAGS: &[&str] = &["entity_data", "game_state"];
+            static PERFORMANCE_TAGS: &[&str] = &["performance_data"];
+            static HEALTH_TAGS: &[&str] = &["system_health"];
+            static DIAGNOSTICS_TAGS: &[&str] = &["diagnostics"];
+            static ANOMALY_TAGS: &[&str] = &["anomaly_data", "performance_data"];
+            static DEBUG_TAGS: &[&str] = &["debug_data"];
+            
+            // Optimize for most common tools
+            match tool_name {
+                "observe" => ENTITY_GAME_TAGS.iter().map(|s| s.to_string()).collect(),
+                "resource_metrics" => PERFORMANCE_TAGS.iter().map(|s| s.to_string()).collect(),
+                "health_check" => HEALTH_TAGS.iter().map(|s| s.to_string()).collect(),
+                "diagnostic_report" => DIAGNOSTICS_TAGS.iter().map(|s| s.to_string()).collect(),
+                "anomaly" => ANOMALY_TAGS.iter().map(|s| s.to_string()).collect(),
+                "debug" => DEBUG_TAGS.iter().map(|s| s.to_string()).collect(),
+                _ => Vec::new(),
+            }
+        }
+        
+        #[cfg(not(feature = "caching"))]
+        {
+            // Zero-cost when caching is disabled
+            Vec::new()
+        }
+    }
+    
+    /// Get cache statistics
+    pub async fn get_cache_statistics(&self) -> serde_json::Value {
+        let stats = self.command_cache.get_statistics().await;
+        serde_json::to_value(stats).unwrap_or_else(|_| serde_json::json!({}))
+    }
+    
+    /// Clear cache entries by tag
+    pub async fn clear_cache_by_tag(&self, tag: &str) -> usize {
+        self.command_cache.invalidate_by_tag(tag).await
+    }
+    
+    /// Clear all cache entries
+    pub async fn clear_all_cache(&self) {
+        self.command_cache.clear().await
+    }
+    
+    /// Get response pool statistics
+    pub async fn get_response_pool_statistics(&self) -> serde_json::Value {
+        let stats = self.response_pool.get_statistics().await;
+        serde_json::to_value(stats).unwrap_or_else(|_| serde_json::json!({}))
+    }
+    
+    /// Serialize a response using the response pool for memory optimization
+    pub async fn serialize_response_pooled(&self, response: &Value) -> Result<Vec<u8>> {
+        self.response_pool.serialize_json(response).await
+    }
+    
+    /// Get profiling statistics
+    pub async fn get_profiling_statistics(&self) -> serde_json::Value {
+        let profiler = get_profiler();
+        let stats = profiler.get_all_stats().await;
+        serde_json::to_value(stats).unwrap_or_else(|_| serde_json::json!({}))
+    }
+    
+    /// Get hot path report
+    pub async fn get_hot_path_report(&self) -> String {
+        let profiler = get_profiler();
+        profiler.generate_report().await
+    }
+    
+    /// Enable or disable profiling
+    pub fn set_profiling_enabled(&self, enabled: bool) {
+        let profiler = get_profiler();
+        profiler.set_enabled(enabled);
+    }
+    
+    /// Clear profiling data
+    pub async fn clear_profiling_data(&self) {
+        let profiler = get_profiler();
+        profiler.clear().await;
+    }
 }
 
 impl Clone for McpServer {
@@ -708,6 +998,9 @@ impl Clone for McpServer {
             dead_letter_queue: self.dead_letter_queue.clone(),
             diagnostic_collector: self.diagnostic_collector.clone(),
             checkpoint_manager: self.checkpoint_manager.clone(),
+            lazy_components: self.lazy_components.clone(),
+            command_cache: self.command_cache.clone(),
+            response_pool: self.response_pool.clone(),
             debug_mode: self.debug_mode,
         }
     }

@@ -100,6 +100,17 @@ pub enum BrpRequest {
 
     /// Query a specific entity (for experiment system)
     QueryEntity { entity_id: EntityId },
+
+    /// Debug command wrapper for extensible debugging operations
+    #[serde(rename = "bevy_debugger/debug")]
+    Debug {
+        /// Debug command to execute
+        command: DebugCommand,
+        /// Unique correlation ID for tracking responses
+        correlation_id: String,
+        /// Priority level (higher values = higher priority)
+        priority: Option<u8>,
+    },
 }
 
 /// Query filter for selecting entities
@@ -116,7 +127,6 @@ pub struct QueryFilter {
 
 /// Filter for component values
 #[derive(Debug, Clone, Serialize, Deserialize)]
-#[non_exhaustive]
 pub struct ComponentFilter {
     /// Component type to filter on
     pub component: ComponentTypeId,
@@ -150,12 +160,583 @@ pub enum FilterOp {
     Regex,
 }
 
+/// Debug command types for extensible debugging operations
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(tag = "type", content = "params")]
+#[non_exhaustive]
+pub enum DebugCommand {
+    /// Inspect entity with detailed component information
+    InspectEntity {
+        entity_id: EntityId,
+        /// Include component metadata
+        include_metadata: Option<bool>,
+        /// Include parent/child relationships
+        include_relationships: Option<bool>,
+    },
+
+    /// Inspect multiple entities in a single batch operation
+    InspectBatch {
+        entity_ids: Vec<EntityId>,
+        /// Include component metadata for all entities
+        include_metadata: Option<bool>,
+        /// Include parent/child relationships for all entities
+        include_relationships: Option<bool>,
+        /// Maximum number of entities to inspect (default: 100)
+        limit: Option<usize>,
+    },
+
+    /// Profile system performance
+    ProfileSystem {
+        /// System name to profile
+        system_name: String,
+        /// Duration in milliseconds
+        duration_ms: Option<u64>,
+        /// Include memory allocations
+        track_allocations: Option<bool>,
+    },
+
+    /// Enable/disable visual debugging overlays
+    SetVisualDebug {
+        /// Type of overlay
+        overlay_type: DebugOverlayType,
+        /// Enable or disable
+        enabled: bool,
+        /// Optional configuration
+        config: Option<serde_json::Value>,
+    },
+
+    /// Execute a validated ECS query
+    ExecuteQuery {
+        /// Validated query structure
+        query: ValidatedQuery,
+        /// Pagination offset
+        offset: Option<usize>,
+        /// Results limit
+        limit: Option<usize>,
+    },
+
+    /// Validate a query without executing it
+    ValidateQuery {
+        /// Query parameters as JSON
+        params: serde_json::Value,
+    },
+
+    /// Estimate the cost of executing a query
+    EstimateCost {
+        /// Query parameters as JSON
+        params: serde_json::Value,
+    },
+
+    /// Get optimization suggestions for a query
+    GetQuerySuggestions {
+        /// Query parameters as JSON
+        params: serde_json::Value,
+    },
+
+    /// Build and execute a query using the query builder
+    BuildAndExecuteQuery {
+        /// Query parameters as JSON
+        params: serde_json::Value,
+    },
+
+    /// Memory profiling command
+    ProfileMemory {
+        /// Capture allocation backtraces
+        capture_backtraces: Option<bool>,
+        /// Track specific systems
+        target_systems: Option<Vec<String>>,
+        /// Duration in seconds for profiling session
+        duration_seconds: Option<u64>,
+    },
+
+    /// Stop memory profiling session
+    StopMemoryProfiling {
+        /// Session ID to stop (None for default session)
+        session_id: Option<String>,
+    },
+
+    /// Get current memory profile
+    GetMemoryProfile,
+
+    /// Detect memory leaks
+    DetectMemoryLeaks {
+        /// Target systems to check for leaks
+        target_systems: Option<Vec<String>>,
+    },
+
+    /// Analyze memory usage trends
+    AnalyzeMemoryTrends {
+        /// Target systems to analyze
+        target_systems: Option<Vec<String>>,
+    },
+
+    /// Take a memory snapshot
+    TakeMemorySnapshot,
+
+    /// Get memory profiler statistics
+    GetMemoryStatistics,
+
+    /// Session management
+    SessionControl {
+        /// Session operation
+        operation: SessionOperation,
+        /// Session ID
+        session_id: Option<String>,
+    },
+
+    /// Get debug system status
+    GetStatus,
+
+    /// Start automated issue detection monitoring
+    StartIssueDetection,
+
+    /// Stop automated issue detection monitoring
+    StopIssueDetection,
+
+    /// Get detected issues/alerts
+    GetDetectedIssues {
+        /// Maximum number of issues to return
+        limit: Option<usize>,
+    },
+
+    /// Acknowledge an issue alert
+    AcknowledgeIssue {
+        /// Alert ID to acknowledge
+        alert_id: String,
+    },
+
+    /// Report an alert as a false positive
+    ReportFalsePositive {
+        /// Alert ID to mark as false positive
+        alert_id: String,
+    },
+
+    /// Get issue detection statistics
+    GetIssueDetectionStats,
+
+    /// Update a detection rule configuration
+    UpdateDetectionRule {
+        /// Rule name to update
+        name: String,
+        /// Enable/disable the rule
+        enabled: Option<bool>,
+        /// Sensitivity level (0.0 to 1.0)
+        sensitivity: Option<f32>,
+    },
+
+    /// Clear issue alert history
+    ClearIssueHistory,
+
+    /// Start performance budget monitoring
+    StartBudgetMonitoring,
+
+    /// Stop performance budget monitoring
+    StopBudgetMonitoring,
+
+    /// Set performance budget configuration
+    SetPerformanceBudget {
+        /// Budget configuration as JSON
+        config: serde_json::Value,
+    },
+
+    /// Get current performance budget configuration
+    GetPerformanceBudget,
+
+    /// Check for current budget violations
+    CheckBudgetViolations,
+
+    /// Get budget violation history
+    GetBudgetViolationHistory {
+        /// Maximum number of violations to return
+        limit: Option<usize>,
+    },
+
+    /// Generate compliance report for specified duration
+    GenerateComplianceReport {
+        /// Duration in seconds (default: 3600 = 1 hour)
+        duration_seconds: Option<u64>,
+    },
+
+    /// Get budget recommendations based on historical data
+    GetBudgetRecommendations,
+
+    /// Clear budget violation history
+    ClearBudgetHistory,
+
+    /// Get budget monitoring statistics
+    GetBudgetStatistics,
+
+    /// Custom debug command for extensions
+    Custom {
+        /// Command name
+        name: String,
+        /// Command parameters
+        params: serde_json::Value,
+    },
+}
+
+/// Debug overlay types for visual debugging
+#[derive(Debug, Clone, Eq, Hash, PartialEq, Serialize, Deserialize)]
+#[non_exhaustive]
+pub enum DebugOverlayType {
+    /// Entity highlight overlay
+    EntityHighlight,
+    /// Physics collider visualization
+    Colliders,
+    /// Physics collider visualization (alternative name for compatibility)
+    ColliderVisualization,
+    /// Transform gizmos
+    Transforms,
+    /// Transform gizmos (alternative name for compatibility)
+    TransformGizmos,
+    /// System execution flow
+    SystemFlow,
+    /// Performance metrics
+    PerformanceMetrics,
+    /// Debug markers
+    DebugMarkers,
+    /// Custom overlay
+    Custom(String),
+}
+
+/// Validated query structure for safe ECS queries
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ValidatedQuery {
+    /// Query ID for caching
+    pub id: String,
+    /// Validated filter
+    pub filter: QueryFilter,
+    /// Estimated cost
+    pub estimated_cost: QueryCost,
+    /// Optimization hints
+    pub hints: Vec<String>,
+}
+
+/// Query cost estimation
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct QueryCost {
+    /// Estimated entities to scan
+    pub estimated_entities: usize,
+    /// Estimated time in microseconds
+    pub estimated_time_us: u64,
+    /// Memory usage estimate in bytes
+    pub estimated_memory: usize,
+}
+
+/// Session operations for debug session management
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[non_exhaustive]
+pub enum SessionOperation {
+    /// Create new session
+    Create,
+    /// Resume existing session
+    Resume,
+    /// Checkpoint current state
+    Checkpoint,
+    /// Restore from checkpoint
+    Restore { checkpoint_id: String },
+    /// End session
+    End,
+}
+
+/// Debug response types
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(tag = "type", content = "data")]
+#[non_exhaustive]
+pub enum DebugResponse {
+    /// Entity inspection result
+    EntityInspection {
+        entity: EntityData,
+        metadata: Option<EntityMetadata>,
+        relationships: Option<EntityRelationships>,
+    },
+
+    /// Batch entity inspection result
+    BatchEntityInspection {
+        entities: Vec<EntityInspectionResult>,
+        /// Total entities requested
+        requested_count: usize,
+        /// Successfully inspected entities
+        found_count: usize,
+        /// Entities that were not found (despawned)
+        missing_entities: Vec<EntityId>,
+        /// Total inspection time in microseconds
+        inspection_time_us: u64,
+    },
+
+    /// System profiling result
+    SystemProfile(SystemProfile),
+    
+    /// Profiling started response
+    ProfilingStarted {
+        system_name: String,
+        duration_ms: Option<u64>,
+    },
+    
+    /// Profiling history response
+    ProfileHistory {
+        system_name: String,
+        samples: Vec<ProfileSample>,
+        frame_count: usize,
+    },
+    
+    /// Performance anomalies response
+    PerformanceAnomalies {
+        count: usize,
+        anomalies: Vec<serde_json::Value>,
+    },
+
+    /// Visual debug status
+    VisualDebugStatus {
+        overlay_type: DebugOverlayType,
+        enabled: bool,
+        config: Option<serde_json::Value>,
+    },
+
+    /// Query execution result
+    QueryResult {
+        entities: Vec<EntityData>,
+        total_count: usize,
+        execution_time_us: u64,
+        has_more: bool,
+    },
+
+    /// Memory profile result
+    MemoryProfile {
+        total_allocated: usize,
+        allocations_per_system: HashMap<String, usize>,
+        top_allocations: Vec<AllocationInfo>,
+    },
+
+    /// Session control result
+    SessionStatus {
+        session_id: String,
+        state: SessionState,
+        command_count: usize,
+        checkpoints: Vec<CheckpointInfo>,
+    },
+
+    /// Debug system status
+    Status {
+        version: String,
+        active_sessions: usize,
+        command_queue_size: usize,
+        performance_overhead_percent: f32,
+    },
+
+    /// Query validation result
+    QueryValidation {
+        valid: bool,
+        query: Option<ValidatedQuery>,
+        errors: Vec<String>,
+        suggestions: Vec<String>,
+    },
+
+    /// Query cost estimation result
+    QueryCost {
+        cost: QueryCost,
+        performance_budget_exceeded: bool,
+        suggestions: Vec<String>,
+    },
+
+    /// Query optimization suggestions
+    QuerySuggestions {
+        suggestions: Vec<String>,
+        query_complexity: u32,
+    },
+
+    /// Query execution result
+    QueryExecution {
+        success: bool,
+        result: Option<Box<BrpResponse>>,
+        execution_time_us: u64,
+        entities_processed: Option<usize>,
+    },
+
+    /// Generic success response
+    Success {
+        message: String,
+        data: Option<serde_json::Value>,
+    },
+
+    /// Custom debug response
+    Custom(serde_json::Value),
+}
+
+/// Entity metadata for inspection
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct EntityMetadata {
+    /// Component count
+    pub component_count: usize,
+    /// Total memory size in bytes
+    pub memory_size: usize,
+    /// Last modified timestamp
+    pub last_modified: Option<u64>,
+    /// Entity generation
+    pub generation: u32,
+    /// Component type information
+    pub component_types: Vec<DetailedComponentTypeInfo>,
+    /// Which components have been modified
+    pub modified_components: Vec<String>,
+    /// Entity archetype information
+    pub archetype_id: Option<u32>,
+    /// Entity location in world storage
+    pub location_info: Option<EntityLocationInfo>,
+}
+
+/// Detailed component type information with reflection data
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct DetailedComponentTypeInfo {
+    /// Component type identifier
+    pub type_id: String,
+    /// Human-readable type name
+    pub type_name: String,
+    /// Size in bytes
+    pub size_bytes: usize,
+    /// Whether component has reflection data
+    pub is_reflected: bool,
+    /// Type schema if available
+    pub schema: Option<serde_json::Value>,
+    /// Whether component was modified this frame
+    pub is_modified: bool,
+}
+
+/// Entity location information in Bevy's storage
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct EntityLocationInfo {
+    /// Archetype ID
+    pub archetype_id: u32,
+    /// Index within archetype
+    pub index: u32,
+    /// Table ID
+    pub table_id: Option<u32>,
+    /// Row in table
+    pub table_row: Option<u32>,
+}
+
+/// Entity relationships
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct EntityRelationships {
+    /// Parent entity if exists
+    pub parent: Option<EntityId>,
+    /// Child entities
+    pub children: Vec<EntityId>,
+    /// Related entities (custom relationships)
+    pub related: HashMap<String, Vec<EntityId>>,
+}
+
+/// System performance metrics
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct SystemMetrics {
+    /// Total execution time in microseconds
+    pub total_time_us: u64,
+    /// Minimum execution time in microseconds
+    pub min_time_us: u64,
+    /// Maximum execution time in microseconds
+    pub max_time_us: u64,
+    /// Average execution time in microseconds
+    pub avg_time_us: u64,
+    /// Median execution time in microseconds
+    pub median_time_us: u64,
+    /// 95th percentile time
+    pub p95_time_us: u64,
+    /// 99th percentile time
+    pub p99_time_us: u64,
+    /// Total memory allocations
+    pub total_allocations: usize,
+    /// Allocation rate per invocation
+    pub allocation_rate: f32,
+    /// Overhead percentage
+    pub overhead_percent: f32,
+}
+
+/// Profile sample point
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ProfileSample {
+    /// Timestamp in microseconds
+    pub timestamp: u64,
+    /// Execution time in microseconds
+    pub duration_us: u64,
+    /// Memory allocations during execution
+    pub allocations: Option<usize>,
+}
+
+/// System profile data
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct SystemProfile {
+    /// System name
+    pub system_name: String,
+    /// Performance metrics
+    pub metrics: SystemMetrics,
+    /// Sample timeline
+    pub samples: Vec<ProfileSample>,
+    /// System dependencies
+    pub dependencies: Vec<String>,
+}
+
+/// Memory allocation information
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct AllocationInfo {
+    /// Size in bytes
+    pub size: usize,
+    /// Allocation site (function name)
+    pub location: String,
+    /// Backtrace if available
+    pub backtrace: Option<Vec<String>>,
+    /// Allocation count
+    pub count: usize,
+}
+
+/// Debug session state
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[non_exhaustive]
+pub enum SessionState {
+    /// Session is active
+    Active,
+    /// Session is paused
+    Paused,
+    /// Session is replaying commands
+    Replaying,
+    /// Session ended
+    Ended,
+}
+
+/// Checkpoint information
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct CheckpointInfo {
+    /// Checkpoint ID
+    pub id: String,
+    /// Creation timestamp
+    pub timestamp: u64,
+    /// Description
+    pub description: Option<String>,
+    /// Size in bytes
+    pub size: usize,
+}
+
+/// Individual entity inspection result for batch operations
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct EntityInspectionResult {
+    /// Entity ID
+    pub entity_id: EntityId,
+    /// Whether the entity was found
+    pub found: bool,
+    /// Entity data if found
+    pub entity: Option<EntityData>,
+    /// Entity metadata if requested and found
+    pub metadata: Option<EntityMetadata>,
+    /// Entity relationships if requested and found
+    pub relationships: Option<EntityRelationships>,
+    /// Error message if inspection failed
+    pub error: Option<String>,
+}
+
 /// BRP response message
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(untagged)]
 pub enum BrpResponse {
     /// Successful response
-    Success(BrpResult),
+    Success(Box<BrpResult>),
     /// Error response
     Error(BrpError),
 }
@@ -202,6 +783,10 @@ pub enum BrpResult {
         /// Success status
         success: bool,
     },
+
+    /// Debug command response
+    #[serde(rename = "debug")]
+    Debug(Box<DebugResponse>),
 }
 
 /// Entity data with components
@@ -266,6 +851,18 @@ pub enum BrpErrorCode {
     /// Request timeout
     #[serde(rename = "timeout")]
     Timeout,
+
+    /// Debug command not supported
+    #[serde(rename = "debug_not_supported")]
+    DebugNotSupported,
+
+    /// Debug session error
+    #[serde(rename = "debug_session_error")]
+    DebugSessionError,
+
+    /// Debug command validation failed
+    #[serde(rename = "debug_validation_error")]
+    DebugValidationError,
 }
 
 impl fmt::Display for BrpError {
@@ -284,6 +881,9 @@ impl fmt::Display for BrpErrorCode {
             Self::PermissionDenied => write!(f, "Permission denied"),
             Self::InternalError => write!(f, "Internal error"),
             Self::Timeout => write!(f, "Request timeout"),
+            Self::DebugNotSupported => write!(f, "Debug command not supported"),
+            Self::DebugSessionError => write!(f, "Debug session error"),
+            Self::DebugValidationError => write!(f, "Debug command validation error"),
         }
     }
 }

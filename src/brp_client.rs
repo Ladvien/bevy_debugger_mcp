@@ -22,6 +22,7 @@ struct BatchedRequest {
     response_tx: mpsc::Sender<Result<BrpResponse>>,
 }
 
+#[derive(Debug)]
 pub struct BrpClient {
     config: Config,
     ws_stream: Option<WebSocketStream<MaybeTlsStream<TcpStream>>>,
@@ -239,7 +240,7 @@ impl BrpClient {
                         if rm_guard.should_sample().await {
                             // Process the request (simplified simulation)
                             Ok(crate::brp_messages::BrpResponse::Success(
-                                crate::brp_messages::BrpResult::Success,
+                                Box::new(crate::brp_messages::BrpResult::Success),
                             ))
                         } else {
                             Err(Error::Validation(
@@ -249,7 +250,7 @@ impl BrpClient {
                     } else {
                         // Fallback processing without resource management
                         Ok(crate::brp_messages::BrpResponse::Success(
-                            crate::brp_messages::BrpResult::Success,
+                            Box::new(crate::brp_messages::BrpResult::Success),
                         ))
                     };
 

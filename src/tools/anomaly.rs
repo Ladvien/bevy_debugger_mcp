@@ -112,12 +112,15 @@ async fn handle_detect(arguments: Value, brp_client: Arc<RwLock<BrpClient>>) -> 
     };
 
     let entities = match brp_response {
-        BrpResponse::Success(BrpResult::Entities(entities)) => entities,
-        BrpResponse::Success(_) => {
-            return Ok(json!({
-                "error": "Unexpected response type",
-                "message": "Expected entities list from BRP"
-            }));
+        BrpResponse::Success(boxed_result) => {
+            if let BrpResult::Entities(entities) = boxed_result.as_ref() {
+                entities.clone()
+            } else {
+                return Ok(json!({
+                    "error": "Unexpected response type",
+                    "message": "Expected entities list from BRP"
+                }));
+            }
         }
         BrpResponse::Error(error) => {
             warn!("BRP returned error: {}", error);

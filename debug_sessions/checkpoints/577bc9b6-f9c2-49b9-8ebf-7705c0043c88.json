@@ -1,0 +1,25 @@
+{
+  "id": "577bc9b6-f9c2-49b9-8ebf-7705c0043c88",
+  "timestamp": 1755621977,
+  "name": "Session Test Session Checkpoint",
+  "description": "Test checkpoint",
+  "operation_type": "session_state",
+  "component": "debug_session_manager",
+  "state_data": {
+    "auto_cleanup_hours": 24,
+    "checkpoints": [],
+    "command_history": [],
+    "created_at": "2025-08-19T16:46:17.635558Z",
+    "description": null,
+    "id": "e5af80e9-b946-4d01-8722-f56d1d9b66b6",
+    "last_activity": "2025-08-19T16:46:17.635558Z",
+    "metadata": {},
+    "name": "Test Session",
+    "replay_position": null,
+    "replay_speed": 1.0,
+    "state": "Active"
+  },
+  "metadata": {},
+  "auto_restorable": true,
+  "expires_at": null
+}

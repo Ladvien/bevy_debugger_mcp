@@ -1,0 +1,253 @@
+name: CI - Integration Tests and Documentation
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main ]
+
+env:
+  CARGO_TERM_COLOR: always
+  RUST_BACKTRACE: 1
+
+jobs:
+  test:
+    name: Test Suite
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+        rust: [stable]
+        include:
+          - os: ubuntu-latest
+            rust: beta
+    
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Install Rust
+      uses: dtolnay/rust-toolchain@stable
+      with:
+        toolchain: ${{ matrix.rust }}
+        components: rustfmt, clippy
+    
+    - name: Cache dependencies
+      uses: actions/cache@v3
+      with:
+        path: |
+          ~/.cargo/cache
+          ~/.cargo/registry
+          target/
+        key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
+    
+    - name: Install system dependencies (Linux)
+      if: runner.os == 'Linux'
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y libasound2-dev libudev-dev pkg-config xvfb
+        
+    - name: Install system dependencies (macOS)
+      if: runner.os == 'macOS' 
+      run: |
+        echo "macOS dependencies ready"
+        
+    - name: Install system dependencies (Windows)
+      if: runner.os == 'Windows'
+      run: |
+        echo "Windows dependencies ready"
+    
+    - name: Check formatting
+      run: cargo fmt --all -- --check
+    
+    - name: Run clippy
+      run: cargo clippy --all-targets --all-features -- -D warnings
+    
+    - name: Build
+      run: cargo build --verbose --all-features
+    
+    - name: Run unit tests
+      run: cargo test --lib --verbose
+    
+    - name: Run integration tests
+      run: cargo test --test comprehensive_integration_test --verbose
+      
+    - name: Run all integration tests
+      run: |
+        cargo test --test '*integration*' --verbose
+
+  performance:
+    name: Performance Regression Tests
+    runs-on: ubuntu-latest
+    
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Install Rust
+      uses: dtolnay/rust-toolchain@stable
+    
+    - name: Cache dependencies
+      uses: actions/cache@v3
+      with:
+        path: |
+          ~/.cargo/cache
+          ~/.cargo/registry
+          target/
+        key: ${{ runner.os }}-cargo-perf-${{ hashFiles('**/Cargo.lock') }}
+    
+    - name: Install system dependencies
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y libasound2-dev libudev-dev
+    
+    - name: Build with optimizations
+      run: cargo build --release --all-features
+    
+    - name: Run performance tests
+      run: |
+        cargo test --release --test comprehensive_integration_test test_performance_regression_prevention -- --nocapture
+    
+    - name: Run concurrent execution tests
+      run: |
+        cargo test --release --test comprehensive_integration_test test_concurrent_command_execution -- --nocapture
+
+  coverage:
+    name: Code Coverage
+    runs-on: ubuntu-latest
+    
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Install Rust
+      uses: dtolnay/rust-toolchain@stable
+    
+    - name: Install cargo-tarpaulin
+      uses: actions-rs/install@v0.1
+      with:
+        crate: cargo-tarpaulin
+        version: latest
+    
+    - name: Cache dependencies
+      uses: actions/cache@v3
+      with:
+        path: |
+          ~/.cargo/cache
+          ~/.cargo/registry
+          target/
+        key: ${{ runner.os }}-cargo-coverage-${{ hashFiles('**/Cargo.lock') }}
+    
+    - name: Install system dependencies
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y libasound2-dev libudev-dev
+    
+    - name: Generate code coverage
+      run: |
+        cargo tarpaulin --verbose --all-features --workspace --timeout 120 --out xml
+    
+    - name: Upload to codecov.io
+      uses: codecov/codecov-action@v3
+      with:
+        fail_ci_if_error: false
+
+  documentation:
+    name: Documentation Build
+    runs-on: ubuntu-latest
+    
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Install Rust
+      uses: dtolnay/rust-toolchain@stable
+    
+    - name: Cache dependencies
+      uses: actions/cache@v3
+      with:
+        path: |
+          ~/.cargo/cache
+          ~/.cargo/registry
+          target/
+        key: ${{ runner.os }}-cargo-docs-${{ hashFiles('**/Cargo.lock') }}
+    
+    - name: Install system dependencies
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y libasound2-dev libudev-dev
+    
+    - name: Build documentation
+      run: |
+        cargo doc --all-features --no-deps --document-private-items
+    
+    - name: Check for broken doc links
+      run: |
+        cargo rustdoc --all-features -- -D rustdoc::broken_intra_doc_links
+    
+    - name: Verify book documentation exists
+      run: |
+        test -f book/USAGE_GUIDE.md
+        test -f book/SCREENSHOT_SETUP.md
+        test -f book/MACOS_SERVICE.md
+        echo "✓ All required documentation files present"
+        
+    - name: Upload documentation
+      if: github.ref == 'refs/heads/main'
+      uses: actions/upload-artifact@v3
+      with:
+        name: documentation
+        path: target/doc/
+
+  acceptance:
+    name: Acceptance Criteria Validation
+    runs-on: ubuntu-latest
+    needs: [test, performance, coverage]
+    
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Install Rust
+      uses: dtolnay/rust-toolchain@stable
+    
+    - name: Cache dependencies
+      uses: actions/cache@v3
+      with:
+        path: |
+          ~/.cargo/cache
+          ~/.cargo/registry
+          target/
+        key: ${{ runner.os }}-cargo-acceptance-${{ hashFiles('**/Cargo.lock') }}
+    
+    - name: Install system dependencies
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y libasound2-dev libudev-dev
+    
+    - name: Run acceptance criteria tests
+      run: |
+        cargo test --test comprehensive_integration_test test_acceptance_criteria_validation -- --nocapture
+    
+    - name: Validate all MCP commands
+      run: |
+        cargo test --test comprehensive_integration_test test_all_mcp_commands_integration -- --nocapture
+    
+    - name: Test error recovery
+      run: |
+        cargo test --test comprehensive_integration_test test_error_recovery_and_resilience -- --nocapture
+    
+    - name: Generate test report
+      run: |
+        echo "# Integration Test Report" > test_report.md
+        echo "" >> test_report.md
+        echo "## Test Results" >> test_report.md
+        echo "- All unit tests: ✅" >> test_report.md
+        echo "- All integration tests: ✅" >> test_report.md  
+        echo "- Performance regression tests: ✅" >> test_report.md
+        echo "- MCP protocol compliance: ✅" >> test_report.md
+        echo "- Error recovery: ✅" >> test_report.md
+        echo "- Concurrent execution: ✅" >> test_report.md
+        echo "" >> test_report.md
+        echo "All BEVDBG-011 acceptance criteria validated successfully!" >> test_report.md
+    
+    - name: Upload test report
+      uses: actions/upload-artifact@v3
+      with:
+        name: test-report
+        path: test_report.md

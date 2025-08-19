@@ -230,12 +230,16 @@ impl ActionExecutor {
 
         // Send request
         match brp_client.send_request(&request).await {
-            Ok(BrpResponse::Success(BrpResult::EntitySpawned(entity_id))) => {
-                Ok(ActionResult::success_with_entity(
-                    "spawn",
-                    format!("Successfully spawned entity {entity_id}"),
-                    entity_id,
-                ))
+            Ok(BrpResponse::Success(boxed_result)) => {
+                if let BrpResult::EntitySpawned(entity_id) = boxed_result.as_ref() {
+                    Ok(ActionResult::success_with_entity(
+                        "spawn",
+                        format!("Successfully spawned entity {entity_id}"),
+                        *entity_id,
+                    ))
+                } else {
+                    Err(Error::Validation("Expected entity spawned result".to_string()))
+                }
             }
             Ok(BrpResponse::Error(err)) => Ok(ActionResult::failure("spawn", err.message)),
             Ok(_) => Ok(ActionResult::failure(
@@ -283,18 +287,22 @@ impl ActionExecutor {
 
         // Send request
         match brp_client.send_request(&request).await {
-            Ok(BrpResponse::Success(BrpResult::EntityModified)) => {
-                let mut result = ActionResult::success_with_entity(
-                    "modify",
-                    format!("Successfully modified entity {entity_id}"),
-                    entity_id,
-                );
+            Ok(BrpResponse::Success(boxed_result)) => {
+                if let BrpResult::EntityModified = boxed_result.as_ref() {
+                    let mut result = ActionResult::success_with_entity(
+                        "modify",
+                        format!("Successfully modified entity {entity_id}"),
+                        entity_id,
+                    );
 
-                if original_values.is_some() {
-                    result.rollback_available = Some(true);
+                    if original_values.is_some() {
+                        result.rollback_available = Some(true);
+                    }
+
+                    Ok(result)
+                } else {
+                    Err(Error::Validation("Expected entity modified result".to_string()))
                 }
-
-                Ok(result)
             }
             Ok(BrpResponse::Error(err)) => Ok(ActionResult::failure("modify", err.message)),
             Ok(_) => Ok(ActionResult::failure(
@@ -325,17 +333,21 @@ impl ActionExecutor {
 
         // Send request
         match brp_client.send_request(&request).await {
-            Ok(BrpResponse::Success(BrpResult::EntityDeleted)) => {
-                let mut result = ActionResult::success(
-                    "delete",
-                    format!("Successfully deleted entity {entity_id}"),
-                );
+            Ok(BrpResponse::Success(boxed_result)) => {
+                if let BrpResult::EntityDeleted = boxed_result.as_ref() {
+                    let mut result = ActionResult::success(
+                        "delete",
+                        format!("Successfully deleted entity {entity_id}"),
+                    );
 
-                if entity_data.is_some() {
-                    result.rollback_available = Some(true);
+                    if entity_data.is_some() {
+                        result.rollback_available = Some(true);
+                    }
+
+                    Ok(result)
+                } else {
+                    Err(Error::Validation("Expected entity deleted result".to_string()))
                 }
-
-                Ok(result)
             }
             Ok(BrpResponse::Error(err)) => Ok(ActionResult::failure("delete", err.message)),
             Ok(_) => Ok(ActionResult::failure(
@@ -659,19 +671,23 @@ impl ActionExecutor {
         let request = BrpRequest::QueryEntity { entity_id };
 
         match brp_client.send_request(&request).await {
-            Ok(BrpResponse::Success(BrpResult::Entity(entity_data))) => {
-                let mut original_values = Vec::new();
+            Ok(BrpResponse::Success(boxed_result)) => {
+                if let BrpResult::Entity(entity_data) = boxed_result.as_ref() {
+                    let mut original_values = Vec::new();
 
-                for component in components {
-                    if let Some(value) = entity_data.components.get(&component.type_id) {
-                        original_values.push(ComponentSpec {
-                            type_id: component.type_id.clone(),
-                            value: value.clone(),
-                        });
+                    for component in components {
+                        if let Some(value) = entity_data.components.get(&component.type_id) {
+                            original_values.push(ComponentSpec {
+                                type_id: component.type_id.clone(),
+                                value: value.clone(),
+                            });
+                        }
                     }
-                }
 
-                Ok(Some(original_values))
+                    Ok(Some(original_values))
+                } else {
+                    Ok(None)
+                }
             }
             _ => Ok(None),
         }
@@ -686,7 +702,13 @@ impl ActionExecutor {
         let request = BrpRequest::QueryEntity { entity_id };
 
         match brp_client.send_request(&request).await {
-            Ok(BrpResponse::Success(BrpResult::Entity(entity_data))) => Ok(Some(entity_data)),
+            Ok(BrpResponse::Success(boxed_result)) => {
+                if let BrpResult::Entity(entity_data) = boxed_result.as_ref() {
+                    Ok(Some(entity_data.clone()))
+                } else {
+                    Ok(None)
+                }
+            }
             _ => Ok(None),
         }
     }

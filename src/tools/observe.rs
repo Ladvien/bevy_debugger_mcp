@@ -267,7 +267,7 @@ pub async fn handle(arguments: Value, brp_client: Arc<RwLock<BrpClient>>) -> Res
     // Process response and handle diff mode
     let (result_json, entity_count, diff_result) = match brp_response {
         BrpResponse::Success(result) => {
-            let entity_count = match &result {
+            let entity_count = match result.as_ref() {
                 BrpResult::Entities(entities) => entities.len(),
                 BrpResult::Entity(_) => 1,
                 BrpResult::ComponentTypes(types) => types.len(),
@@ -278,7 +278,7 @@ pub async fn handle(arguments: Value, brp_client: Arc<RwLock<BrpClient>>) -> Res
 
             // Handle diff mode for entity queries
             let diff_result = if diff_mode {
-                match &result {
+                match result.as_ref() {
                     BrpResult::Entities(entities) => {
                         let mut state_guard = state.write().await;
                         let current_snapshot = state_guard.add_snapshot(entities.clone());

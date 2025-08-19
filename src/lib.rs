@@ -132,12 +132,16 @@ pub mod prelude {
     pub use crate::brp_messages::{BrpRequest, BrpResponse};
     pub use crate::error::{Error, Result};
     pub use crate::query_parser::{QueryParser, RegexQueryParser};
+    pub use crate::query_builder::{QueryBuilder, QueryValidator, QueryCostEstimator, QueryOptimizer};
+    pub use crate::query_builder_processor::QueryBuilderProcessor;
     pub use crate::mcp_server::McpServer;
     pub use crate::experiment_system::{Action, ActionExecutor, ActionResult};
     pub use crate::hypothesis_system::{Hypothesis, TestRunner, TestResult};
     pub use crate::timeline_branching::{TimelineBranchManager, BranchId};
     pub use crate::recording_system::{Recording, RecordingState};
     pub use crate::playback_system::PlaybackState;
+    pub use crate::session_manager::{SessionManager, SessionManagerConfig, DebugSession};
+    pub use crate::session_processor::SessionProcessor;
 }
 
 // Core functionality
@@ -147,10 +151,33 @@ pub mod config;
 // Communication
 pub mod brp_client;
 pub mod brp_messages;
+pub mod debug_command_processor;
+pub mod entity_inspector;
 pub mod mcp_server;
+pub mod query_builder_processor;
+
+// Performance profiling and visual debugging
+pub mod system_profiler;
+pub mod system_profiler_processor;
+pub mod memory_profiler;
+pub mod memory_profiler_processor;
+pub mod visual_debug_overlay;
+pub mod visual_debug_overlay_processor;
+
+// Issue detection
+pub mod issue_detector;
+pub mod issue_detector_processor;
+
+// Performance budget monitoring
+pub mod performance_budget;
+pub mod performance_budget_processor;
+
+#[cfg(feature = "visual_overlays")]
+pub mod visual_overlays;
 
 // Query and observation
 pub mod query_parser;
+pub mod query_builder;
 pub mod semantic_analyzer;
 
 // Experimentation and testing
@@ -164,6 +191,8 @@ pub mod playback_system;
 pub mod timeline_branching;
 pub mod checkpoint;
 pub mod state_diff;
+pub mod session_manager;
+pub mod session_processor;
 
 // Analysis and monitoring
 pub mod anomaly_detector;
@@ -173,4 +202,9 @@ pub mod resource_manager;
 // Infrastructure
 pub mod tool_orchestration;
 pub mod dead_letter_queue;
+pub mod lazy_init;
+pub mod command_cache;
+pub mod response_pool;
+pub mod profiling;
+pub mod compile_opts;
 pub mod tools;

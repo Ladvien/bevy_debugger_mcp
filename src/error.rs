@@ -168,6 +168,12 @@ pub enum Error {
     #[error("UUID error: {0}")]
     Uuid(#[from] uuid::Error),
 
+    #[error("Debug error: {0}")]
+    DebugError(String),
+
+    #[error("Timeout: {0}")]
+    Timeout(String),
+
     /// Rich error with full context
     #[error("Error: {context}")]
     WithContext {

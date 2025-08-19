@@ -57,10 +57,90 @@ hostname = "0.3"
 rustc_version_runtime = "0.3"
 atty = "0.2"
 
+# Performance optimization dependencies
+ahash = { version = "0.8", optional = true }
+
+# Optional Bevy dependency for visual overlays
+bevy = { version = "0.16", features = ["default", "bevy_remote"], optional = true }
+
+[features]
+# Default features - minimal overhead
+default = ["basic-debugging"]
+
+# Core debugging features
+basic-debugging = []
+full-debugging = [
+    "basic-debugging",
+    "entity-inspection", 
+    "performance-profiling",
+    "visual-debugging",
+    "session-management",
+    "issue-detection"
+]
+
+# Individual feature flags for granular control
+entity-inspection = []
+performance-profiling = []
+visual-debugging = ["bevy"]
+session-management = []
+issue-detection = []
+memory-profiling = []
+stress-testing = []
+time-travel = []
+orchestration = []
+
+# Performance optimizations
+optimizations = ["caching", "pooling", "lazy-init", "ahash"]
+caching = []
+pooling = []
+lazy-init = []
+fast-hash = ["ahash"]
+
+# Development and testing features
+dev-tools = ["benchmarking", "detailed-logging"]
+benchmarking = []
+detailed-logging = []
+
+# Legacy compatibility
+visual_overlays = ["visual-debugging"]
+
+[profile.release]
+# Optimize for performance in release builds
+opt-level = 3
+lto = true          # Link-time optimization
+codegen-units = 1   # Better optimization, slower compile
+panic = "abort"     # Smaller binaries, no unwinding
+strip = true        # Remove debug symbols
+
+[profile.dev]
+# Faster compilation for development
+opt-level = 0
+debug = true
+incremental = true
+
+[profile.release-with-debug]
+# Release performance with debug info
+inherits = "release"
+debug = true
+strip = false
+
+[profile.bench]
+# Optimization for benchmarks
+inherits = "release"
+debug = true
+lto = "thin"        # Faster LTO for benchmarks
+
 [dev-dependencies]
 tokio-test = "0.4"
 bevy = { version = "0.16", features = ["default", "bevy_remote"] }
 nix = { version = "0.27", features = ["signal", "process"] }
 tempfile = "3.0"
 sha2 = "0.10"
+criterion = { version = "0.5", features = ["html_reports", "async_tokio"] }
+rand = "0.8"
+chrono = { version = "0.4", features = ["serde"] }
+
+[[bench]]
+name = "performance_benchmarks"
+harness = false
 
