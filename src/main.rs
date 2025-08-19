@@ -56,6 +56,24 @@ use mcp_server::McpServer;
 
 #[tokio::main]
 async fn main() -> Result<()> {
+    let args: Vec<String> = std::env::args().collect();
+    
+    // Check for help flag
+    if args.iter().any(|arg| arg == "--help" || arg == "-h") {
+        println!("Bevy Debugger MCP Server v{}", env!("CARGO_PKG_VERSION"));
+        println!("\nUsage: {} [OPTIONS]", args[0]);
+        println!("\nOptions:");
+        println!("  --stdio              Run in stdio mode (default for Claude Code)");
+        println!("  --tcp, --server      Run as TCP server on port {}", Config::from_env().unwrap_or_default().mcp_port);
+        println!("  --help, -h           Show this help message");
+        println!("\nEnvironment variables:");
+        println!("  BEVY_BRP_HOST        Bevy Remote Protocol host (default: localhost)");
+        println!("  BEVY_BRP_PORT        Bevy Remote Protocol port (default: 15702)");
+        println!("  MCP_PORT             MCP server port for TCP mode (default: 3001)");
+        println!("  RUST_LOG             Logging level (default: info)");
+        return Ok(());
+    }
+    
     tracing_subscriber::fmt()
         .with_env_filter(tracing_subscriber::EnvFilter::from_default_env())
         .init();
@@ -63,11 +81,14 @@ async fn main() -> Result<()> {
     let config = Config::from_env()?;
 
     // Check if we should run in stdio mode (for Claude Code) or TCP mode
-    let use_stdio = std::env::args().any(|arg| arg == "--stdio")
+    let use_tcp = args.iter().any(|arg| arg == "--tcp" || arg == "--server");
+    let use_stdio = !use_tcp && (
+        args.iter().any(|arg| arg == "--stdio")
         || atty::isnt(atty::Stream::Stdin)
         || std::env::var("MCP_TRANSPORT")
             .map(|t| t == "stdio")
-            .unwrap_or(false);
+            .unwrap_or(false)
+    );
 
     if use_stdio {
         info!("Starting Bevy Debugger MCP Server in stdio mode for Claude Code");

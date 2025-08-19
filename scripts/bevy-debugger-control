@@ -62,11 +62,13 @@ start_server() {
         print_info "Rotated large log file"
     fi
     
-    # Start the server in background
-    nohup "$PROGRAM_NAME" \
-        --host "${BEVY_DEBUGGER_HOST:-$DEFAULT_HOST}" \
-        --port "${BEVY_DEBUGGER_PORT:-$DEFAULT_PORT}" \
-        >> "$LOG_FILE" 2>&1 &
+    # Set environment variables for MCP port
+    export MCP_PORT="${BEVY_DEBUGGER_PORT:-$DEFAULT_PORT}"
+    export BEVY_BRP_HOST="${BEVY_BRP_HOST:-localhost}"
+    export BEVY_BRP_PORT="${BEVY_BRP_PORT:-15702}"
+    
+    # Start the server in TCP mode
+    nohup "$PROGRAM_NAME" --tcp >> "$LOG_FILE" 2>&1 &
     
     local pid=$!
     echo $pid > "$PID_FILE"

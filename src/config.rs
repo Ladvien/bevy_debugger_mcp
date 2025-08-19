@@ -8,6 +8,16 @@ pub struct Config {
     pub mcp_port: u16,
 }
 
+impl Default for Config {
+    fn default() -> Self {
+        Self {
+            bevy_brp_host: "localhost".to_string(),
+            bevy_brp_port: 15702,
+            mcp_port: 3001,
+        }
+    }
+}
+
 impl Config {
     pub fn from_env() -> Result<Self> {
         let bevy_brp_host = env::var("BEVY_BRP_HOST").unwrap_or_else(|_| "localhost".to_string());
