@@ -11,6 +11,18 @@ license = "GPL-3.0"
 keywords = ["bevy", "debugging", "mcp", "claude", "gamedev"]
 categories = ["game-development", "development-tools", "command-line-utilities"]
 rust-version = "1.70"
+build = "build.rs"
+include = [
+    "src/**/*",
+    "tests/**/*",
+    "benches/**/*",
+    "Cargo.toml",
+    "Cargo.lock",
+    "LICENSE",
+    "README.md",
+    "build.rs",
+    "scripts/bevy-debugger-control"
+]
 exclude = [
     "target/*",
     ".git/*",

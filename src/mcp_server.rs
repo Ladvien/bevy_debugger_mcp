@@ -188,26 +188,26 @@ impl McpServer {
     }
 
     pub async fn handle_tool_call(&self, tool_name: &str, arguments: Value) -> Result<Value> {
-        profile_async_block!(format!("handle_tool_call_{}", tool_name), {
+        profile_async_block!(format!("handle_tool_call_{}", tool_name), async {
             debug!("Handling tool call: {} with args: {}", tool_name, arguments);
 
             // Try to get cached result first (for cacheable tools)
             let cache_key = if self.is_tool_cacheable(tool_name) {
-                profile_async_block!("cache_lookup", {
-                    match CacheKey::new(tool_name, &arguments) {
-                        Ok(key) => {
-                            if let Some(cached_result) = self.command_cache.get(&key).await {
-                                debug!("Returning cached result for tool: {}", tool_name);
-                                return Ok(cached_result);
-                            }
-                            Some(key)
+                match CacheKey::new(tool_name, &arguments) {
+                    Ok(key) => {
+                        if let Some(cached_result) = profile_async_block!("cache_lookup", async {
+                            self.command_cache.get(&key).await
+                        }) {
+                            debug!("Returning cached result for tool: {}", tool_name);
+                            return Ok(cached_result);
                         }
-                        Err(e) => {
-                            warn!("Failed to create cache key for {}: {}", tool_name, e);
-                            None
-                        }
+                        Some(key)
                     }
-                })
+                    Err(e) => {
+                        warn!("Failed to create cache key for {}: {}", tool_name, e);
+                        None
+                    }
+                }
             } else {
                 None
             };
@@ -215,7 +215,7 @@ impl McpServer {
             // Clone arguments for error reporting later
             let args_for_error = arguments.clone();
 
-            let result = profile_async_block!(format!("tool_execution_{}", tool_name), {
+            let result: Result<serde_json::Value> = profile_async_block!(format!("tool_execution_{}", tool_name), async {
                 match tool_name {
                     "observe" => observe::handle(arguments, self.brp_client.clone()).await,
                     "experiment" => experiment::handle(arguments, self.brp_client.clone()).await,
@@ -241,7 +241,7 @@ impl McpServer {
 
             // Cache successful results for cacheable tools
             if let (Ok(ref response), Some(cache_key)) = (&result, cache_key) {
-                profile_async_block!("cache_store", {
+                profile_async_block!("cache_store", async {
                     let tags = self.get_cache_tags_for_tool(tool_name);
                     if let Err(e) = self.command_cache.put(&cache_key, response.clone(), tags).await {
                         warn!("Failed to cache result for {}: {}", tool_name, e);

@@ -30,6 +30,27 @@ pub struct PerfStats {
     pub last_updated: Instant,
 }
 
+impl serde::Serialize for PerfStats {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        use serde::ser::SerializeStruct;
+        
+        let mut state = serializer.serialize_struct("PerfStats", 9)?;
+        state.serialize_field("operation", &self.operation)?;
+        state.serialize_field("call_count", &self.call_count)?;
+        state.serialize_field("total_duration_ms", &self.total_duration.as_millis())?;
+        state.serialize_field("min_duration_ms", &self.min_duration.as_millis())?;
+        state.serialize_field("max_duration_ms", &self.max_duration.as_millis())?;
+        state.serialize_field("avg_duration_ms", &self.avg_duration.as_millis())?;
+        state.serialize_field("p95_duration_ms", &self.p95_duration.as_millis())?;
+        state.serialize_field("p99_duration_ms", &self.p99_duration.as_millis())?;
+        state.serialize_field("memory_allocations", &self.memory_allocations)?;
+        state.end()
+    }
+}
+
 /// Hot path profiler for identifying performance bottlenecks
 pub struct HotPathProfiler {
     measurements: Arc<RwLock<HashMap<String, Vec<PerfMeasurement>>>>,
@@ -329,7 +350,7 @@ macro_rules! profile_block {
 /// Async version of profile_block macro
 #[macro_export]
 macro_rules! profile_async_block {
-    ($operation:expr, $block:block) => {{
+    ($operation:expr, $block:expr) => {{
         let _profiler = $crate::profiling::get_profiler();
         let _enabled = _profiler.is_enabled();
         

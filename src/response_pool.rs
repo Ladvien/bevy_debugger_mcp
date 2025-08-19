@@ -104,7 +104,7 @@ impl Default for ResponsePoolConfig {
 }
 
 /// Statistics about response pool usage
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, serde::Serialize)]
 pub struct ResponsePoolStats {
     pub small_buffers_allocated: u64,
     pub medium_buffers_allocated: u64,

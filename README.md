@@ -28,7 +28,10 @@ A powerful Model Context Protocol (MCP) server that enables AI-assisted debuggin
 ### Installation
 
 ```bash
-# Clone and build
+# Install from crates.io (recommended)
+cargo install bevy_debugger_mcp
+
+# Or clone and build from source
 git clone https://github.com/ladvien/bevy_debugger_mcp.git
 cd bevy_debugger_mcp
 cargo build --release
@@ -38,6 +41,30 @@ cargo build --release
 
 # Setup Claude Code integration
 ./scripts/setup-claude.sh
+```
+
+### Server Management
+
+After installation, use the `bevy-debugger-control` script to manage the server:
+
+```bash
+# Start the server
+bevy-debugger-control start
+
+# Stop the server
+bevy-debugger-control stop
+
+# Restart the server
+bevy-debugger-control restart
+
+# Check server status
+bevy-debugger-control status
+
+# View logs
+bevy-debugger-control logs
+
+# Follow logs in real-time
+bevy-debugger-control logs -f
 ```
 
 ### Setup Your Bevy Game
