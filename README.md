@@ -43,28 +43,82 @@ cargo build --release
 ./scripts/setup-claude.sh
 ```
 
-### Server Management
+### Server Management with `bevy-debugger-control`
 
-After installation, use the `bevy-debugger-control` script to manage the server:
+The `bevy-debugger-control` script is automatically installed with the package and provides complete lifecycle management for the MCP server. This solves the common issue of the server hanging when run directly.
+
+#### Basic Commands
 
 ```bash
-# Start the server
+# Start the server in the background
 bevy-debugger-control start
 
-# Stop the server
+# Stop the server gracefully
 bevy-debugger-control stop
 
-# Restart the server
+# Restart the server (useful after configuration changes)
 bevy-debugger-control restart
 
-# Check server status
+# Check if the server is running and view details
 bevy-debugger-control status
 
-# View logs
+# View server logs
 bevy-debugger-control logs
 
-# Follow logs in real-time
+# Follow logs in real-time (like tail -f)
 bevy-debugger-control logs -f
+
+# Clean up old log files
+bevy-debugger-control clean
+
+# Show help and all available commands
+bevy-debugger-control help
+```
+
+#### Advanced Usage
+
+```bash
+# Start server on a different port
+BEVY_DEBUGGER_PORT=3002 bevy-debugger-control start
+
+# Start with custom Bevy host/port
+BEVY_BRP_HOST=192.168.1.100 BEVY_BRP_PORT=15703 bevy-debugger-control start
+
+# Clean all logs including current
+bevy-debugger-control clean --all
+
+# Check server status with process details
+bevy-debugger-control status
+# Output shows:
+# - PID of running process
+# - CPU and memory usage
+# - Port binding status
+# - Recent log entries
+```
+
+#### File Locations
+
+The control script manages the following files:
+- **Logs**: `~/.bevy-debugger/bevy-debugger.log`
+- **PID file**: `~/.bevy-debugger/bevy-debugger.pid`
+- **Rotated logs**: `~/.bevy-debugger/bevy-debugger.log.*`
+
+#### Troubleshooting
+
+If the server fails to start:
+```bash
+# Check the logs for errors
+bevy-debugger-control logs
+
+# Ensure no other instance is running
+bevy-debugger-control stop
+bevy-debugger-control start
+
+# Verify the binary is installed
+which bevy-debugger-mcp
+
+# Check if port is already in use
+lsof -i :3001  # or your configured port
 ```
 
 ### Setup Your Bevy Game
@@ -126,6 +180,30 @@ bevy = { version = "0.16", features = ["default", "bevy_remote"] }
    - "Test what happens when I spawn 100 enemies"
    - "Take a screenshot of the current game state"
    - "Record this gameplay session for analysis"
+
+### Claude Code Integration
+
+The MCP server runs in stdio mode when invoked by Claude Code. The `bevy-debugger-control` script is primarily for testing and troubleshooting:
+
+```bash
+# For testing/troubleshooting - run server in background
+bevy-debugger-control start
+bevy-debugger-control status
+
+# Claude Code automatically manages the server via stdio
+# Just ensure your claude_code_config.json includes:
+{
+  "mcpServers": {
+    "bevy-debugger": {
+      "command": "bevy-debugger-mcp",
+      "args": []
+    }
+  }
+}
+
+# If Claude Code can't connect, test manually:
+echo '{"jsonrpc": "2.0", "method": "initialize", "params": {"capabilities": {}}, "id": 1}' | bevy-debugger-mcp
+```
 
 ## 🎮 Example Usage
 
