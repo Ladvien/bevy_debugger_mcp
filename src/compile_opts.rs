@@ -275,16 +275,29 @@ pub mod cpu_features {
     pub fn has_avx2() -> bool { false }
 }
 
-/// Link-time optimization hints
+/// Link-time optimization hints (Linux/Unix)
+#[cfg(not(target_os = "macos"))]
 #[link_section = ".text.hot"]
 pub fn hot_function() {
     // Functions marked as hot will be placed in a special section
     // for better cache locality
 }
 
+/// Link-time optimization hints (macOS - no special section)
+#[cfg(target_os = "macos")]
+pub fn hot_function() {
+    // Functions marked as hot (no special section on macOS due to mach-o limitations)
+}
+
+#[cfg(not(target_os = "macos"))]
 #[link_section = ".text.cold"]
 pub fn cold_function() {
     // Functions marked as cold will be placed away from hot code
+}
+
+#[cfg(target_os = "macos")]
+pub fn cold_function() {
+    // Functions marked as cold (no special section on macOS)
 }
 
 /// Compile-time assertions for configuration validation
