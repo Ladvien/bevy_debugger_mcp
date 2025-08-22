@@ -89,8 +89,8 @@ pub struct DebugPattern {
     pub avg_execution_time: Duration,
     /// Confidence score
     pub confidence: f64,
-    /// Last seen timestamp
-    #[serde(skip, default = "std::time::Instant::now")]
+    /// Last seen timestamp (not serialized, regenerated on load)
+    #[serde(skip, default = "Instant::now")]
     pub last_seen: Instant,
     /// Context tags (e.g., "performance", "entity_inspection")
     pub tags: Vec<String>,

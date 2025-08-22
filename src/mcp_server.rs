@@ -7,6 +7,8 @@ use tracing::{debug, error, info, warn};
 
 use crate::brp_client::BrpClient;
 use crate::brp_messages::DebugCommand;
+use crate::suggestion_engine::{SuggestionContext, SystemState};
+use crate::workflow_automation::UserPreferences;
 use crate::checkpoint::{CheckpointConfig, CheckpointManager};
 use crate::config::Config;
 use crate::dead_letter_queue::{DeadLetterConfig, DeadLetterQueue};
@@ -235,6 +237,16 @@ impl McpServer {
                     "checkpoint" => self.handle_checkpoint(arguments).await,
                     "bug_report" => self.handle_bug_report(arguments).await,
                     "debug" => self.handle_debug_command(arguments).await,
+                    // Machine learning and automation endpoints
+                    "get_suggestions" => self.handle_get_suggestions(arguments).await,
+                    "track_suggestion" => self.handle_track_suggestion(arguments).await,
+                    "get_patterns" => self.handle_get_patterns(arguments).await,
+                    "execute_workflow" => self.handle_execute_workflow(arguments).await,
+                    "approve_workflow" => self.handle_approve_workflow(arguments).await,
+                    "get_workflows" => self.handle_get_workflows(arguments).await,
+                    // Hot reload endpoints
+                    "hot_reload" => self.handle_hot_reload(arguments).await,
+                    "get_model_versions" => self.handle_get_model_versions(arguments).await,
                     _ => Err(Error::Mcp(format!("Unknown tool: {tool_name}"))),
                 }
             });
@@ -985,6 +997,265 @@ impl McpServer {
     pub async fn clear_profiling_data(&self) {
         let profiler = get_profiler();
         profiler.clear().await;
+    }
+
+    /// Handle get suggestions request
+    async fn handle_get_suggestions(&self, arguments: Value) -> Result<Value> {
+        let suggestion_engine = self.lazy_components.get_suggestion_engine().await;
+        
+        // Extract context from arguments
+        let session_id = arguments
+            .get("session_id")
+            .and_then(|id| id.as_str())
+            .unwrap_or("default")
+            .to_string();
+            
+        let recent_commands: Vec<DebugCommand> = arguments
+            .get("recent_commands")
+            .and_then(|cmds| serde_json::from_value(cmds.clone()).ok())
+            .unwrap_or_default();
+            
+        let system_state = if let Some(state_data) = arguments.get("system_state") {
+            SystemState {
+                entity_count: state_data.get("entity_count").and_then(|v| v.as_u64()).unwrap_or(0) as usize,
+                fps: state_data.get("fps").and_then(|v| v.as_f64()).unwrap_or(60.0) as f32,
+                memory_mb: state_data.get("memory_mb").and_then(|v| v.as_f64()).unwrap_or(0.0) as f32,
+                active_systems: state_data.get("active_systems").and_then(|v| v.as_u64()).unwrap_or(0) as usize,
+                has_errors: state_data.get("has_errors").and_then(|v| v.as_bool()).unwrap_or(false),
+            }
+        } else {
+            // Default system state
+            SystemState {
+                entity_count: 0,
+                fps: 60.0,
+                memory_mb: 0.0,
+                active_systems: 0,
+                has_errors: false,
+            }
+        };
+        
+        let user_goal = arguments
+            .get("user_goal")
+            .and_then(|goal| goal.as_str())
+            .map(|s| s.to_string());
+            
+        let context = SuggestionContext {
+            session_id,
+            recent_commands,
+            system_state,
+            user_goal,
+        };
+        
+        let suggestions = suggestion_engine.generate_suggestions(&context).await;
+        
+        Ok(json!({
+            "suggestions": suggestions,
+            "total_count": suggestions.len(),
+            "context_session_id": context.session_id
+        }))
+    }
+    
+    /// Handle track suggestion acceptance/success
+    async fn handle_track_suggestion(&self, arguments: Value) -> Result<Value> {
+        let suggestion_engine = self.lazy_components.get_suggestion_engine().await;
+        
+        let suggestion_id = arguments
+            .get("suggestion_id")
+            .and_then(|id| id.as_str())
+            .ok_or_else(|| Error::Validation("Missing 'suggestion_id' field".to_string()))?;
+            
+        let accepted = arguments
+            .get("accepted")
+            .and_then(|a| a.as_bool())
+            .unwrap_or(false);
+            
+        let success = arguments
+            .get("success")
+            .and_then(|s| s.as_bool())
+            .unwrap_or(false);
+        
+        suggestion_engine.track_suggestion_acceptance(suggestion_id, accepted, success).await;
+        
+        Ok(json!({
+            "tracked": true,
+            "suggestion_id": suggestion_id,
+            "accepted": accepted,
+            "success": success
+        }))
+    }
+    
+    /// Handle get learned patterns request
+    async fn handle_get_patterns(&self, arguments: Value) -> Result<Value> {
+        let pattern_system = self.lazy_components.get_pattern_learning_system().await;
+        
+        let action = arguments
+            .get("action")
+            .and_then(|a| a.as_str())
+            .unwrap_or("list");
+            
+        match action {
+            "list" => {
+                // Get recent patterns for a session (simplified implementation)
+                let sequence = vec![]; // In practice, get from current session
+                let patterns = pattern_system.find_matching_patterns(&sequence).await;
+                
+                Ok(json!({
+                    "patterns": patterns,
+                    "total_count": patterns.len()
+                }))
+            }
+            "export" => {
+                let patterns_json = pattern_system.export_patterns().await?;
+                Ok(json!({
+                    "patterns_export": patterns_json
+                }))
+            }
+            "import" => {
+                let patterns_json = arguments
+                    .get("patterns_json")
+                    .and_then(|p| p.as_str())
+                    .ok_or_else(|| Error::Validation("Missing 'patterns_json' field".to_string()))?;
+                    
+                pattern_system.import_patterns(patterns_json).await?;
+                
+                Ok(json!({
+                    "imported": true
+                }))
+            }
+            _ => Err(Error::Validation(format!("Unknown patterns action: {}", action)))
+        }
+    }
+    
+    /// Handle workflow execution request
+    async fn handle_execute_workflow(&self, arguments: Value) -> Result<Value> {
+        let workflow_automation = self.lazy_components.get_workflow_automation().await;
+        
+        let workflow_id = arguments
+            .get("workflow_id")
+            .and_then(|id| id.as_str())
+            .ok_or_else(|| Error::Validation("Missing 'workflow_id' field".to_string()))?;
+            
+        let session_id = arguments
+            .get("session_id")
+            .and_then(|id| id.as_str())
+            .unwrap_or("default")
+            .to_string();
+            
+        // Extract user preferences if provided
+        let preferences = if let Some(prefs_data) = arguments.get("preferences") {
+            Some(UserPreferences {
+                automation_enabled: prefs_data.get("automation_enabled").and_then(|v| v.as_bool()).unwrap_or(true),
+                preferred_scope: serde_json::from_value(prefs_data.get("preferred_scope").cloned().unwrap_or(json!("SafeCommands"))).unwrap_or(crate::workflow_automation::AutomationScope::SafeCommands),
+                require_confirmation: prefs_data.get("require_confirmation").and_then(|v| v.as_bool()).unwrap_or(true),
+                auto_rollback: prefs_data.get("auto_rollback").and_then(|v| v.as_bool()).unwrap_or(true),
+            })
+        } else {
+            None
+        };
+        
+        let result = workflow_automation.execute_workflow(workflow_id, session_id, preferences).await?;
+        
+        Ok(serde_json::to_value(result)?)
+    }
+    
+    /// Handle workflow approval request
+    async fn handle_approve_workflow(&self, arguments: Value) -> Result<Value> {
+        let workflow_automation = self.lazy_components.get_workflow_automation().await;
+        
+        let workflow_id = arguments
+            .get("workflow_id")
+            .and_then(|id| id.as_str())
+            .ok_or_else(|| Error::Validation("Missing 'workflow_id' field".to_string()))?;
+            
+        workflow_automation.approve_workflow(workflow_id).await?;
+        
+        Ok(json!({
+            "approved": true,
+            "workflow_id": workflow_id
+        }))
+    }
+    
+    /// Handle get workflows request
+    async fn handle_get_workflows(&self, arguments: Value) -> Result<Value> {
+        let workflow_automation = self.lazy_components.get_workflow_automation().await;
+        
+        let action = arguments
+            .get("action")
+            .and_then(|a| a.as_str())
+            .unwrap_or("list");
+            
+        match action {
+            "list" => {
+                let workflows = workflow_automation.get_workflows().await;
+                Ok(json!({
+                    "workflows": workflows,
+                    "total_count": workflows.len()
+                }))
+            }
+            "analyze" => {
+                let opportunities = workflow_automation.analyze_automation_opportunities().await?;
+                Ok(json!({
+                    "automation_opportunities": opportunities,
+                    "total_count": opportunities.len()
+                }))
+            }
+            _ => Err(Error::Validation(format!("Unknown workflows action: {}", action)))
+        }
+    }
+
+    /// Handle hot reload operations
+    async fn handle_hot_reload(&self, arguments: Value) -> Result<Value> {
+        let hot_reload_system = self.lazy_components.get_hot_reload_system().await;
+        
+        let action = arguments
+            .get("action")
+            .and_then(|a| a.as_str())
+            .unwrap_or("status");
+            
+        match action {
+            "status" => {
+                let versions = hot_reload_system.get_model_versions().await;
+                Ok(json!({
+                    "hot_reload_enabled": true,
+                    "model_versions": versions,
+                    "total_models": versions.len()
+                }))
+            }
+            "force_reload" => {
+                hot_reload_system.force_reload_all().await?;
+                Ok(json!({
+                    "reloaded": true,
+                    "message": "All models force reloaded successfully"
+                }))
+            }
+            "start" => {
+                // Hot reload should already be started, but this is a no-op confirmation
+                Ok(json!({
+                    "started": true,
+                    "message": "Hot reload system is active"
+                }))
+            }
+            "stop" => {
+                hot_reload_system.stop().await?;
+                Ok(json!({
+                    "stopped": true,
+                    "message": "Hot reload system stopped"
+                }))
+            }
+            _ => Err(Error::Validation(format!("Unknown hot reload action: {}", action)))
+        }
+    }
+    
+    /// Handle get model versions request
+    async fn handle_get_model_versions(&self, _arguments: Value) -> Result<Value> {
+        let hot_reload_system = self.lazy_components.get_hot_reload_system().await;
+        let versions = hot_reload_system.get_model_versions().await;
+        
+        Ok(json!({
+            "model_versions": versions,
+            "total_count": versions.len(),
+            "hot_reload_active": true
+        }))
     }
 }
 

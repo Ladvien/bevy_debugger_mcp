@@ -14,6 +14,10 @@ use crate::memory_profiler_processor::MemoryProfilerProcessor;
 use crate::session_processor::SessionProcessor;
 use crate::issue_detector_processor::IssueDetectorProcessor;
 use crate::performance_budget_processor::PerformanceBudgetProcessor;
+use crate::pattern_learning::PatternLearningSystem;
+use crate::suggestion_engine::SuggestionEngine;
+use crate::workflow_automation::WorkflowAutomation;
+use crate::hot_reload::{HotReloadSystem, HotReloadConfig};
 use crate::error::Result;
 
 /// Lazy initialization manager for performance optimization
@@ -40,6 +44,12 @@ pub struct LazyComponents {
     // Debug command router - lazily initialized
     debug_command_router: OnceCell<Arc<DebugCommandRouter>>,
     
+    // Machine learning components - lazily initialized
+    pattern_learning_system: OnceCell<Arc<PatternLearningSystem>>,
+    suggestion_engine: OnceCell<Arc<SuggestionEngine>>,
+    workflow_automation: OnceCell<Arc<WorkflowAutomation>>,
+    hot_reload_system: OnceCell<Arc<HotReloadSystem>>,
+    
     // Initialization mutex to prevent race conditions
     init_mutex: Mutex<()>,
 }
@@ -61,6 +71,10 @@ impl LazyComponents {
             issue_detector_processor: OnceCell::new(),
             performance_budget_processor: OnceCell::new(),
             debug_command_router: OnceCell::new(),
+            pattern_learning_system: OnceCell::new(),
+            suggestion_engine: OnceCell::new(),
+            workflow_automation: OnceCell::new(),
+            hot_reload_system: OnceCell::new(),
             init_mutex: Mutex::new(()),
         }
     }
@@ -351,6 +365,115 @@ impl LazyComponents {
         router
     }
     
+    /// Get or initialize pattern learning system
+    pub async fn get_pattern_learning_system(&self) -> Arc<PatternLearningSystem> {
+        if let Some(system) = self.pattern_learning_system.get() {
+            return system.clone();
+        }
+        
+        let _guard = self.init_mutex.lock().await;
+        
+        // Double-check after acquiring lock
+        if let Some(system) = self.pattern_learning_system.get() {
+            return system.clone();
+        }
+        
+        debug!("Lazy initializing PatternLearningSystem");
+        let system = Arc::new(PatternLearningSystem::new());
+        
+        let _ = self.pattern_learning_system.set(system.clone());
+        
+        info!("PatternLearningSystem initialized lazily");
+        system
+    }
+    
+    /// Get or initialize suggestion engine
+    pub async fn get_suggestion_engine(&self) -> Arc<SuggestionEngine> {
+        if let Some(engine) = self.suggestion_engine.get() {
+            return engine.clone();
+        }
+        
+        let _guard = self.init_mutex.lock().await;
+        
+        // Double-check after acquiring lock
+        if let Some(engine) = self.suggestion_engine.get() {
+            return engine.clone();
+        }
+        
+        debug!("Lazy initializing SuggestionEngine");
+        let pattern_system = self.get_pattern_learning_system().await;
+        let engine = Arc::new(SuggestionEngine::new(pattern_system));
+        
+        let _ = self.suggestion_engine.set(engine.clone());
+        
+        info!("SuggestionEngine initialized lazily");
+        engine
+    }
+    
+    /// Get or initialize workflow automation
+    pub async fn get_workflow_automation(&self) -> Arc<WorkflowAutomation> {
+        if let Some(automation) = self.workflow_automation.get() {
+            return automation.clone();
+        }
+        
+        let _guard = self.init_mutex.lock().await;
+        
+        // Double-check after acquiring lock
+        if let Some(automation) = self.workflow_automation.get() {
+            return automation.clone();
+        }
+        
+        debug!("Lazy initializing WorkflowAutomation");
+        let pattern_system = self.get_pattern_learning_system().await;
+        let suggestion_engine = self.get_suggestion_engine().await;
+        let automation = Arc::new(WorkflowAutomation::new(pattern_system, suggestion_engine));
+        
+        let _ = self.workflow_automation.set(automation.clone());
+        
+        info!("WorkflowAutomation initialized lazily");
+        automation
+    }
+    
+    /// Get or initialize hot reload system
+    pub async fn get_hot_reload_system(&self) -> Arc<HotReloadSystem> {
+        if let Some(system) = self.hot_reload_system.get() {
+            return system.clone();
+        }
+        
+        let _guard = self.init_mutex.lock().await;
+        
+        // Double-check after acquiring lock
+        if let Some(system) = self.hot_reload_system.get() {
+            return system.clone();
+        }
+        
+        debug!("Lazy initializing HotReloadSystem");
+        let pattern_system = self.get_pattern_learning_system().await;
+        let suggestion_engine = self.get_suggestion_engine().await;
+        let workflow_automation = self.get_workflow_automation().await;
+        
+        let config = HotReloadConfig::default();
+        let system = Arc::new(HotReloadSystem::new(
+            config,
+            pattern_system,
+            suggestion_engine,
+            workflow_automation,
+        ));
+        
+        // Start the hot reload system
+        let system_clone = system.clone();
+        tokio::spawn(async move {
+            if let Err(e) = system_clone.start().await {
+                tracing::error!("Failed to start hot reload system: {}", e);
+            }
+        });
+        
+        let _ = self.hot_reload_system.set(system.clone());
+        
+        info!("HotReloadSystem initialized lazily");
+        system
+    }
+    
     /// Check if any components have been initialized
     pub fn is_any_initialized(&self) -> bool {
         self.entity_inspector.get().is_some() ||
@@ -372,6 +495,10 @@ impl LazyComponents {
             "issue_detector_processor": self.issue_detector_processor.get().is_some(),
             "performance_budget_processor": self.performance_budget_processor.get().is_some(),
             "debug_command_router": self.debug_command_router.get().is_some(),
+            "pattern_learning_system": self.pattern_learning_system.get().is_some(),
+            "suggestion_engine": self.suggestion_engine.get().is_some(),
+            "workflow_automation": self.workflow_automation.get().is_some(),
+            "hot_reload_system": self.hot_reload_system.get().is_some(),
         })
     }
 }

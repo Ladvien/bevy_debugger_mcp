@@ -9,20 +9,46 @@ use tokio_tungstenite::{connect_async, tungstenite::Message, MaybeTlsStream, Web
 use tracing::{debug, error, info, warn};
 use url::Url;
 
-use crate::brp_messages::{BrpRequest, BrpResponse};
+use crate::brp_messages::{BrpRequest, BrpResponse, DebugCommand};
+use crate::brp_command_handler::{CommandHandlerRegistry, CoreBrpHandler, BrpCommandHandler};
 use crate::config::Config;
+use crate::debug_command_processor::{DebugCommandRouter, DebugCommandRequest};
 use crate::error::{Error, Result};
 use crate::resource_manager::ResourceManager;
 
-/// Batched request for efficient processing
-#[derive(Debug, Clone)]
+/// Batched request for efficient processing with proper cleanup
+#[derive(Debug)]
 struct BatchedRequest {
     request: BrpRequest,
     timestamp: Instant,
     response_tx: mpsc::Sender<Result<BrpResponse>>,
 }
 
-#[derive(Debug)]
+impl BatchedRequest {
+    /// Send response and handle channel cleanup
+    async fn send_response(self, response: Result<BrpResponse>) {
+        // Attempt to send response, ignoring receiver disconnect errors
+        // as this is normal when the receiver is dropped
+        let _ = self.response_tx.send(response).await;
+    }
+
+    /// Check if request has expired based on timeout
+    fn is_expired(&self, timeout: Duration) -> bool {
+        self.timestamp.elapsed() > timeout
+    }
+}
+
+impl Clone for BatchedRequest {
+    fn clone(&self) -> Self {
+        Self {
+            request: self.request.clone(),
+            timestamp: self.timestamp,
+            response_tx: self.response_tx.clone(),
+        }
+    }
+}
+
+/// BRP client with extensible command handler support
 pub struct BrpClient {
     config: Config,
     ws_stream: Option<WebSocketStream<MaybeTlsStream<TcpStream>>>,
@@ -31,10 +57,26 @@ pub struct BrpClient {
     resource_manager: Option<Arc<RwLock<ResourceManager>>>,
     request_queue: Arc<RwLock<VecDeque<BatchedRequest>>>,
     batch_processor_handle: Option<tokio::task::JoinHandle<()>>,
+    command_registry: Arc<CommandHandlerRegistry>,
+    debug_router: Option<Arc<DebugCommandRouter>>,
+}
+
+impl std::fmt::Debug for BrpClient {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("BrpClient")
+            .field("config", &self.config)
+            .field("connected", &self.connected)
+            .field("retry_count", &self.retry_count)
+            .field("has_resource_manager", &self.resource_manager.is_some())
+            .field("has_debug_router", &self.debug_router.is_some())
+            .finish()
+    }
 }
 
 impl BrpClient {
     pub fn new(config: &Config) -> Self {
+        let command_registry = Arc::new(CommandHandlerRegistry::new());
+        
         BrpClient {
             config: config.clone(),
             ws_stream: None,
@@ -43,12 +85,38 @@ impl BrpClient {
             resource_manager: None,
             request_queue: Arc::new(RwLock::new(VecDeque::new())),
             batch_processor_handle: None,
+            command_registry,
+            debug_router: None,
         }
+    }
+
+    /// Initialize the client asynchronously with default handlers
+    pub async fn init(&self) -> Result<()> {
+        // Register core handler - safe async initialization
+        let core_handler = Arc::new(CoreBrpHandler);
+        self.command_registry.register(core_handler).await;
+        Ok(())
     }
 
     pub fn with_resource_manager(mut self, resource_manager: Arc<RwLock<ResourceManager>>) -> Self {
         self.resource_manager = Some(resource_manager);
         self
+    }
+    
+    /// Set the debug command router for handling debug commands
+    pub fn with_debug_router(mut self, router: Arc<DebugCommandRouter>) -> Self {
+        self.debug_router = Some(router);
+        self
+    }
+    
+    /// Register a custom command handler
+    pub async fn register_handler(&self, handler: Arc<dyn BrpCommandHandler>) {
+        self.command_registry.register(handler).await;
+    }
+    
+    /// Get the command registry for external access
+    pub fn command_registry(&self) -> Arc<CommandHandlerRegistry> {
+        self.command_registry.clone()
     }
 
     pub async fn connect_with_retry(&mut self) -> Result<()> {

@@ -168,7 +168,10 @@ pub mod config;
 
 // Communication
 pub mod brp_client;
+pub mod brp_command_handler;
+pub mod brp_integration;
 pub mod brp_messages;
+pub mod debug_brp_handler;
 pub mod debug_command_processor;
 pub mod entity_inspector;
 pub mod mcp_server;
@@ -226,3 +229,9 @@ pub mod response_pool;
 pub mod profiling;
 pub mod compile_opts;
 pub mod tools;
+
+// Machine learning and pattern recognition (Epic BEVDBG-013)
+pub mod pattern_learning;
+pub mod suggestion_engine;
+pub mod workflow_automation;
+pub mod hot_reload;

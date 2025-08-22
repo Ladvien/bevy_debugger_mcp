@@ -37,8 +37,28 @@ pub enum ErrorSeverity {
 
 impl ErrorContext {
     pub fn new(operation: &str, component: &str) -> Self {
+        // Generate error ID with fallback
+        let error_id = match uuid::Uuid::try_parse("00000000-0000-0000-0000-000000000000") {
+            Ok(_) => {
+                // UUID library is working, use new_v4
+                uuid::Uuid::new_v4().to_string()
+            }
+            Err(_) => {
+                // Fallback to timestamp-based ID
+                format!("err_{}", 
+                    SystemTime::now()
+                        .duration_since(UNIX_EPOCH)
+                        .map(|d| d.as_nanos())
+                        .unwrap_or_else(|_| {
+                            // Final fallback to process-based ID
+                            std::process::id() as u128 * 1_000_000
+                        })
+                )
+            }
+        };
+
         Self {
-            error_id: uuid::Uuid::new_v4().to_string(),
+            error_id,
             timestamp: SystemTime::now()
                 .duration_since(UNIX_EPOCH)
                 .unwrap_or_else(|_| {
@@ -62,18 +82,30 @@ impl ErrorContext {
     }
 
     pub fn add_context(mut self, key: &str, value: &str) -> Self {
-        // Sanitize sensitive data before storing
-        let sanitized_value = if key.to_lowercase().contains("password")
-            || key.to_lowercase().contains("token")
-            || key.to_lowercase().contains("secret")
-            || key.to_lowercase().contains("key")
-        {
+        // Enhanced sanitization for sensitive data
+        let sanitized_value = if Self::is_sensitive_key(key) {
             "[REDACTED]".to_string()
         } else {
             value.to_string()
         };
         self.context_data.insert(key.to_string(), sanitized_value);
         self
+    }
+
+    /// Check if a key contains sensitive information
+    fn is_sensitive_key(key: &str) -> bool {
+        let key_lower = key.to_lowercase();
+        let sensitive_patterns = [
+            "password", "passwd", "pwd",
+            "token", "auth", "authorization", "bearer",
+            "secret", "key", "api_key", "apikey",
+            "credential", "cred", "login",
+            "session", "cookie", "jwt",
+            "private", "signature", "hash",
+            "cert", "certificate", "pem"
+        ];
+        
+        sensitive_patterns.iter().any(|pattern| key_lower.contains(pattern))
     }
 
     pub fn add_recovery_suggestion(mut self, suggestion: &str) -> Self {

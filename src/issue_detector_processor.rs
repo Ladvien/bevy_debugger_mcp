@@ -67,7 +67,7 @@ impl IssueDetectorProcessor {
             monitoring_handle: Arc::new(RwLock::new(None)),
             detection_state: Arc::new(RwLock::new(DetectionState::default())),
             shutdown_sender: Arc::new(RwLock::new(None)),
-            rng: Arc::new(RwLock::new(StdRng::from_rng(&mut rand::thread_rng()))),
+            rng: Arc::new(RwLock::new(StdRng::seed_from_u64(42))),
         }
     }
 
@@ -249,7 +249,7 @@ impl IssueDetectorProcessor {
         // In a real implementation, this would query actual memory usage
         // For now, return a simulated value with async-safe RNG
         let mut rng = rng.write().await;
-        Ok(100.0 + (rng.random::<f32>() * 10.0))
+        Ok(100.0 + (rng.gen::<f32>() * 10.0))
     }
 
     /// Get current frame time (simulated for now)
@@ -257,7 +257,7 @@ impl IssueDetectorProcessor {
         // In a real implementation, this would query actual frame time
         // For now, return a simulated value with async-safe RNG
         let mut rng = rng.write().await;
-        Ok(16.0 + (rng.random::<f32>() * 5.0))
+        Ok(16.0 + (rng.gen::<f32>() * 5.0))
     }
 
     /// Get entity count (simulated for now)
@@ -265,7 +265,7 @@ impl IssueDetectorProcessor {
         // In a real implementation, this would query actual entity count
         // For now, return a simulated value with async-safe RNG
         let mut rng = rng.write().await;
-        Ok(1000 + (rng.random::<f32>() * 100.0) as usize)
+        Ok(1000 + (rng.gen::<f32>() * 100.0) as usize)
     }
 
     /// Manually trigger an issue detection

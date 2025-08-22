@@ -399,7 +399,7 @@ mod tests {
         
         let stats = stats.unwrap();
         assert_eq!(stats.call_count, 1);
-        assert_eq!(stats.duration, Duration::from_millis(50));
+        assert_eq!(stats.total_duration, Duration::from_millis(50));
     }
     
     #[tokio::test]

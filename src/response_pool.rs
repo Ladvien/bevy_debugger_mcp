@@ -383,8 +383,10 @@ mod tests {
         let test_json = json!({"test": "data", "number": 42});
         
         let serialized = buffer.serialize_json(&test_json).unwrap();
+        let serialized_len = serialized.len();
         assert!(!serialized.is_empty());
-        assert_eq!(buffer.len(), serialized.len());
+        let buffer_len = buffer.len();
+        assert_eq!(buffer_len, serialized_len);
         
         buffer.clear();
         assert_eq!(buffer.len(), 0);

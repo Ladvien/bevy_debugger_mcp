@@ -423,10 +423,10 @@ impl VariationStrategy {
             } => {
                 for _ in 0..count {
                     let mut variant = base_actions.to_vec();
-                    let mutations = rng.random_range(1..=*max_mutations);
+                    let mutations = rng.gen_range(1..=*max_mutations);
 
                     for _ in 0..mutations {
-                        if rng.random::<f64>() < *mutation_probability {
+                        if rng.gen::<f64>() < *mutation_probability {
                             for action in &mut variant {
                                 self.mutate_action_fuzz(action, &mut rng);
                             }
@@ -527,7 +527,7 @@ impl VariationStrategy {
             }
             Action::Delete { entity_id } => {
                 // Fuzz entity ID
-                *entity_id = rng.random_range(0..1000);
+                *entity_id = rng.gen_range(0..1000);
             }
             _ => {}
         }
@@ -543,17 +543,17 @@ impl VariationStrategy {
     ) {
         match value {
             serde_json::Value::Number(_) => {
-                let value_f64 = rng.random_range(numeric_range.0..numeric_range.1);
+                let value_f64 = rng.gen_range(numeric_range.0..numeric_range.1);
                 *value = serde_json::json!(value_f64);
             }
             serde_json::Value::String(_) => {
                 if !string_pool.is_empty() {
-                    let idx = rng.random_range(0..string_pool.len());
+                    let idx = rng.gen_range(0..string_pool.len());
                     *value = serde_json::json!(string_pool[idx].clone());
                 }
             }
             serde_json::Value::Bool(_) => {
-                *value = serde_json::json!(rng.random::<f64>() < bool_probability);
+                *value = serde_json::json!(rng.gen::<f64>() < bool_probability);
             }
             serde_json::Value::Object(map) => {
                 for (_, v) in map.iter_mut() {
@@ -574,7 +574,7 @@ impl VariationStrategy {
         match value {
             serde_json::Value::Number(n) => {
                 if let Some(f) = n.as_f64() {
-                    let fuzzed = f * (0.5 + rng.random::<f64>() * 1.5);
+                    let fuzzed = f * (0.5 + rng.gen::<f64>() * 1.5);
                     serde_json::json!(fuzzed)
                 } else {
                     value.clone()
@@ -586,14 +586,14 @@ impl VariationStrategy {
                     .chars()
                     .collect();
                 let mut fuzzed = s.clone();
-                for _ in 0..rng.random_range(0..3) {
-                    let idx = rng.random_range(0..chars.len());
+                for _ in 0..rng.gen_range(0..3) {
+                    let idx = rng.gen_range(0..chars.len());
                     fuzzed.push(chars[idx]);
                 }
                 serde_json::json!(fuzzed)
             }
             serde_json::Value::Bool(_) => {
-                serde_json::json!(rng.random::<bool>())
+                serde_json::json!(rng.gen::<bool>())
             }
             _ => value.clone(),
         }
