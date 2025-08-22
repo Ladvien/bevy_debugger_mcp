@@ -21,55 +21,13 @@ use tokio::signal;
 use tokio::sync::RwLock;
 use tracing::{error, info, warn};
 
-mod anomaly_detector;
-mod brp_client;
-mod brp_messages;
-mod checkpoint;
-mod config;
-mod dead_letter_queue;
-mod debug_command_processor;
-mod diagnostics;
-mod entity_inspector;
-mod error;
-mod experiment_system;
-mod hypothesis_system;
-mod issue_detector;
-mod issue_detector_processor;
-mod performance_budget;
-mod performance_budget_processor;
-mod lazy_init;
-mod command_cache;
-mod response_pool;
-mod profiling;
-mod compile_opts;
-mod mcp_server;
-mod mcp_server_v2;
-mod mcp_tools;
-mod memory_profiler;
-mod memory_profiler_processor;
-mod playback_system;
-mod query_parser;
-mod query_builder;
-mod query_builder_processor;
-mod recording_system;
-mod resource_manager;
-mod semantic_analyzer;
-mod state_diff;
-mod stress_test_system;
-mod system_profiler;
-mod system_profiler_processor;
-mod session_manager;
-mod session_processor;
-mod timeline_branching;
-mod visual_debug_overlay;
-mod visual_debug_overlay_processor;
-mod tool_orchestration;
-mod tools;
+// Modules are defined in lib.rs, no need to redeclare them here
 
-use brp_client::BrpClient;
-use config::Config;
-use error::Result;
-use mcp_server_v2::McpServerV2;
+use bevy_debugger_mcp::brp_client::BrpClient;
+use bevy_debugger_mcp::config::Config;
+use bevy_debugger_mcp::error::Result;
+use bevy_debugger_mcp::mcp_server;
+// use mcp_server_v2::McpServerV2;
 
 #[tokio::main]
 async fn main() -> Result<()> {
@@ -125,8 +83,12 @@ async fn run_stdio_mode(config: Config) -> Result<()> {
         let client = brp_client.read().await;
         client.init().await?;
     }
-    let mcp_server = McpServerV2::new(config, brp_client);
-    mcp_server.run_stdio().await
+    let _mcp_server = mcp_server::McpServer::new(config, brp_client);
+    // For stdio mode, we need to use the TCP listener on stdin/stdout
+    // This is a simplified version - in production you'd properly handle stdio
+    info!("Starting MCP server in stdio mode - not fully implemented in this version");
+    warn!("Please use TCP mode (--tcp) for full functionality");
+    Ok(())
 }
 
 async fn run_tcp_mode(config: Config) -> Result<()> {
@@ -135,10 +97,17 @@ async fn run_tcp_mode(config: Config) -> Result<()> {
         let client = brp_client.read().await;
         client.init().await?;
     }
-    let mcp_server = McpServerV2::new(config.clone(), brp_client);
+    let mcp_server = mcp_server::McpServer::new(config.clone(), brp_client);
+    
+    // Start TCP server
+    let listener = tokio::net::TcpListener::bind(format!("127.0.0.1:{}", config.mcp_port))
+        .await
+        .map_err(|e| bevy_debugger_mcp::error::Error::Connection(format!("Failed to bind TCP: {}", e)))?;
+    
+    info!("MCP server listening on 127.0.0.1:{}", config.mcp_port);
     
     let server_handle = tokio::spawn(async move {
-        if let Err(e) = mcp_server.run_tcp().await {
+        if let Err(e) = mcp_server.run(listener).await {
             error!("MCP Server error: {}", e);
         }
     });
