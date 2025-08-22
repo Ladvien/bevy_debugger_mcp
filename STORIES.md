@@ -1,32 +1,5 @@
 ## Epic: Technical Debt - Deprecated Patterns and Dependencies
 
-### Story 1: Replace Deprecated rand Methods
-**Title:** Replace deprecated rand::thread_rng() and gen() methods across codebase
-
-**Description:**
-Multiple files are using deprecated `rand` methods that need to be updated to modern API patterns.
-
-**Acceptance Criteria:**
-- [ ] Replace all instances of `rand::thread_rng()` with `rand::rng()`
-- [ ] Replace all instances of `gen()` with `random()`
-- [ ] Update affected files:
-  - `/src/stress_test_system.rs` (lines 347, 352, 467, 520, 674, 781)
-  - `/src/issue_detector_processor.rs` (lines 21-22)
-- [ ] All tests pass after changes
-- [ ] No deprecation warnings for rand usage
-
-**Definition of Done:**
-- Code changes committed and reviewed
-- All unit tests pass
-- Integration tests pass
-- No compiler warnings related to rand
-- Documentation updated if needed
-- Code reviewed by at least one team member
-
-**Story Points:** 3
-
----
-
 ### Story 2: Standardize rand Dependency Versions
 **Title:** Resolve rand version conflict between dependencies and dev-dependencies
 
