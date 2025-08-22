@@ -1,6 +1,6 @@
 use serde_json::{json, Value};
 use std::path::PathBuf;
-use std::sync::Arc;
+use std::sync::{Arc, OnceLock};
 use std::time::UNIX_EPOCH;
 use tokio::sync::RwLock;
 use tracing::{debug, error, info, warn};
@@ -13,15 +13,23 @@ use crate::timeline_branching::{
     BranchId, MergeStrategy, Modification, ModificationLayer, TimelineBranchManager,
 };
 
-lazy_static::lazy_static! {
-    // Global recording state
-    static ref RECORDING_STATE: RecordingState = RecordingState::new(RecordingConfig::default());
-    static ref PLAYBACK_CONTROLLER: Arc<RwLock<PlaybackController>> = Arc::new(RwLock::new(
-        PlaybackController::new(Box::new(DirectSync))
-    ));
-    static ref BRANCH_MANAGER: Arc<RwLock<TimelineBranchManager>> = Arc::new(RwLock::new(
-        TimelineBranchManager::new()
-    ));
+// Global recording state using std::sync::OnceLock
+static RECORDING_STATE: OnceLock<RecordingState> = OnceLock::new();
+static PLAYBACK_CONTROLLER: OnceLock<Arc<RwLock<PlaybackController>>> = OnceLock::new();
+static BRANCH_MANAGER: OnceLock<Arc<RwLock<TimelineBranchManager>>> = OnceLock::new();
+
+fn get_recording_state() -> &'static RecordingState {
+    RECORDING_STATE.get_or_init(|| RecordingState::new(RecordingConfig::default()))
+}
+
+fn get_playback_controller() -> &'static Arc<RwLock<PlaybackController>> {
+    PLAYBACK_CONTROLLER.get_or_init(|| {
+        Arc::new(RwLock::new(PlaybackController::new(Box::new(DirectSync))))
+    })
+}
+
+fn get_branch_manager() -> &'static Arc<RwLock<TimelineBranchManager>> {
+    BRANCH_MANAGER.get_or_init(|| Arc::new(RwLock::new(TimelineBranchManager::new())))
 }
 
 /// Handle replay tool requests
@@ -95,7 +103,7 @@ async fn handle_record(arguments: Value, brp_client: Arc<RwLock<BrpClient>>) -> 
     let checksums = config.checksums;
 
     // Start recording
-    let mut buffer = RECORDING_STATE.buffer.write().await;
+    let mut buffer = get_recording_state().buffer.write().await;
 
     if buffer.is_recording() {
         return Ok(json!({
@@ -110,7 +118,7 @@ async fn handle_record(arguments: Value, brp_client: Arc<RwLock<BrpClient>>) -> 
     buffer.start_recording();
 
     // Start background recording task
-    let buffer_clone = RECORDING_STATE.buffer.clone();
+    let buffer_clone = get_recording_state().buffer.clone();
     let brp_clone = brp_client.clone();
 
     tokio::spawn(async move {
@@ -147,7 +155,7 @@ async fn handle_record(arguments: Value, brp_client: Arc<RwLock<BrpClient>>) -> 
 
 /// Handle stop action - stop recording
 async fn handle_stop(_arguments: Value, _brp_client: Arc<RwLock<BrpClient>>) -> Result<Value> {
-    let mut buffer = RECORDING_STATE.buffer.write().await;
+    let mut buffer = get_recording_state().buffer.write().await;
 
     if !buffer.is_recording() {
         return Ok(json!({
@@ -174,7 +182,7 @@ async fn handle_stop(_arguments: Value, _brp_client: Arc<RwLock<BrpClient>>) -> 
 
 /// Handle status action - get recording status
 async fn handle_status(_arguments: Value, brp_client: Arc<RwLock<BrpClient>>) -> Result<Value> {
-    let buffer = RECORDING_STATE.buffer.read().await;
+    let buffer = get_recording_state().buffer.read().await;
     let stats = buffer.get_stats();
 
     let is_connected = {
@@ -199,7 +207,7 @@ async fn handle_status(_arguments: Value, brp_client: Arc<RwLock<BrpClient>>) ->
 
 /// Handle marker action - add a marker
 async fn handle_marker(arguments: Value, _brp_client: Arc<RwLock<BrpClient>>) -> Result<Value> {
-    let mut buffer = RECORDING_STATE.buffer.write().await;
+    let mut buffer = get_recording_state().buffer.write().await;
 
     if !buffer.is_recording() {
         return Ok(json!({
@@ -235,7 +243,7 @@ async fn handle_marker(arguments: Value, _brp_client: Arc<RwLock<BrpClient>>) ->
 
 /// Handle save action - save recording to file
 async fn handle_save(arguments: Value, _brp_client: Arc<RwLock<BrpClient>>) -> Result<Value> {
-    let buffer = RECORDING_STATE.buffer.read().await;
+    let buffer = get_recording_state().buffer.read().await;
 
     if buffer.is_recording() {
         return Ok(json!({
@@ -280,7 +288,7 @@ async fn handle_load(arguments: Value, _brp_client: Arc<RwLock<BrpClient>>) -> R
 
     match RecordingBuffer::load_from_file(&path) {
         Ok(recording) => {
-            let mut timeline = RECORDING_STATE.timeline.write().await;
+            let mut timeline = get_recording_state().timeline.write().await;
 
             let total_frames = recording.total_frames;
             let duration = recording.duration;
@@ -290,11 +298,11 @@ async fn handle_load(arguments: Value, _brp_client: Arc<RwLock<BrpClient>>) -> R
             timeline.load_recording(recording.clone());
 
             // Also load into playback controller
-            let controller = PLAYBACK_CONTROLLER.read().await;
+            let controller = get_playback_controller().read().await;
             controller.load_recording(recording.clone()).await?;
 
             // Load into branch manager
-            let mut branch_manager = BRANCH_MANAGER.write().await;
+            let mut branch_manager = get_branch_manager().write().await;
             branch_manager.set_base_recording(recording);
 
             Ok(json!({
@@ -321,10 +329,10 @@ async fn handle_load(arguments: Value, _brp_client: Arc<RwLock<BrpClient>>) -> R
 
 /// Handle stats action - get detailed statistics
 async fn handle_stats(_arguments: Value, _brp_client: Arc<RwLock<BrpClient>>) -> Result<Value> {
-    let buffer = RECORDING_STATE.buffer.read().await;
+    let buffer = get_recording_state().buffer.read().await;
     let stats = buffer.get_stats();
 
-    let timeline = RECORDING_STATE.timeline.read().await;
+    let timeline = get_recording_state().timeline.read().await;
     let markers = timeline.markers();
 
     Ok(json!({
@@ -396,7 +404,7 @@ fn parse_recording_config(arguments: &Value) -> RecordingConfig {
 
 /// Handle play action - start or resume playback
 async fn handle_play(_arguments: Value, brp_client: Arc<RwLock<BrpClient>>) -> Result<Value> {
-    let controller = PLAYBACK_CONTROLLER.read().await;
+    let controller = get_playback_controller().read().await;
 
     match controller.play(brp_client).await {
         Ok(()) => Ok(json!({
@@ -416,7 +424,7 @@ async fn handle_play(_arguments: Value, brp_client: Arc<RwLock<BrpClient>>) -> R
 
 /// Handle pause action - pause playback
 async fn handle_pause(_arguments: Value, _brp_client: Arc<RwLock<BrpClient>>) -> Result<Value> {
-    let controller = PLAYBACK_CONTROLLER.read().await;
+    let controller = get_playback_controller().read().await;
 
     match controller.pause().await {
         Ok(()) => Ok(json!({
@@ -436,7 +444,7 @@ async fn handle_pause(_arguments: Value, _brp_client: Arc<RwLock<BrpClient>>) ->
 
 /// Handle seek action - seek to frame or marker
 async fn handle_seek(arguments: Value, _brp_client: Arc<RwLock<BrpClient>>) -> Result<Value> {
-    let controller = PLAYBACK_CONTROLLER.read().await;
+    let controller = get_playback_controller().read().await;
 
     if let Some(frame_number) = arguments.get("frame").and_then(|f| f.as_u64()) {
         match controller.seek_to_frame(frame_number as usize).await {
@@ -478,7 +486,7 @@ async fn handle_seek(arguments: Value, _brp_client: Arc<RwLock<BrpClient>>) -> R
 
 /// Handle step action - step forward or backward
 async fn handle_step(arguments: Value, brp_client: Arc<RwLock<BrpClient>>) -> Result<Value> {
-    let controller = PLAYBACK_CONTROLLER.read().await;
+    let controller = get_playback_controller().read().await;
     let direction = arguments
         .get("direction")
         .and_then(|d| d.as_str())
@@ -520,7 +528,7 @@ async fn handle_set_speed(arguments: Value, _brp_client: Arc<RwLock<BrpClient>>)
         .and_then(|s| s.as_f64())
         .ok_or_else(|| Error::Validation("Missing 'speed' parameter".to_string()))?;
 
-    let controller = PLAYBACK_CONTROLLER.read().await;
+    let controller = get_playback_controller().read().await;
 
     match controller.set_speed(speed as f32).await {
         Ok(()) => Ok(json!({
@@ -543,7 +551,7 @@ async fn handle_playback_status(
     _arguments: Value,
     _brp_client: Arc<RwLock<BrpClient>>,
 ) -> Result<Value> {
-    let controller = PLAYBACK_CONTROLLER.read().await;
+    let controller = get_playback_controller().read().await;
     let stats = controller.get_stats().await;
 
     Ok(json!({
@@ -577,7 +585,7 @@ async fn handle_create_branch(
         .and_then(|f| f.as_u64())
         .unwrap_or(0) as usize;
 
-    let mut branch_manager = BRANCH_MANAGER.write().await;
+    let mut branch_manager = get_branch_manager().write().await;
 
     match branch_manager.create_branch(name.to_string(), parent_id, branch_point_frame) {
         Ok(branch_id) => Ok(json!({
@@ -604,7 +612,7 @@ async fn handle_list_branches(
     _arguments: Value,
     _brp_client: Arc<RwLock<BrpClient>>,
 ) -> Result<Value> {
-    let branch_manager = BRANCH_MANAGER.read().await;
+    let branch_manager = get_branch_manager().read().await;
     let branches = branch_manager.list_branches();
 
     let branches_json: Vec<Value> = branches
@@ -644,7 +652,7 @@ async fn handle_switch_branch(
 
     let branch_id = BranchId::from_string(branch_id_str)?;
 
-    let mut branch_manager = BRANCH_MANAGER.write().await;
+    let mut branch_manager = get_branch_manager().write().await;
 
     match branch_manager.set_active_branch(branch_id) {
         Ok(()) => {
@@ -734,7 +742,7 @@ async fn handle_add_modification(
     let mut layer = ModificationLayer::new(frame_number, description);
     layer.add_modification(modification);
 
-    let mut branch_manager = BRANCH_MANAGER.write().await;
+    let mut branch_manager = get_branch_manager().write().await;
 
     if let Some(branch) = branch_manager.get_branch_mut(branch_id) {
         match branch.add_modification_layer(layer) {
@@ -791,7 +799,7 @@ async fn handle_merge_branch(
         }
     };
 
-    let mut branch_manager = BRANCH_MANAGER.write().await;
+    let mut branch_manager = get_branch_manager().write().await;
 
     match branch_manager.merge_branch(branch_id, strategy) {
         Ok(resolutions) => Ok(json!({
@@ -840,7 +848,7 @@ async fn handle_compare_branches(
         .and_then(|f| f.as_u64())
         .unwrap_or(10) as usize;
 
-    let mut branch_manager = BRANCH_MANAGER.write().await;
+    let mut branch_manager = get_branch_manager().write().await;
 
     match branch_manager.compare_branches(branch_a, branch_b, start_frame..end_frame) {
         Ok(comparison) => {
@@ -894,7 +902,7 @@ async fn handle_delete_branch(
 
     let branch_id = BranchId::from_string(branch_id_str)?;
 
-    let mut branch_manager = BRANCH_MANAGER.write().await;
+    let mut branch_manager = get_branch_manager().write().await;
 
     match branch_manager.delete_branch(branch_id) {
         Ok(()) => Ok(json!({
@@ -918,7 +926,7 @@ async fn handle_branch_tree(
     _arguments: Value,
     _brp_client: Arc<RwLock<BrpClient>>,
 ) -> Result<Value> {
-    let branch_manager = BRANCH_MANAGER.read().await;
+    let branch_manager = get_branch_manager().read().await;
     let tree = branch_manager.get_branch_tree();
 
     fn serialize_branch_node(node: &crate::timeline_branching::BranchNode) -> Value {

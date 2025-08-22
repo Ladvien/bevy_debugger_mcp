@@ -620,7 +620,6 @@ dependencies = [
  "futures-util",
  "hostname",
  "is-terminal",
- "lazy_static",
  "md5",
  "nix 0.27.1",
  "notify",

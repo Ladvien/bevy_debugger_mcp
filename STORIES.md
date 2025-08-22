@@ -1,29 +1,5 @@
 ## Epic: Technical Debt - Deprecated Patterns and Dependencies
 
-### Story 2: Standardize rand Dependency Versions
-**Title:** Resolve rand version conflict between dependencies and dev-dependencies
-
-**Description:**
-Inconsistent `rand` versions between dependencies (0.9.2) and dev-dependencies (0.8) causing potential compilation issues.
-
-**Acceptance Criteria:**
-- [ ] Standardize on `rand = "0.8"` across all dependencies
-- [ ] Update Cargo.toml dependencies section
-- [ ] Update Cargo.toml dev-dependencies section
-- [ ] Run `cargo update` and verify no conflicts
-- [ ] Ensure all dependent crates are compatible
-
-**Definition of Done:**
-- Code changes committed and reviewed
-- All unit tests pass
-- Integration tests pass
-- No compiler warnings related to rand
-- Documentation updated if needed
-- Code reviewed by at least one team member
-
-**Story Points:** 2
-
----
 
 ### Story 3: Replace lazy_static with std::sync::OnceLock
 **Title:** Modernize lazy_static usage to std::sync::OnceLock
