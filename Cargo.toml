@@ -1,6 +1,6 @@
 [package]
 name = "bevy_debugger_mcp"
-version = "0.1.6"
+version = "0.1.7"
 edition = "2021"
 authors = ["ladvien <ladvien@example.com>"]
 description = "AI-assisted debugging for Bevy games through Claude Code using Model Context Protocol"
