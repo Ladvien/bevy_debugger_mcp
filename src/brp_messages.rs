@@ -287,6 +287,22 @@ pub enum DebugCommand {
     /// Get debug system status
     GetStatus,
 
+    /// Get entity hierarchy information
+    GetHierarchy {
+        /// Optional root entity to start from
+        root_entity: Option<EntityId>,
+        /// Maximum depth to traverse
+        max_depth: Option<usize>,
+    },
+
+    /// Get system information and metadata
+    GetSystemInfo {
+        /// Optional system name filter
+        system_name: Option<String>,
+        /// Include scheduling information
+        include_scheduling: Option<bool>,
+    },
+
     /// Start automated issue detection monitoring
     StartIssueDetection,
 

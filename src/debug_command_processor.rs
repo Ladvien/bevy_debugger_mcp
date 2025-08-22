@@ -333,6 +333,39 @@ impl DebugCommandRouter {
         None
     }
     
+    /// Route a debug command request for processing
+    pub async fn route(&self, request: DebugCommandRequest) -> Result<DebugResponse> {
+        // Queue the command
+        self.queue_command(request.clone()).await?;
+        
+        // Process immediately and return result
+        if let Some(result) = self.process_next().await {
+            match result {
+                Ok((correlation_id, response)) => {
+                    if correlation_id == request.correlation_id {
+                        Ok(response)
+                    } else {
+                        // Store and retrieve by correlation ID
+                        self.get_response(&request.correlation_id).await
+                            .ok_or_else(|| Error::DebugError("Response not found".to_string()))
+                    }
+                }
+                Err(e) => Err(e),
+            }
+        } else {
+            Err(Error::DebugError("No commands to process".to_string()))
+        }
+    }
+
+    /// Validate a debug command
+    pub async fn validate_command(&self, command: &DebugCommand) -> Result<()> {
+        if let Some(processor) = self.find_processor(command).await {
+            processor.validate(command).await
+        } else {
+            Err(Error::DebugError("No processor found for command".to_string()))
+        }
+    }
+    
     /// Update metrics after command processing
     async fn update_metrics(&self, duration: Duration, success: bool) {
         let mut metrics = self.metrics.write().await;
