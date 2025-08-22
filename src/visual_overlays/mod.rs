@@ -174,6 +174,9 @@ impl VisualOverlayManager {
             DebugOverlayType::Transforms => "transforms".to_string(),
             DebugOverlayType::SystemFlow => "system_flow".to_string(),
             DebugOverlayType::PerformanceMetrics => "performance_metrics".to_string(),
+            DebugOverlayType::ColliderVisualization => "collider_visualization".to_string(),
+            DebugOverlayType::TransformGizmos => "transform_gizmos".to_string(),
+            DebugOverlayType::DebugMarkers => "debug_markers".to_string(),
             DebugOverlayType::Custom(name) => format!("custom_{}", name),
         }
     }

@@ -1,853 +1,718 @@
-# MCP BRP Debugger Integration - Completed Stories Archive
+## Epic: Technical Debt - Deprecated Patterns and Dependencies
 
-> **Note**: Epic BEVDBG-001 (MCP BRP Debugger Integration) was completed on 2025-08-22.
-> All acceptance criteria met, code review completed, and system is production ready.
+### Story 1: Replace Deprecated rand Methods
+**Title:** Replace deprecated rand::thread_rng() and gen() methods across codebase
 
----
+**Description:**
+Multiple files are using deprecated `rand` methods that need to be updated to modern API patterns.
 
-## Story: BEVDBG-004 - System Performance Profiler ✅ COMPLETED
-**Points:** 8
-**Priority:** High
-**Sprint:** 2
-**Status:** COMPLETED
+**Acceptance Criteria:**
+- [ ] Replace all instances of `rand::thread_rng()` with `rand::rng()`
+- [ ] Replace all instances of `gen()` with `random()`
+- [ ] Update affected files:
+  - `/src/stress_test_system.rs` (lines 347, 352, 467, 520, 674, 781)
+  - `/src/issue_detector_processor.rs` (lines 21-22)
+- [ ] All tests pass after changes
+- [ ] No deprecation warnings for rand usage
 
-### Summary
-As a developer, I need to profile individual system performance through MCP commands so that I can identify bottlenecks and optimization opportunities in the ECS system execution.
+**Definition of Done:**
+- Code changes committed and reviewed
+- All unit tests pass
+- Integration tests pass
+- No compiler warnings related to rand
+- Documentation updated if needed
+- Code reviewed by at least one team member
 
-### Implementation Summary
-Created comprehensive system profiling infrastructure with production-ready capabilities:
-
-**Core Components Delivered:**
-- **SystemProfiler** (`src/system_profiler.rs`, 700+ lines): Core profiling engine with ring buffer storage, anomaly detection, and export capabilities
-- **SystemProfilerProcessor** (`src/system_profiler_processor.rs`, 200+ lines): Debug command processor integration
-- **Integration tests** (`tests/system_profiler_integration_tests.rs`, 600+ lines): 17+ comprehensive test scenarios
-
-### Key Features Delivered
-- ✅ Per-system execution time tracking with microsecond precision
-- ✅ System dependency graph analysis and tracking
-- ✅ Frame time attribution with 1000-frame history
-- ✅ Historical performance data with ring buffer storage
-- ✅ Anomaly detection with configurable thresholds (1.5x average by default)
-- ✅ Multiple export formats (JSON, CSV, Tracy)
-- ✅ Memory allocation tracking (optional)
-- ✅ Automatic profiling triggers for frame spikes
-- ✅ Performance metrics: min/max/avg/median/p95/p99
-- ✅ < 3% overhead when profiling active (validated)
-
-### Technical Architecture
-- **Ring buffer storage**: Efficient frame history with automatic cleanup
-- **Priority queue processing**: Integrated with debug command router
-- **Async profiling**: Non-blocking sample collection
-- **Moving average**: For baseline performance tracking
-- **Concurrent limits**: MAX_CONCURRENT_SYSTEMS = 50
-- **Session management**: Auto-stop with configurable durations
-- **Export pipeline**: Multiple format support for external tools
-
-### Performance Characteristics
-- Frame history: 1000 frames max (configurable)
-- Anomaly detection: 100-sample moving average window
-- Processing time: < 0.1ms per system call
-- Memory overhead: Minimal with automatic cleanup
-- Concurrent profiling: Up to 50 systems simultaneously
-
-### Integration Points
-- MCP server integration via debug command router
-- BRP client for Bevy communication
-- Tracy/puffin profiler compatibility
-- Export formats for external analysis tools
-
-### Testing Coverage
-- 17 integration tests (all passing)
-- Unit tests for core components
-- Performance overhead validation
-- Anomaly detection verification
-- Export format validation
-- Concurrent profiling limits tested
-
-### Acceptance Criteria
-- ✅ Can start/stop profiling for specific systems via MCP
-- ✅ Profiling data includes min/max/avg/p95/p99 times
-- ✅ System dependency impacts calculated and reported
-- ✅ Memory allocations tracked per system (when enabled)
-- ✅ Performance overhead < 3% when profiling active
-- ✅ Historical data queryable for trend analysis
-- ✅ Integration with existing Tracy/puffin profilers maintained
-
-### Technical Tasks
-- ✅ Create `SystemProfiler` resource with ring buffer storage
-- ✅ Implement system timing instrumentation hooks
-- ✅ Add MCP commands for profiler control
-- ✅ Build performance aggregation pipeline
-- ✅ Implement anomaly detection algorithm
-- ✅ Create profiling data export formats
-- ✅ Add automatic profiling triggers for frame spikes
-
-### Code Quality
-- Clean separation of concerns
-- Comprehensive error handling
-- Proper async/await usage
-- Memory-efficient design
-- Well-documented API
+**Story Points:** 3
 
 ---
 
-## Story: BEVDBG-005 - Visual Debug Overlay System ✅ COMPLETED
-**Points:** 13
-**Priority:** Medium  
-**Sprint:** 2
-**Status:** COMPLETED
+### Story 2: Standardize rand Dependency Versions
+**Title:** Resolve rand version conflict between dependencies and dev-dependencies
 
-### Summary
-As a developer, I need visual debugging overlays controllable via MCP so that I can see debug information directly in the rendered scene, making it easier to understand spatial relationships and rendering issues.
+**Description:**
+Inconsistent `rand` versions between dependencies (0.9.2) and dev-dependencies (0.8) causing potential compilation issues.
 
-### Description
-Implement a comprehensive visual debugging system that can render debug information as overlays in the game view. Must coexist with existing rendering pipelines and be completely toggleable without performance impact when disabled.
+**Acceptance Criteria:**
+- [ ] Standardize on `rand = "0.8"` across all dependencies
+- [ ] Update Cargo.toml dependencies section
+- [ ] Update Cargo.toml dev-dependencies section
+- [ ] Run `cargo update` and verify no conflicts
+- [ ] Ensure all dependent crates are compatible
 
-### Technical Details
-**Rendering Integration:**
-- Existing render pipeline in `crates/bevy-app/src/rendering/pipeline.rs`
-- Gizmo system in `crates/bevy-app/src/debug/gizmos.rs`
-- UI overlay system in `crates/bevy-app/src/ui/overlay.rs`
+**Definition of Done:**
+- Code changes committed and reviewed
+- All unit tests pass
+- Integration tests pass
+- No compiler warnings related to rand
+- Documentation updated if needed
+- Code reviewed by at least one team member
 
-**Implementation Requirements:**
-1. Entity highlight system with customizable colors
-2. Collider visualization for physics debugging
-3. Transform hierarchy visualization
-4. System execution flow visualization
-5. Performance metrics overlay
-6. Custom debug markers and labels
-
-### Acceptance Criteria
-- ✅ Can enable/disable overlays via MCP without restart
-- ✅ Entity highlighting supports multiple highlight modes  
-- ✅ Collider shapes accurately represent physics bodies
-- ✅ Transform gizmos show local/world space correctly
-- ✅ Text overlays readable at various resolutions
-- ✅ No rendering artifacts when overlays enabled
-- ✅ Performance impact < 2ms per frame with all overlays
-- ✅ Overlays work correctly with multiple cameras
-
-### Technical Tasks
-- ✅ Implement Visual Debug Overlay system with MCP integration
-- ✅ Create comprehensive overlay type system (EntityHighlight, ColliderVisualization, etc.)
-- ✅ Build performance budget enforcement (2ms per frame)
-- ✅ Implement overlay state management with BRP synchronization
-- ✅ Add debug command processor for SetVisualDebug commands
-- ✅ Create overlay compositing system with priority management
-- ✅ Implement configuration serialization for network transmission
-- ✅ Add comprehensive test coverage with integration tests
-
-### Implementation Summary
-- **Core Files Created**: `visual_debug_overlay.rs`, `visual_debug_overlay_processor.rs`
-- **Overlay Types**: EntityHighlight, ColliderVisualization, TransformGizmos, PerformanceMetrics, DebugMarkers
-- **Performance**: 2ms budget with real-time monitoring and warnings
-- **Integration**: Full MCP debug command support via DebugCommandProcessor
-- **Testing**: 20+ tests covering unit, integration, and performance scenarios
-- **Architecture**: Clean separation between overlay management and MCP processing
-
-### Shader Modifications
-```wgsl
-// Must integrate with existing shader pipeline
-// Located in: assets/shaders/debug_overlay.wgsl
-@fragment
-fn debug_overlay_fragment(input: VertexOutput) -> @location(0) vec4<f32> {
-    // Overlay rendering logic here
-}
-```
+**Story Points:** 2
 
 ---
 
-## Story: BEVDBG-006 - ECS Query Builder and Validator ✅ COMPLETED
-**Points:** 8
-**Priority:** High
-**Sprint:** 3
-**Status:** COMPLETED
+### Story 3: Replace lazy_static with std::sync::OnceLock
+**Title:** Modernize lazy_static usage to std::sync::OnceLock
 
-### Summary
-As an AI agent, I need a safe query builder with validation so that I can construct complex ECS queries without causing panics or performance issues in the Bevy application.
+**Description:**
+Replace deprecated `lazy_static` crate with Rust's built-in `OnceLock` in `/src/tools/replay.rs`.
 
-### Implementation Summary
-Created comprehensive ECS Query Builder and Validator system with production-ready capabilities:
+**Acceptance Criteria:**
+- [ ] Remove lazy_static dependency from Cargo.toml
+- [ ] Replace lazy_static usage in `/src/tools/replay.rs:16`
+- [ ] Use `std::sync::OnceLock` pattern
+- [ ] Verify functionality remains unchanged
+- [ ] Update minimum Rust version if needed
 
-**Core Components Delivered:**
-- **QueryBuilder** (`src/query_builder.rs`, 600+ lines): Fluent interface for type-safe query construction with validation, optimization, and caching
-- **QueryBuilderProcessor** (`src/query_builder_processor.rs`, 500+ lines): MCP integration for debug command processing
-- **Integration tests** (`tests/query_builder_integration_tests.rs`, 692 lines): 28+ comprehensive test scenarios covering all functionality
-- **Extended BRP Messages** (`src/brp_messages.rs`): New debug commands for query operations
+**Definition of Done:**
+- Code changes committed and reviewed
+- All unit tests pass
+- Integration tests pass
+- No compiler warnings related to rand
+- Documentation updated if needed
+- Code reviewed by at least one team member
 
-### Key Features Delivered
-- ✅ Type-safe query construction with fluent interface (`QueryBuilder::new().with_component("Transform").validate()`)
-- ✅ Comprehensive query validation with helpful error messages and component suggestions
-- ✅ Query optimization suggestions for broad queries and performance improvements
-- ✅ Query result pagination with offset/limit support for datasets > 1000 entities
-- ✅ Query execution time estimation with selectivity-based cost modeling
-- ✅ Deterministic query caching with TTL (5-minute default) and hit tracking
-- ✅ Performance budget enforcement (10ms execution budget with warnings)
-- ✅ Component value filtering with field-level operations (GreaterThan, Equal, etc.)
-
-### Technical Implementation
-**Query Builder Architecture:**
-```rust
-// Fluent interface with method chaining
-let query = QueryBuilder::new()
-    .with_component("Transform")
-    .with_component("Velocity")
-    .without_component("Camera")
-    .limit(50)
-    .validate()?;
-
-// Cost estimation and optimization
-let cost = query_builder.estimate_cost();
-let hints = query_builder.get_optimization_hints();
-```
-
-**MCP Integration:**
-- **ValidateQuery**: Validates query parameters without execution
-- **EstimateCost**: Provides performance estimation and budget compliance
-- **GetQuerySuggestions**: Returns optimization recommendations
-- **BuildAndExecuteQuery**: Full query construction and execution pipeline
-
-**Performance Features:**
-- Query cache with SHA-256 deterministic keys
-- Component selectivity coefficients for realistic cost estimation
-- Exponential moving averages for performance statistics
-- Memory usage estimation (128 bytes per entity approximation)
-
-### Security & Safety
-- Input validation for component names and parameters
-- Query complexity limits (max 20 components per query)
-- Performance budget protection against DoS attacks
-- Type mismatch detection before execution
-- Contradictory filter detection (same component required and excluded)
-
-### Code Quality Achieved
-- **8.2/10 overall score** from comprehensive code review
-- Excellent architecture with SOLID principles compliance
-- Extensive error handling with contextual messages
-- 28 integration tests covering happy path and edge cases
-- Performance benchmarking with concurrent execution tests
-- Clean separation between builder, validator, and processor layers
-
-### Integration Maintained
-- ✅ Full compatibility with existing query API
-- ✅ Seamless MCP protocol integration
-- ✅ BRP client communication maintained
-- ✅ Debug command processor pattern extended
-- ✅ Existing entity manipulation commands unaffected
+**Story Points:** 2
 
 ---
 
-## Story: BEVDBG-007 - Memory Profiler and Leak Detector ✅ COMPLETED
-**Points:** 8
-**Priority:** Medium
-**Sprint:** 3
-**Status:** COMPLETED
+## Epic: Unused Dependencies and Dead Code
 
-### Summary
-As a developer, I need memory profiling tools accessible via MCP so that I can identify memory leaks and optimize memory usage in my Bevy application.
+### Story 4: Audit and Remove Unused Dependencies
+**Title:** Remove unused dependencies from Cargo.toml
 
-### Implementation Summary
-Created comprehensive memory profiling infrastructure with production-ready capabilities:
+**Description:**
+Several dependencies are potentially unused and should be removed to reduce binary size and compilation time.
 
-**Core Components Delivered:**
-- **MemoryProfiler** (`src/memory_profiler.rs`, 730+ lines): Core profiling engine with allocation tracking, leak detection, and trend analysis
-- **MemoryProfilerProcessor** (`src/memory_profiler_processor.rs`, 670+ lines): MCP debug command processor integration  
-- **Integration tests** (`tests/memory_profiler_integration_tests.rs`, 1100+ lines): 28+ comprehensive test scenarios covering all functionality
-- **Extended BRP Messages** (`src/brp_messages.rs`): New memory profiling debug commands
+**Acceptance Criteria:**
+- [ ] Audit usage of `atty` (line 74) - replace with `is-terminal` if needed
+- [ ] Verify and remove `hostname` (line 72) if unused
+- [ ] Verify and remove `rustc_version_runtime` (line 73) if unused
+- [ ] Verify and remove `md5` (line 76) - replace with SHA-256 if hashing needed
+- [ ] Run `cargo build` successfully after removals
+- [ ] Binary size reduction documented
 
-### Key Features Delivered
-- ✅ Per-system memory allocation tracking with <5% overhead (validated)
-- ✅ Entity count and memory usage monitoring
-- ✅ Resource memory footprint analysis  
-- ✅ Leak detection with allocation backtraces (5-minute threshold)
-- ✅ Memory usage trends and predictions with confidence scoring
-- ✅ Memory snapshots comparable across time (1000-snapshot history)
-- ✅ Performance overhead monitoring with self-tuning
-- ✅ Concurrent-safe design using Arc<DashMap> and atomic operations
-- ✅ Automatic cleanup and memory management
-- ✅ Session-based profiling with duration controls
+**Definition of Done:**
+- Code changes committed and reviewed
+- All unit tests pass
+- Integration tests pass
+- No compiler warnings related to rand
+- Documentation updated if needed
+- Code reviewed by at least one team member
 
-### Technical Architecture
-- **Overhead Monitoring**: Self-monitoring with <5% target (configurable)
-- **Leak Detection**: Pattern-based detection with 10+ allocation threshold
-- **Trend Analysis**: Linear regression for growth rate prediction
-- **Memory Safety**: Ring buffers and automatic cleanup prevent memory bloat
-- **Concurrent Access**: Thread-safe design using atomic operations
-- **Session Management**: Multiple concurrent profiling sessions supported
-
-### MCP Integration
-- **ProfileMemory**: Start memory profiling with backtrace capture
-- **StopMemoryProfiling**: Stop profiling sessions by ID
-- **GetMemoryProfile**: Current memory usage by system
-- **DetectMemoryLeaks**: Identify potential leaks with backtraces
-- **AnalyzeMemoryTrends**: Growth rate analysis and predictions
-- **TakeMemorySnapshot**: Manual snapshot capture
-- **GetMemoryStatistics**: Profiler performance and status
-
-### Performance Characteristics
-- Memory tracking overhead: <5% (measured and validated)
-- Allocation processing: <0.1ms per allocation
-- Leak detection: Configurable threshold (default: 5 minutes)
-- Trend analysis: 3+ snapshots required for predictions
-- Memory cleanup: Automatic with configurable intervals
-
-### Testing Coverage
-- 14 unit tests covering core functionality
-- 28+ integration tests for MCP command processing
-- Performance overhead validation
-- Concurrent operation testing
-- Memory cleanup verification
-- Error handling and edge cases
-
-### Acceptance Criteria
-- ✅ Memory usage tracked per system with < 5% overhead
-- ✅ Entity leaks detected within 60 seconds (configurable to 5 minutes)
-- ✅ Memory snapshots comparable across time
-- ✅ Allocation hotspots identified with source location
-- ✅ Works with both debug and release builds
-- ⚠️ Integration with existing jemalloc/mimalloc (foundation ready)
-- ✅ Memory reports exportable through MCP interface
-
-### Technical Tasks
-- ✅ Implement allocation tracking hooks (simulated, ready for real integration)
-- ✅ Create memory snapshot system
-- ✅ Build leak detection algorithm  
-- ✅ Add memory trend analysis
-- ✅ Implement allocation backtrace capture
-- ✅ Create memory report generator
-- ✅ Add automatic memory threshold alerts
-
-### Code Quality
-- Clean separation of concerns between profiler and processor
-- Comprehensive error handling with proper Result types
-- Memory-efficient design with automatic cleanup
-- Well-documented API with inline documentation
-- Production-ready configuration and safety limits
-
-### Future Integration Notes
-- Ready for real allocator instrumentation (jemalloc/mimalloc hooks)
-- Foundation prepared for BRP client integration
-- Extensible architecture for additional memory metrics
-- Session management ready for multi-client scenarios
+**Story Points:** 3
 
 ---
 
-## Story: BEVDBG-008 - Debug Session Management ✅ COMPLETED
-**Points:** 5
-**Priority:** Medium
-**Sprint:** 4
-**Status:** Done
-**Completed:** 2025-08-19
+### Story 5: Clean Up Unused Imports
+**Title:** Remove 30+ unused imports across source files
 
-### Summary
-As an AI agent, I need debug session management so that I can maintain context across multiple debugging commands and replay debugging sequences.
+**Description:**
+Extensive unused imports identified by compiler warnings need to be cleaned up.
 
-### Description
-Implement session management that tracks debug command history, maintains debugging context, and allows replay of command sequences. Must integrate with existing connection management.
+**Acceptance Criteria:**
+- [ ] Remove unused imports from `/src/mcp_server.rs`
+- [ ] Remove unused imports from processor files
+- [ ] Remove unused imports from `/src/profiling.rs`
+- [ ] Remove unused imports from `/src/compile_opts.rs`
+- [ ] Zero unused import warnings from `cargo check`
+- [ ] Use automated tooling where possible (cargo fix)
 
-### Technical Details
-**Session Integration:**
-- Session manager in `src/session_manager.rs`
-- Session processor in `src/session_processor.rs`
-- Integration with MCP server and debug command router
-- Checkpoint system integration for state persistence
+**Definition of Done:**
+- Code changes committed and reviewed
+- All unit tests pass
+- Integration tests pass
+- No compiler warnings related to rand
+- Documentation updated if needed
+- Code reviewed by at least one team member
 
-**Implementation Requirements:**
-1. ✅ Session creation and lifecycle management
-2. ✅ Command history with replay support
-3. ✅ World state checkpointing
-4. ✅ Command replay with timing preservation
-5. ✅ Session persistence with cleanup
-
-### Acceptance Criteria
-- ✅ Sessions persist with automatic cleanup after 24h inactivity
-- ✅ Command history maintains last 1000 commands per session
-- ✅ Checkpoints created/restored with state serialization
-- ✅ Replay accurately reproduces command sequences with timing
-- ✅ Session data cleaned up with configurable intervals
-- ✅ Multiple concurrent sessions supported (max 50)
-- ✅ Session state exportable through debug commands
-
-### Technical Tasks
-- ✅ Design session state model with DebugSession struct
-- ✅ Implement checkpoint system integration
-- ✅ Create command history storage with VecDeque
-- ✅ Build replay mechanism with position tracking
-- ✅ Add session persistence with JSON serialization
-- ✅ Implement session cleanup scheduler (background task)
-- ✅ Create session export/import through MCP commands
-
-### Implementation Files
-- `src/session_manager.rs` - Core session management logic
-- `src/session_processor.rs` - Debug command processor integration
-- `tests/session_management_integration_tests.rs` - Comprehensive test suite
+**Story Points:** 2
 
 ---
 
-## Story: BEVDBG-009 - Automated Issue Detection ✅ COMPLETED
-**Points:** 13
-**Priority:** Low
-**Sprint:** 4
-**Status:** COMPLETED
-**Completed:** 2025-08-19
+### Story 6: Remove Dead Code Structures
+**Title:** Clean up unused methods, fields, constants, and enum variants
 
-### Summary
-As a developer, I need automated issue detection that continuously monitors for common problems and alerts through MCP when issues are found.
+**Description:**
+Multiple dead code elements identified that are never used in production.
 
-### Implementation Summary
-Successfully implemented a comprehensive automated issue detection system for Bevy debugging with 17 distinct issue patterns, real-time monitoring, alert throttling, and ML data collection capabilities.
+**Acceptance Criteria:**
+- [ ] Remove unused methods: `send_response`, `is_expired`
+- [ ] Remove unused fields: `track_allocations`, `execution_order`, `active_detectors`
+- [ ] Remove unused constant: `PLATFORM_DETECTION_INTERVAL`
+- [ ] Remove unused enum variants: `HighEntityCount`, `HasErrors`, `SequenceMatch`
+- [ ] Verify no functionality broken
+- [ ] Document any intentionally kept dead code
 
-### Key Components Created
-1. **src/issue_detector.rs** - Core detection engine with pattern matching
-2. **src/issue_detector_processor.rs** - MCP integration for debug commands
-3. **tests/issue_detection_integration_tests.rs** - Comprehensive test coverage
+**Definition of Done:**
+- Code changes committed and reviewed
+- All unit tests pass
+- Integration tests pass
+- No compiler warnings related to rand
+- Documentation updated if needed
+- Code reviewed by at least one team member
 
-### Technical Achievements
-- ✅ 17 distinct issue patterns covering common Bevy problems
-- ✅ Alert throttling to prevent spam (5-minute default window)
-- ✅ ML data collection for future enhancements
-- ✅ Graceful shutdown for background monitoring
-- ✅ Thread-safe concurrent detection using Arc<RwLock<>>
-- ✅ Performance overhead under 3ms per check (measured)
-- ✅ Configurable detection rules with severity classification
-- ✅ Real-time monitoring with background task execution
-
-### Critical Issues Fixed During Code Review
-1. **Memory Safety**: Fixed unbounded VecDeque and buffer growth
-2. **Async Safety**: Replaced blocking rand with async-safe StdRng
-3. **Graceful Shutdown**: Added proper shutdown signaling with watch channels
-4. **Race Conditions**: Resolved throttle check race condition (though reverted to simpler approach)
-5. **Performance**: Maintained sub-3ms detection overhead
-
-### Architectural Decisions
-- Used Arc<RwLock<>> for shared state management
-- Implemented processor pattern for command handling
-- Separated detection logic from MCP integration
-- Used pattern-based detection with configurable rules
-
-### Testing Strategy
-- All 17 patterns have dedicated tests
-- Alert throttling verification
-- Performance overhead monitoring
-- Concurrent detection testing
-- ML data collection validation
-
-### Issue Patterns Implemented
-```rust
-pub enum IssuePattern {
-    TransformNaN { entity: Entity, component: String },
-    ComponentMismatch { entity: Entity, expected: String, found: String },
-    MemoryLeak { rate_mb_per_sec: f32, duration_seconds: u64 },
-    PerformanceDegradation { metric: String, threshold: f32, current: f32 },
-    EntityExplosion { growth_rate: f32, current_count: u32 },
-    ResourceContention { resource: String, wait_time_ms: f32 },
-    RenderingStall { duration_ms: f32, stage: String },
-    SystemPanic { system: String, error: String },
-    DeadlockDetection { systems: Vec<String>, timeout_ms: f32 },
-    InvalidStateTransition { from: String, to: String, reason: String },
-    // ... 7 more patterns
-}
-```
-
-### Lessons Learned
-1. **Memory Management**: Always enforce strict bounds on collections in production code
-2. **Async/Await**: Be careful with blocking operations in async contexts
-3. **Graceful Shutdown**: Always provide clean shutdown mechanisms for background tasks
-4. **Race Conditions**: Sometimes simpler solutions (read-check, then write) are better than complex atomic operations
-5. **Code Review Value**: External review caught critical safety issues that tests missed
-6. **Test Flexibility**: Performance tests should account for safety overhead
-
-### Integration Points
-- Registered in mcp_server.rs as "issue_detector" processor
-- Added 8 new DebugCommand variants in brp_messages.rs
-- Module declarations in lib.rs and main.rs
-
-### MCP Commands Implemented
-- **StartIssueDetection**: Begin real-time monitoring
-- **StopIssueDetection**: End monitoring session
-- **GetDetectedIssues**: Retrieve current issues
-- **ConfigureDetectionRules**: Update detection thresholds
-- **GetDetectionStatistics**: Performance and activity metrics
-- **ClearDetectedIssues**: Reset issue history
-- **EnablePatternDetection**: Toggle specific patterns
-- **ExportMLData**: Extract data for machine learning
-
-### Future Enhancements Suggested
-- Batch processing for performance
-- Caching for rule lookups
-- Time-series database for ML data
-- Rate limiting for DoS protection
-- Input validation for pattern data
-
-### Code Quality
-- Clean separation of concerns between detector and processor
-- Comprehensive error handling with proper Result types
-- Memory-efficient design with automatic cleanup
-- Well-documented API with inline documentation
-- Production-ready configuration and safety limits
-
-### Acceptance Criteria
-- ✅ Detects 17+ common issue patterns
-- ✅ False positive rate minimized through careful threshold tuning
-- ✅ Detection latency < 3ms per check cycle
-- ✅ Configurable sensitivity levels per issue type
-- ✅ Alerts include actionable remediation information
-- ✅ Detection rules configurable via MCP commands
-- ✅ Performance overhead < 3ms in production
-
-### Technical Tasks
-- ✅ Create issue pattern registry with 17 distinct patterns
-- ✅ Implement detection rule engine with configurable thresholds
-- ✅ Build alert generation pipeline with throttling
-- ✅ Add ML data collection infrastructure
-- ✅ Implement graceful shutdown and cleanup
-- ✅ Create comprehensive test coverage
-
-This implementation provides a robust foundation for automated issue detection in Bevy games, with strong safety guarantees and room for future ML-based enhancements.
+**Story Points:** 3
 
 ---
 
-## Story: BEVDBG-010 - Performance Budget Monitor ✅ COMPLETED
-**Points:** 5
-**Priority:** Medium
-**Sprint:** 5
-**Completed:** 2025-08-19
+## Epic: Core Functionality Implementation
 
-### Summary
-As a developer, I need performance budget monitoring via MCP so that I can ensure my application stays within defined performance constraints.
+### Story 7: Implement Memory Tracking System
+**Title:** Complete memory tracking implementation in profiling module
 
-### Description
-Implement a performance budget system that tracks frame time, memory usage, and system execution against defined budgets. Must integrate with existing metrics collection and provide real-time alerts via MCP.
+**Description:**
+Memory tracking system has TODO placeholders that need actual implementation.
 
-### Technical Details
-**Implementation:**
-- Core monitoring in `src/performance_budget.rs` (856 lines)
-- MCP processor in `src/performance_budget_processor.rs` (400+ lines)
-- Integration tests in `tests/performance_budget_integration_tests.rs` (595 lines)
-- Added 10 new DebugCommand variants in `src/brp_messages.rs`
+**Acceptance Criteria:**
+- [ ] Implement actual memory tracking in `/src/profiling.rs:335`
+- [ ] Implement memory statistics collection in `/src/profiling.rs:366`
+- [ ] Return real memory usage values instead of hardcoded 0
+- [ ] Add unit tests for memory tracking
+- [ ] Performance impact < 1% overhead
+- [ ] Document memory tracking API
 
-**Key Features Implemented:**
-1. Configurable budgets for frame time, memory, CPU, GPU, entities, draw calls, network
-2. Real-time violation detection achieved in <100ms
-3. Compliance reporting with P50, P95, P99 percentiles
-4. Platform detection for Windows, macOS, Linux, Web, Mobile, Console
-5. Budget recommendation engine based on historical data
-6. Ring buffer pattern for bounded memory usage
-7. Arc<RwLock<Inner>> pattern for thread-safe state management
+**Definition of Done:**
+- Code changes committed and reviewed
+- All unit tests pass
+- Integration tests pass
+- No compiler warnings related to rand
+- Documentation updated if needed
+- Code reviewed by at least one team member
 
-### Acceptance Criteria
-- [x] Budgets configurable via MCP and config files
-- [x] Violations detected within 100ms
-- [x] Historical compliance reports available
-- [x] Platform-specific budgets auto-applied
-- [x] Budget recommendations based on percentiles
-- [x] Integration with existing MCP command system
-- [x] Budgets persist in monitor state
-
-### Technical Tasks
-- [x] Design budget configuration schema
-- [x] Implement budget monitoring system
-- [x] Create violation detection pipeline
-- [x] Build compliance reporting system
-- [x] Add budget recommendation engine
-- [x] Implement platform detection logic
-- [x] Create budget persistence layer
-- [x] Write 20+ comprehensive integration tests
-- [x] Perform code review and address issues
-- [x] All tests passing
+**Story Points:** 8
 
 ---
 
-## Story: BEVDBG-011 - Integration Tests and Documentation ✅ COMPLETED
-**Points:** 8
-**Priority:** Critical
-**Sprint:** 5
-**Completed:** 2025-08-19
+### Story 8: Complete BRP Integration
+**Title:** Implement actual Bevy Remote Protocol integration
 
-### Summary
-As a developer, I need comprehensive integration tests and documentation so that the debugging tools are reliable and team members can effectively use them.
+**Description:**
+Multiple TODO comments indicate missing BRP integration. Currently using mock data.
 
-### Description
-Create integration test suite covering all debugging features and comprehensive documentation including tutorials, API references, and troubleshooting guides. Must integrate with existing test and documentation infrastructure.
+**Acceptance Criteria:**
+- [ ] Implement BRP integration in `/src/hypothesis_system.rs:194,211,221`
+- [ ] Replace mock entity queries with actual BRP calls
+- [ ] Implement state synchronization with Bevy
+- [ ] Add error handling for BRP failures
+- [ ] Integration tests with actual Bevy instance
+- [ ] Document BRP protocol usage
 
-### Implementation Details
-**Testing Infrastructure Delivered:**
-- Comprehensive test harness in `tests/integration/harness.rs` (650+ lines)
-- Mock MCP client in `tests/mocks/mcp_client.rs` (600+ lines)
-- CI pipeline with cross-platform support in `.github/workflows/ci.yml`
-- Simple integration tests in `tests/simple_integration_test.rs` (300+ lines)
-- Extensive existing integration tests (8,000+ lines across 25 test files)
+**Definition of Done:**
+- Code changes committed and reviewed
+- All unit tests pass
+- Integration tests pass
+- No compiler warnings related to rand
+- Documentation updated if needed
+- Code reviewed by at least one team member
 
-**Documentation System Delivered:**
-- Complete API documentation in `docs/api/README.md` with examples and error codes
-- 6 comprehensive tutorials in `docs/tutorials/README.md` covering common scenarios
-- Detailed troubleshooting guide in `docs/troubleshooting/README.md` with 20+ issues
-- Existing usage guides in `book/` directory
-
-### Acceptance Criteria
-- [x] 90% code coverage for debug features (extensive existing test suite)
-- [x] All MCP commands have integration tests (11 primary tools tested)
-- [x] Performance regression tests prevent degradation (latency < 200ms validated)
-- [x] Documentation covers all debug commands (complete API reference)
-- [x] Tutorials include 6 common scenarios (getting started to advanced workflows)
-- [x] API documentation with examples and error handling
-- [x] Troubleshooting guide covers 20+ issues with solutions
-
-### Technical Tasks
-- [x] Create debug feature test harness (IntegrationTestHarness with performance tracking)
-- [x] Write integration tests for all commands (all 11 MCP tools covered)
-- [x] Add performance regression test suite (< 200ms validation)
-- [x] Document MCP debug protocol (complete API reference with examples)
-- [x] Create debugging tutorials (6 tutorials from basic to advanced)
-- [x] Write troubleshooting guide (20+ common issues with detailed solutions)
-- [x] Set up CI documentation pipeline (cross-platform GitHub Actions)
-- [x] Add example debug scenarios (integrated into tutorials)
-
-### Test Results
-- **Integration Tests:** 7/7 passing (100% success rate)
-- **Performance Tests:** All commands complete within 200ms budget
-- **Error Handling:** Graceful error handling validated
-- **Concurrent Execution:** 3/3 concurrent calls successful
-- **System Resilience:** System remains responsive after 10+ operations
-- **Cross-Platform CI:** Linux, macOS, Windows support configured
-
-### Test Categories Completed
-```rust
-mod integration_tests {
-    mod entity_inspection { /* 15+ tests */ }
-    mod performance_profiling { /* 12+ tests */ }
-    mod visual_debugging { /* 10+ tests */ }
-    mod query_building { /* 20+ tests */ }
-    mod session_management { /* 8+ tests */ }
-    mod issue_detection { /* 15+ tests */ }
-    mod comprehensive_integration { /* 7 tests */ }
-    mod simple_integration { /* 7 tests */ }
-}
-```
-
-### Key Implementation Notes
-- Built on existing extensive test infrastructure (25 test files, 8,000+ lines)
-- Created production-ready test harness with performance monitoring
-- Comprehensive documentation system with practical examples
-- Cross-platform CI pipeline with proper dependency management
-- All acceptance criteria validated through automated tests
+**Story Points:** 13
 
 ---
 
-## Story: BEVDBG-012 - Performance Optimization Pass ✅ COMPLETED
-**Points:** 5
-**Priority:** High
-**Sprint:** 6
-**Status:** COMPLETED
+### Story 9: Implement Metrics Collection
+**Title:** Replace placeholder metrics with actual performance data collection
 
-### Summary
-As a developer, I need the debugging tools optimized so that they have minimal performance impact when enabled in production builds.
+**Description:**
+Diagnostics module returns hardcoded metrics instead of real measurements.
 
-### Description
-Optimize all debugging features to minimize performance overhead, implement lazy initialization, and add feature flags for granular control. Must maintain functionality while improving performance.
+**Acceptance Criteria:**
+- [ ] Implement CPU usage collection in `/src/diagnostics.rs:200`
+- [ ] Implement memory metrics collection in `/src/diagnostics.rs:215-218`
+- [ ] Implement network metrics collection
+- [ ] Add metrics aggregation logic
+- [ ] Performance overhead < 2%
+- [ ] Add Prometheus export support
 
-### Technical Details
-**Optimization Targets:**
-- Command processing < 1ms p99
-- Memory overhead < 50MB when active
-- CPU overhead < 3% when monitoring
-- Zero overhead when disabled via feature flags
+**Definition of Done:**
+- Code changes committed and reviewed
+- All unit tests pass
+- Integration tests pass
+- No compiler warnings related to rand
+- Documentation updated if needed
+- Code reviewed by at least one team member
 
-### Acceptance Criteria ✅ COMPLETED
-- [x] All debug features behind feature flags
-- [x] Lazy initialization reduces startup time
-- [x] Command processing optimized with caching
-- [x] Memory pooling reduces allocations
-- [x] Profiling shows targets met
-- [x] Production builds exclude debug code when disabled
-- [x] Benchmarks added to prevent regression
-
-### Technical Tasks ✅ COMPLETED
-- [x] Add comprehensive feature flags
-- [x] Implement lazy initialization
-- [x] Add command result caching
-- [x] Create memory pool for responses
-- [x] Optimize hot paths with profiling
-- [x] Add compile-time optimization hints
-- [x] Create performance benchmark suite
-
-### Implementation Summary
-**Files Created:**
-- `src/lazy_init.rs` - Lazy initialization system for debug components
-- `src/command_cache.rs` - LRU cache with TTL for command results
-- `src/response_pool.rs` - Memory pooling for JSON response buffers
-- `src/profiling.rs` - Hot path profiler with measurement tracking
-- `src/compile_opts.rs` - Compile-time optimization hints and macros
-- `benches/performance_benchmarks.rs` - Comprehensive benchmark suite
-
-**Files Modified:**
-- `Cargo.toml` - Added comprehensive feature flag system and build profiles
-- `src/mcp_server.rs` - Integrated optimization systems
-
-**Code Review Findings:**
-- Critical issues identified and partially addressed (unsafe code, memory safety)
-- Architecture provides good foundation but needs refinement for production use
-- Comprehensive benchmarking required to validate optimization effectiveness
-- Some compilation errors remain to be resolved in follow-up work
+**Story Points:** 8
 
 ---
 
-## Epic: BEVDBG-013 - Agent Learning and Adaptation ✅ COMPLETED
-**Points:** 21
-**Priority:** Low
-**Sprint:** 7-8
-**Status:** COMPLETED
-**Last Updated:** 2025-08-22
+### Story 10: Complete Configuration Management System
+**Title:** Implement configuration loading and validation
 
-### Summary
-As an AI agent, I need the debugging system to learn from past debugging sessions so that I can provide better suggestions and automate common debugging patterns.
+**Description:**
+Configuration management returns empty/default values and lacks validation.
 
-### Implementation Progress
-Successfully implemented core pattern learning and suggestion generation with strong privacy preservation:
+**Acceptance Criteria:**
+- [ ] Implement config loading from files in `/src/diagnostics.rs:276`
+- [ ] Add configuration schema validation
+- [ ] Support environment variable overrides
+- [ ] Add configuration hot-reload capability
+- [ ] Validate port ranges and host addresses
+- [ ] Add configuration documentation
 
-**Completed Components:**
-- ✅ **PatternLearningSystem** (`src/pattern_learning.rs`): Privacy-preserving pattern mining with k-anonymity and differential privacy
-- ✅ **SuggestionEngine** (`src/suggestion_engine.rs`): Context-aware suggestion generation from learned patterns
-- ✅ **Pattern Mining**: PrefixSpan algorithm for sequential pattern discovery
-- ✅ **Privacy Protection**: K-anonymity (k=5) and differential privacy (ε=1.0)
-- ✅ **Test Suite**: 13 comprehensive tests covering privacy, concurrency, and edge cases
+**Definition of Done:**
+- Code changes committed and reviewed
+- All unit tests pass
+- Integration tests pass
+- No compiler warnings related to rand
+- Documentation updated if needed
+- Code reviewed by at least one team member
 
-### Technical Architecture Delivered
-- **Privacy-First Design**: Entity IDs hashed, system names anonymized
-- **Efficient Mining**: O(n*m) complexity with bounded memory usage
-- **Concurrent Access**: Lock-free DashMap for pattern storage
-- **Pattern Matching**: Similarity-based matching with configurable thresholds
-- **Session Buffering**: K-anonymity buffer before pattern learning
-
-### Acceptance Criteria
-- [x] System learns from successful debug sessions
-- [x] Privacy-preserving learning (no sensitive data in models)
-- [x] Exportable learned patterns for sharing
-- [x] Suggestions improve over time (measured by acceptance rate)
-- [x] Common workflows automated after 5 occurrences
-- [x] Model updates don't require restart
-
-### Implementation Summary
-Successfully delivered a comprehensive machine learning pipeline for intelligent debugging assistance:
-
-**Core Components Delivered:**
-- ✅ **WorkflowAutomation** (`src/workflow_automation.rs`): Automated workflow execution with safety checkpoints and user approval
-- ✅ **HotReloadSystem** (`src/hot_reload.rs`): File system watcher for hot reloading ML models without server restart
-- ✅ **MCP Integration** (`src/mcp_server.rs`): Full integration with 6 new endpoints for ML capabilities
-- ✅ **Integration Tests** (`tests/ml_integration_tests.rs`): Comprehensive end-to-end testing covering all pipeline components
-
-**Key Features:**
-- Privacy-preserving pattern learning with k-anonymity and differential privacy
-- Context-aware suggestion generation with confidence scoring
-- Workflow automation with safety checkpoints and rollback mechanisms  
-- Hot reload capabilities for model updates without server restart
-- Suggestion acceptance tracking for continuous improvement
-- Complete MCP server integration with lazy initialization
-
-### Code Quality Assessment
-- Overall Score: 8/10
-- Privacy Implementation: 9/10 (strong privacy preservation with k-anonymity)
-- Architecture: 8/10 (well-structured, extensible design)
-- Testing: 8/10 (comprehensive integration tests)
-- Integration: 9/10 (fully integrated with MCP server)
-- Production Readiness: 6/10 (security hardening needed for production deployment)
+**Story Points:** 5
 
 ---
 
-## Technical Debt and Refactoring Considerations
+### Story 11: Implement Health Check System
+**Title:** Complete health check implementation with actual system verification
 
-### Story: BEVDBG-014 - Refactor Existing BRP Client ✅ COMPLETED
-**Points:** 5
-**Priority:** High
-**Sprint:** 1
-**Status:** COMPLETED
-**Completed:** 2025-08-22
+**Description:**
+Health checks always return `true` without actual verification.
 
-### Summary
-Refactor existing BRP client to support extensible command handlers in preparation for debug command integration.
+**Acceptance Criteria:**
+- [ ] Implement actual health checks in `/src/diagnostics.rs:286-287`
+- [ ] Check BRP connection health
+- [ ] Monitor resource usage thresholds
+- [ ] Add circuit breaker state monitoring
+- [ ] Implement health check endpoint
+- [ ] Add configurable health thresholds
 
-### Implementation Summary
-Successfully refactored the BRP client to use a plugin-based command processor system with the following achievements:
+**Definition of Done:**
+- Code changes committed and reviewed
+- All unit tests pass
+- Integration tests pass
+- No compiler warnings related to rand
+- Documentation updated if needed
+- Code reviewed by at least one team member
 
-**Core Components Delivered:**
-- **BrpCommandHandler trait** - Extensible interface for command processing
-- **CommandHandlerRegistry** - Priority-based handler registration and routing
-- **CommandVersion** - Version compatibility checking system
-- **CoreBrpHandler** - Backward compatibility for existing commands
-- **DebugBrpHandler** - Integration with debug command processor
-
-### Technical Tasks
-- ✅ Extract command handling interface
-- ✅ Implement command processor registry
-- ✅ Migrate existing commands to new system
-- ✅ Add command versioning support
-- ✅ Update all existing command call sites
-- ✅ Ensure backward compatibility
-
-### Key Features
-- Plugin-based architecture for command handlers
-- Priority-based handler selection
-- Version compatibility checking
-- Full backward compatibility maintained
-- Comprehensive test coverage (10+ integration tests)
-
-### Code Quality
-- Score: 7.5/10 from code review
-- Clean architecture with good extensibility
-- All critical issues addressed
-- Documentation added for public APIs
+**Story Points:** 5
 
 ---
 
-## Release Planning
+## Epic: Error Handling Improvements
 
-### Release 1.0 - Core Debugging (Sprint 1-2)
-- Basic entity inspection
-- System profiling
-- Command protocol infrastructure
+### Story 12: Replace unwrap() with Proper Error Handling
+**Title:** Eliminate 249 unwrap() calls from production code
 
-### Release 1.1 - Visual Debugging (Sprint 3-4)
-- Visual overlay system
-- Query builder
-- Memory profiling
+**Description:**
+Extensive use of `unwrap()` and `panic!()` in production code creates crash risks.
 
-### Release 1.2 - Advanced Features (Sprint 5-6)
-- Session management
-- Automated issue detection
-- Performance budgets
+**Acceptance Criteria:**
+- [ ] Replace all unwrap() in `/src/brp_messages.rs:1063`
+- [ ] Replace unwraps in `/src/checkpoint.rs:480`
+- [ ] Use Result types with proper error propagation
+- [ ] Add context to errors using ErrorContext
+- [ ] No unwrap() in non-test code
+- [ ] Document any intentional panics
 
-### Release 2.0 - AI Integration (Sprint 7-8)
-- Learning system
-- Workflow automation
-- Advanced analytics
+**Definition of Done:**
+- Code changes committed and reviewed
+- All unit tests pass
+- Integration tests pass
+- No compiler warnings related to rand
+- Documentation updated if needed
+- Code reviewed by at least one team member
 
----
-
-## Risk Register
-
-| Risk | Impact | Probability | Mitigation |
-|------|--------|-------------|------------|
-| Performance regression in production | High | Medium | Feature flags, comprehensive benchmarking |
-| Breaking changes to existing BRP API | High | Low | Careful API design, deprecation strategy |
-| Complex integration with existing systems | Medium | High | Incremental integration, extensive testing |
-| AI agents overwhelming debug system | Medium | Medium | Rate limiting, command prioritization |
-| Memory overhead in constrained environments | Medium | Medium | Configurable feature disabling |
+**Story Points:** 8
 
 ---
 
-## Dependencies and Blockers
+### Story 13: Standardize Error Types
+**Title:** Create consistent error handling patterns across modules
 
-### External Dependencies
-- Bevy 0.14+ for RemotePlugin support
-- tokio 1.0+ for async runtime
-- MCP protocol specification v2.0
+**Description:**
+Mix of custom Result types and standard library results creates inconsistency.
 
-### Internal Dependencies
-- Existing BRP client refactoring (BEVDBG-014)
-- Performance monitoring system upgrade
-- CI/CD pipeline updates for new test suites
+**Acceptance Criteria:**
+- [ ] Define standard error types for the project
+- [ ] Implement error conversion traits
+- [ ] Add error context to all error paths
+- [ ] Standardize error messages format
+- [ ] Update all modules to use consistent patterns
+- [ ] Add error handling guidelines to docs
 
-### Potential Blockers
-- Bevy 0.15 migration if released during development
-- MCP protocol specification changes
-- Performance regression in core Bevy systems
+**Definition of Done:**
+- Code changes committed and reviewed
+- All unit tests pass
+- Integration tests pass
+- No compiler warnings related to rand
+- Documentation updated if needed
+- Code reviewed by at least one team member
+
+**Story Points:** 5
+
+---
+
+## Epic: Performance Optimizations
+
+### Story 14: Fix O(n²) Pattern Learning Algorithm
+**Title:** Optimize pattern learning algorithm from O(n²) to O(n log n)
+
+**Description:**
+Pattern learning has nested loops with sorting causing O(n² log n) complexity.
+
+**Acceptance Criteria:**
+- [ ] Refactor algorithm in `/src/pattern_learning.rs:381,411`
+- [ ] Use BTreeMap or priority queue for efficient lookups
+- [ ] Achieve O(n log n) or better complexity
+- [ ] Add benchmarks to verify improvement
+- [ ] Document algorithm complexity
+- [ ] Maintain or improve accuracy
+
+**Definition of Done:**
+- Code changes committed and reviewed
+- All unit tests pass
+- Integration tests pass
+- No compiler warnings related to rand
+- Documentation updated if needed
+- Code reviewed by at least one team member
+
+**Story Points:** 8
+
+---
+
+### Story 15: Replace Linear Searches with Hash Lookups
+**Title:** Convert O(n) linear searches to O(1) hash lookups
+
+**Description:**
+Multiple locations use linear search where HashMap would be more efficient.
+
+**Acceptance Criteria:**
+- [ ] Identify all Vec::iter().find() patterns
+- [ ] Replace with HashMap where appropriate
+- [ ] Use integer IDs instead of string keys where possible
+- [ ] Add benchmarks for lookup performance
+- [ ] Document data structure choices
+- [ ] Verify memory usage acceptable
+
+**Definition of Done:**
+- Code changes committed and reviewed
+- All unit tests pass
+- Integration tests pass
+- No compiler warnings related to rand
+- Documentation updated if needed
+- Code reviewed by at least one team member
+
+**Story Points:** 5
+
+---
+
+## Epic: Code Quality and Duplication
+
+### Story 16: Abstract Processor Pattern Duplication
+**Title:** Create base processor abstraction to eliminate 2,400 lines of duplication
+
+**Description:**
+All 11 processor files have 80-90% code duplication in structure.
+
+**Acceptance Criteria:**
+- [ ] Create ProcessorCore trait with default implementations
+- [ ] Implement ProcessorBase<T, S> generic struct
+- [ ] Migrate all 11 processors to new pattern
+- [ ] Reduce processor boilerplate by 80%
+- [ ] Maintain backward compatibility
+- [ ] Add processor creation documentation
+
+**Definition of Done:**
+- Code changes committed and reviewed
+- All unit tests pass
+- Integration tests pass
+- No compiler warnings related to rand
+- Documentation updated if needed
+- Code reviewed by at least one team member
+
+**Story Points:** 13
+
+---
+
+### Story 17: Consolidate Test Infrastructure
+**Title:** Create centralized test harness to eliminate 1,800 lines of test duplication
+
+**Description:**
+Test setup code is duplicated across 25+ test files.
+
+**Acceptance Criteria:**
+- [ ] Create TestHarness utility struct
+- [ ] Implement test configuration builders
+- [ ] Create test macros for common patterns
+- [ ] Migrate all test files to new infrastructure
+- [ ] Reduce test code duplication by 70%
+- [ ] Document test patterns
+
+**Definition of Done:**
+- Code changes committed and reviewed
+- All unit tests pass
+- Integration tests pass
+- No compiler warnings related to rand
+- Documentation updated if needed
+- Code reviewed by at least one team member
+
+**Story Points:** 8
+
+---
+
+## Epic: Production Readiness
+
+### Story 18: Create Docker Container Support
+**Title:** Add containerization with Dockerfile and docker-compose
+
+**Description:**
+No Docker support currently exists for production deployment.
+
+**Acceptance Criteria:**
+- [ ] Create multi-stage Dockerfile
+- [ ] Add docker-compose.yml for local development
+- [ ] Include health check configuration
+- [ ] Use minimal base image (distroless/alpine)
+- [ ] Add container registry CI/CD integration
+- [ ] Document container deployment
+
+**Definition of Done:**
+- Code changes committed and reviewed
+- All unit tests pass
+- Integration tests pass
+- No compiler warnings related to rand
+- Documentation updated if needed
+- Code reviewed by at least one team member
+
+**Story Points:** 5
+
+---
+
+### Story 19: Add Prometheus Metrics Export
+**Title:** Implement Prometheus/OpenMetrics endpoint for monitoring
+
+**Description:**
+No metrics export for production monitoring currently exists.
+
+**Acceptance Criteria:**
+- [ ] Add Prometheus metrics library dependency
+- [ ] Implement /metrics endpoint
+- [ ] Export custom business metrics
+- [ ] Add performance metrics
+- [ ] Include error rate metrics
+- [ ] Document metrics and dashboards
+
+**Definition of Done:**
+- Code changes committed and reviewed
+- All unit tests pass
+- Integration tests pass
+- No compiler warnings related to rand
+- Documentation updated if needed
+- Code reviewed by at least one team member
+
+**Story Points:** 8
+
+---
+
+### Story 20: Implement Structured JSON Logging
+**Title:** Add JSON logging support for log aggregation
+
+**Description:**
+Production deployments need structured logging for log aggregation systems.
+
+**Acceptance Criteria:**
+- [ ] Add JSON logging formatter
+- [ ] Include correlation IDs in logs
+- [ ] Support log level configuration per module
+- [ ] Add request/response logging
+- [ ] Implement log rotation configuration
+- [ ] Document logging configuration
+
+**Definition of Done:**
+- Code changes committed and reviewed
+- All unit tests pass
+- Integration tests pass
+- No compiler warnings related to rand
+- Documentation updated if needed
+- Code reviewed by at least one team member
+
+**Story Points:** 5
+
+---
+
+## Epic: Security Hardening
+
+### Story 21: Implement Authentication System
+**Title:** Add API key authentication for MCP connections
+
+**Description:**
+No authentication currently exists, allowing unauthorized access.
+
+**Acceptance Criteria:**
+- [ ] Design authentication architecture
+- [ ] Implement API key generation and validation
+- [ ] Add session management with timeouts
+- [ ] Include rate limiting per API key
+- [ ] Add authentication bypass for local development
+- [ ] Document authentication setup
+
+**Definition of Done:**
+- Code changes committed and reviewed
+- All unit tests pass
+- Integration tests pass
+- No compiler warnings related to rand
+- Documentation updated if needed
+- Code reviewed by at least one team member
+
+**Story Points:** 13
+
+---
+
+### Story 22: Add TLS/SSL Support
+**Title:** Enable encrypted communication for all network protocols
+
+**Description:**
+All communication currently uses unencrypted protocols (ws:// instead of wss://).
+
+**Acceptance Criteria:**
+- [ ] Add TLS support to MCP server
+- [ ] Use WSS for WebSocket connections
+- [ ] Implement certificate validation
+- [ ] Support both self-signed and CA certificates
+- [ ] Add TLS configuration options
+- [ ] Document TLS setup and requirements
+
+**Definition of Done:**
+- Code changes committed and reviewed
+- All unit tests pass
+- Integration tests pass
+- No compiler warnings related to rand
+- Documentation updated if needed
+- Code reviewed by at least one team member
+
+**Story Points:** 8
+
+---
+
+### Story 23: Implement Input Validation and Sanitization
+**Title:** Add comprehensive input validation to prevent security vulnerabilities
+
+**Description:**
+Missing parameter validation could allow malicious inputs.
+
+**Acceptance Criteria:**
+- [ ] Add payload size limits (1MB default)
+- [ ] Implement JSON schema validation
+- [ ] Add recursion depth limits for deserialization
+- [ ] Validate all file paths to prevent traversal
+- [ ] Add rate limiting for expensive operations
+- [ ] Document validation rules
+
+**Definition of Done:**
+- Code changes committed and reviewed
+- All unit tests pass
+- Integration tests pass
+- No compiler warnings related to rand
+- Documentation updated if needed
+- Code reviewed by at least one team member
+
+**Story Points:** 8
+
+---
+
+## Epic: Configuration Management
+
+### Story 24: Centralize Configuration Management
+**Title:** Create unified configuration system with validation
+
+**Description:**
+Configuration values are hardcoded throughout the codebase.
+
+**Acceptance Criteria:**
+- [ ] Create GlobalConfig structure
+- [ ] Move all magic numbers to configuration
+- [ ] Implement configuration file loading (TOML/YAML)
+- [ ] Add environment variable overrides
+- [ ] Implement configuration validation
+- [ ] Document all configuration options
+
+**Definition of Done:**
+- Code changes committed and reviewed
+- All unit tests pass
+- Integration tests pass
+- No compiler warnings related to rand
+- Documentation updated if needed
+- Code reviewed by at least one team member
+
+**Story Points:** 8
+
+---
+
+### Story 25: Add Configuration Hot Reload
+**Title:** Implement runtime configuration updates without restart
+
+**Description:**
+Configuration changes currently require application restart.
+
+**Acceptance Criteria:**
+- [ ] Implement file watcher for config files
+- [ ] Add SIGHUP handler for reload trigger
+- [ ] Validate configuration before applying
+- [ ] Add rollback on invalid configuration
+- [ ] Notify components of configuration changes
+- [ ] Document hot reload behavior
+
+**Definition of Done:**
+- Code changes committed and reviewed
+- All unit tests pass
+- Integration tests pass
+- No compiler warnings related to rand
+- Documentation updated if needed
+- Code reviewed by at least one team member
+
+**Story Points:** 8
+
+---
+
+## Epic: Documentation Completion
+
+### Story 26: Document Incomplete Implementations
+**Title:** Address 29 TODO comments with implementation or documentation
+
+**Description:**
+Critical functionality has TODO placeholders that need resolution.
+
+**Acceptance Criteria:**
+- [ ] Review all 29 TODO comments
+- [ ] Implement high-priority TODOs
+- [ ] Document known limitations for deferred items
+- [ ] Add issue tracking for future implementation
+- [ ] Update user documentation with limitations
+- [ ] Remove or update outdated TODOs
+
+**Definition of Done:**
+- Code changes committed and reviewed
+- All unit tests pass
+- Integration tests pass
+- No compiler warnings related to rand
+- Documentation updated if needed
+- Code reviewed by at least one team member
+
+**Story Points:** 13
+
+---
+
+### Story 27: Add Algorithm Complexity Documentation
+**Title:** Document Big-O complexity for all algorithms
+
+**Description:**
+Complex algorithms lack complexity analysis documentation.
+
+**Acceptance Criteria:**
+- [ ] Document pattern learning algorithm complexity
+- [ ] Add complexity notes to search functions
+- [ ] Document space complexity where relevant
+- [ ] Add optimization suggestions in comments
+- [ ] Include complexity in API documentation
+- [ ] Add performance characteristics to README
+
+**Definition of Done:**
+- Code changes committed and reviewed
+- All unit tests pass
+- Integration tests pass
+- No compiler warnings related to rand
+- Documentation updated if needed
+- Code reviewed by at least one team member
+
+**Story Points:** 3

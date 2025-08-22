@@ -1,6 +1,6 @@
 [package]
 name = "bevy_debugger_mcp"
-version = "0.1.7"
+version = "0.1.8"
 edition = "2021"
 authors = ["ladvien <ladvien@example.com>"]
 description = "AI-assisted debugging for Bevy games through Claude Code using Model Context Protocol"
@@ -115,9 +115,10 @@ lazy-init = []
 fast-hash = ["ahash"]
 
 # Development and testing features
-dev-tools = ["benchmarking", "detailed-logging"]
+dev-tools = ["benchmarking", "detailed-logging", "profiling"]
 benchmarking = []
 detailed-logging = []
+profiling = ["performance-profiling"]
 
 # Legacy compatibility
 visual_overlays = ["visual-debugging"]
