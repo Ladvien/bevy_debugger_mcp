@@ -345,12 +345,12 @@ impl StressTest for SpawnManyTest {
 impl SpawnManyTest {
     fn random_float(&self) -> f32 {
         use rand::{rng, Rng};
-        rng().gen()
+        rng().random()
     }
 
     fn random_u32(&self) -> u32 {
         use rand::{rng, Rng};
-        rng().gen()
+        rng().random()
     }
 
     fn create_entity_components(&self) -> Vec<ComponentSpec> {
@@ -465,7 +465,7 @@ impl StressTest for RapidChangesTest {
 
                 let entity_id = entities[{
                     use rand::{rng, Rng};
-                    rng().gen_range(0..entities.len())
+                    rng().random_range(0..entities.len())
                 }];
                 let components = self.create_random_changes();
 
