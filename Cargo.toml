@@ -71,7 +71,7 @@ tokio-metrics = "0.3"
 sysinfo = "0.30"
 hostname = "0.3"
 rustc_version_runtime = "0.3"
-atty = "0.2"
+is-terminal = "0.4"
 notify = "6.0"
 md5 = "0.7"
 
@@ -155,7 +155,7 @@ nix = { version = "0.27", features = ["signal", "process"] }
 tempfile = "3.0"
 sha2 = "0.10"
 criterion = { version = "0.5", features = ["html_reports", "async_tokio"] }
-rand = "0.8"
+rand = "0.9"
 chrono = { version = "0.4", features = ["serde"] }
 
 [[bench]]

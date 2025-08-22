@@ -334,7 +334,7 @@ mod tests {
     fn test_feature_macros() {
         // Test that feature macros compile
         debug_only!({
-            println!("Debug only code");
+            // Test debug macro compilation
         });
         
         release_only!({

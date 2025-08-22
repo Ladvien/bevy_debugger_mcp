@@ -20,6 +20,7 @@ use std::sync::Arc;
 use tokio::signal;
 use tokio::sync::RwLock;
 use tracing::{error, info, warn};
+use is_terminal::IsTerminal;
 
 // Modules are defined in lib.rs, no need to redeclare them here
 
@@ -59,7 +60,7 @@ async fn main() -> Result<()> {
     let use_tcp = args.iter().any(|arg| arg == "--tcp" || arg == "--server");
     let use_stdio = !use_tcp && (
         args.iter().any(|arg| arg == "--stdio")
-        || atty::isnt(atty::Stream::Stdin)
+        || !is_terminal::IsTerminal::is_terminal(&std::io::stdin())
         || std::env::var("MCP_TRANSPORT")
             .map(|t| t == "stdio")
             .unwrap_or(false)
