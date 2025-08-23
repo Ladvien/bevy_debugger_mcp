@@ -253,3 +253,6 @@ pub mod pattern_learning;
 pub mod suggestion_engine;
 pub mod workflow_automation;
 pub mod hot_reload;
+
+// Bevy reflection integration (Epic BEVDBG-012)
+pub mod bevy_reflection;
