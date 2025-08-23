@@ -853,6 +853,15 @@ pub enum BrpResult {
     /// Entity deleted successfully
     EntityDeleted,
 
+    /// Components inserted successfully (Bevy 0.16)
+    ComponentsInserted,
+
+    /// Components removed successfully (Bevy 0.16)
+    ComponentsRemoved,
+
+    /// Entity reparented successfully (Bevy 0.16)
+    EntityReparented,
+
     /// Screenshot taken successfully
     #[serde(rename = "screenshot")]
     Screenshot {
@@ -941,6 +950,22 @@ pub enum BrpErrorCode {
     /// Debug command validation failed
     #[serde(rename = "debug_validation_error")]
     DebugValidationError,
+
+    /// Component insertion failed (Bevy 0.16)
+    #[serde(rename = "component_insertion_error")]
+    ComponentInsertionError,
+
+    /// Component removal failed (Bevy 0.16)
+    #[serde(rename = "component_removal_error")]
+    ComponentRemovalError,
+
+    /// Entity reparenting failed (Bevy 0.16)
+    #[serde(rename = "reparenting_error")]
+    ReparentingError,
+
+    /// Strict mode validation failed (Bevy 0.16)
+    #[serde(rename = "strict_validation_error")]
+    StrictValidationError,
 }
 
 impl fmt::Display for BrpError {
@@ -962,6 +987,10 @@ impl fmt::Display for BrpErrorCode {
             Self::DebugNotSupported => write!(f, "Debug command not supported"),
             Self::DebugSessionError => write!(f, "Debug session error"),
             Self::DebugValidationError => write!(f, "Debug command validation error"),
+            Self::ComponentInsertionError => write!(f, "Component insertion failed"),
+            Self::ComponentRemovalError => write!(f, "Component removal failed"),
+            Self::ReparentingError => write!(f, "Entity reparenting failed"),
+            Self::StrictValidationError => write!(f, "Strict mode validation failed"),
         }
     }
 }
@@ -1047,12 +1076,24 @@ pub mod validation {
     /// Validate BRP request
     pub fn validate_request(request: &BrpRequest) -> Result<(), String> {
         match request {
-            BrpRequest::Get { entity, .. } | BrpRequest::Destroy { entity } => {
+            BrpRequest::Get { entity, .. } 
+            | BrpRequest::Destroy { entity }
+            | BrpRequest::Insert { entity, .. }
+            | BrpRequest::Remove { entity, .. }
+            | BrpRequest::Reparent { entity, .. } => {
                 validate_entity_id(*entity)
             }
-            BrpRequest::Set { entity, components } => {
+            BrpRequest::Set { entity, components }
+            | BrpRequest::Insert { entity, components } => {
                 validate_entity_id(*entity)?;
                 for type_id in components.keys() {
+                    validate_component_type_id(type_id)?;
+                }
+                Ok(())
+            }
+            BrpRequest::Remove { entity, components } => {
+                validate_entity_id(*entity)?;
+                for type_id in components {
                     validate_component_type_id(type_id)?;
                 }
                 Ok(())
@@ -1060,6 +1101,13 @@ pub mod validation {
             BrpRequest::Spawn { components } => {
                 for type_id in components.keys() {
                     validate_component_type_id(type_id)?;
+                }
+                Ok(())
+            }
+            BrpRequest::Query { strict, .. } => {
+                // Validate strict parameter if provided
+                if let Some(_strict_mode) = strict {
+                    // Strict mode is valid - no additional validation needed
                 }
                 Ok(())
             }
@@ -1112,18 +1160,63 @@ mod tests {
                 where_clause: None,
             }),
             limit: Some(10),
+            strict: Some(true),
         };
 
         let json = serde_json::to_string(&request).unwrap();
         let deserialized: BrpRequest = serde_json::from_str(&json).unwrap();
 
         match deserialized {
-            BrpRequest::Query { filter, limit } => {
+            BrpRequest::Query { filter, limit, strict } => {
                 assert_eq!(limit, Some(10));
+                assert_eq!(strict, Some(true));
                 assert!(filter.is_some());
             }
             _ => panic!("Wrong variant"),
         }
+    }
+
+    #[test]
+    fn test_bevy_16_new_methods() {
+        // Test Insert request
+        let insert_request = BrpRequest::Insert {
+            entity: 123,
+            components: {
+                let mut components = HashMap::new();
+                components.insert("Transform".to_string(), serde_json::json!({"x": 1.0}));
+                components
+            },
+        };
+        let json = serde_json::to_string(&insert_request).unwrap();
+        assert!(json.contains("bevy/insert"));
+
+        // Test Remove request
+        let remove_request = BrpRequest::Remove {
+            entity: 123,
+            components: vec!["Transform".to_string()],
+        };
+        let json = serde_json::to_string(&remove_request).unwrap();
+        assert!(json.contains("bevy/remove"));
+
+        // Test Reparent request
+        let reparent_request = BrpRequest::Reparent {
+            entity: 123,
+            parent: Some(456),
+        };
+        let json = serde_json::to_string(&reparent_request).unwrap();
+        assert!(json.contains("bevy/reparent"));
+    }
+
+    #[test]
+    fn test_entity_with_generation() {
+        let entity = EntityWithGeneration::new(123, 5);
+        assert_eq!(entity.index, 123);
+        assert_eq!(entity.generation, 5);
+
+        let entity_id = entity.to_entity_id();
+        let restored = EntityWithGeneration::from_entity_id(entity_id);
+        assert_eq!(restored.index, 123);
+        assert_eq!(restored.generation, 5);
     }
 
     #[test]
