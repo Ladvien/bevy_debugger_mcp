@@ -1,4 +1,4 @@
-use std::sync::Arc;
+use std::sync::{Arc, Weak};
 use tokio::sync::{RwLock, Mutex, OnceCell};
 use tracing::{debug, info};
 
@@ -81,22 +81,23 @@ impl LazyComponents {
     
     /// Get or initialize entity inspector
     pub async fn get_entity_inspector(&self) -> Arc<EntityInspector> {
+        // Try to get existing without cloning Arc immediately
         if let Some(inspector) = self.entity_inspector.get() {
-            return inspector.clone();
+            return Arc::clone(inspector);
         }
         
         let _guard = self.init_mutex.lock().await;
         
-        // Double-check after acquiring lock
+        // Double-check after acquiring lock - still avoid unnecessary clone
         if let Some(inspector) = self.entity_inspector.get() {
-            return inspector.clone();
+            return Arc::clone(inspector);
         }
         
         debug!("Lazy initializing EntityInspector");
-        let inspector = Arc::new(EntityInspector::new(self.brp_client.clone()));
+        let inspector = Arc::new(EntityInspector::new(Arc::clone(&self.brp_client)));
         
-        // This should never fail since we checked above
-        let _ = self.entity_inspector.set(inspector.clone());
+        // Store and return the same Arc instance
+        let _ = self.entity_inspector.set(Arc::clone(&inspector));
         
         info!("EntityInspector initialized lazily");
         inspector
@@ -105,20 +106,20 @@ impl LazyComponents {
     /// Get or initialize system profiler
     pub async fn get_system_profiler(&self) -> Arc<SystemProfiler> {
         if let Some(profiler) = self.system_profiler.get() {
-            return profiler.clone();
+            return Arc::clone(profiler);
         }
         
         let _guard = self.init_mutex.lock().await;
         
         // Double-check after acquiring lock
         if let Some(profiler) = self.system_profiler.get() {
-            return profiler.clone();
+            return Arc::clone(profiler);
         }
         
         debug!("Lazy initializing SystemProfiler");
-        let profiler = Arc::new(SystemProfiler::new(self.brp_client.clone()));
+        let profiler = Arc::new(SystemProfiler::new(Arc::clone(&self.brp_client)));
         
-        let _ = self.system_profiler.set(profiler.clone());
+        let _ = self.system_profiler.set(Arc::clone(&profiler));
         
         info!("SystemProfiler initialized lazily");
         profiler
@@ -127,21 +128,21 @@ impl LazyComponents {
     /// Get or initialize entity inspection processor
     pub async fn get_entity_processor(&self) -> Arc<EntityInspectionProcessor> {
         if let Some(processor) = self.entity_processor.get() {
-            return processor.clone();
+            return Arc::clone(processor);
         }
         
         let _guard = self.init_mutex.lock().await;
         
         // Double-check after acquiring lock
         if let Some(processor) = self.entity_processor.get() {
-            return processor.clone();
+            return Arc::clone(processor);
         }
         
         debug!("Lazy initializing EntityInspectionProcessor");
         let inspector = self.get_entity_inspector().await;
         let processor = Arc::new(EntityInspectionProcessor::new(inspector));
         
-        let _ = self.entity_processor.set(processor.clone());
+        let _ = self.entity_processor.set(Arc::clone(&processor));
         
         info!("EntityInspectionProcessor initialized lazily");
         processor
@@ -150,21 +151,21 @@ impl LazyComponents {
     /// Get or initialize system profiler processor
     pub async fn get_profiler_processor(&self) -> Arc<SystemProfilerProcessor> {
         if let Some(processor) = self.profiler_processor.get() {
-            return processor.clone();
+            return Arc::clone(processor);
         }
         
         let _guard = self.init_mutex.lock().await;
         
         // Double-check after acquiring lock
         if let Some(processor) = self.profiler_processor.get() {
-            return processor.clone();
+            return Arc::clone(processor);
         }
         
         debug!("Lazy initializing SystemProfilerProcessor");
         let profiler = self.get_system_profiler().await;
         let processor = Arc::new(SystemProfilerProcessor::new(profiler));
         
-        let _ = self.profiler_processor.set(processor.clone());
+        let _ = self.profiler_processor.set(Arc::clone(&processor));
         
         info!("SystemProfilerProcessor initialized lazily");
         processor
@@ -173,20 +174,20 @@ impl LazyComponents {
     /// Get or initialize visual debug overlay processor
     pub async fn get_visual_overlay_processor(&self) -> Arc<VisualDebugOverlayProcessor> {
         if let Some(processor) = self.visual_overlay_processor.get() {
-            return processor.clone();
+            return Arc::clone(processor);
         }
         
         let _guard = self.init_mutex.lock().await;
         
         // Double-check after acquiring lock
         if let Some(processor) = self.visual_overlay_processor.get() {
-            return processor.clone();
+            return Arc::clone(processor);
         }
         
         debug!("Lazy initializing VisualDebugOverlayProcessor");
-        let processor = Arc::new(VisualDebugOverlayProcessor::new(self.brp_client.clone()));
+        let processor = Arc::new(VisualDebugOverlayProcessor::new(Arc::clone(&self.brp_client)));
         
-        let _ = self.visual_overlay_processor.set(processor.clone());
+        let _ = self.visual_overlay_processor.set(Arc::clone(&processor));
         
         info!("VisualDebugOverlayProcessor initialized lazily");
         processor
@@ -195,20 +196,20 @@ impl LazyComponents {
     /// Get or initialize query builder processor
     pub async fn get_query_builder_processor(&self) -> Arc<QueryBuilderProcessor> {
         if let Some(processor) = self.query_builder_processor.get() {
-            return processor.clone();
+            return Arc::clone(processor);
         }
         
         let _guard = self.init_mutex.lock().await;
         
         // Double-check after acquiring lock
         if let Some(processor) = self.query_builder_processor.get() {
-            return processor.clone();
+            return Arc::clone(processor);
         }
         
         debug!("Lazy initializing QueryBuilderProcessor");
-        let processor = Arc::new(QueryBuilderProcessor::new(self.brp_client.clone()));
+        let processor = Arc::new(QueryBuilderProcessor::new(Arc::clone(&self.brp_client)));
         
-        let _ = self.query_builder_processor.set(processor.clone());
+        let _ = self.query_builder_processor.set(Arc::clone(&processor));
         
         info!("QueryBuilderProcessor initialized lazily");
         processor
@@ -217,20 +218,20 @@ impl LazyComponents {
     /// Get or initialize memory profiler processor
     pub async fn get_memory_profiler_processor(&self) -> Arc<MemoryProfilerProcessor> {
         if let Some(processor) = self.memory_profiler_processor.get() {
-            return processor.clone();
+            return Arc::clone(processor);
         }
         
         let _guard = self.init_mutex.lock().await;
         
         // Double-check after acquiring lock
         if let Some(processor) = self.memory_profiler_processor.get() {
-            return processor.clone();
+            return Arc::clone(processor);
         }
         
         debug!("Lazy initializing MemoryProfilerProcessor");
-        let processor = Arc::new(MemoryProfilerProcessor::new(self.brp_client.clone()));
+        let processor = Arc::new(MemoryProfilerProcessor::new(Arc::clone(&self.brp_client)));
         
-        let _ = self.memory_profiler_processor.set(processor.clone());
+        let _ = self.memory_profiler_processor.set(Arc::clone(&processor));
         
         info!("MemoryProfilerProcessor initialized lazily");
         processor
@@ -239,25 +240,28 @@ impl LazyComponents {
     /// Get or initialize session processor
     pub async fn get_session_processor(&self) -> Arc<SessionProcessor> {
         if let Some(processor) = self.session_processor.get() {
-            return processor.clone();
+            return Arc::clone(processor);
         }
         
         let _guard = self.init_mutex.lock().await;
         
         // Double-check after acquiring lock
         if let Some(processor) = self.session_processor.get() {
-            return processor.clone();
+            return Arc::clone(processor);
         }
         
         debug!("Lazy initializing SessionProcessor");
-        let processor = Arc::new(SessionProcessor::new(self.brp_client.clone()));
+        let processor = Arc::new(SessionProcessor::new(Arc::clone(&self.brp_client)));
         
         // Start session processor for background tasks with proper error handling
-        let processor_clone = processor.clone();
+        // Use Weak reference to avoid circular dependency in the task
+        let processor_weak = Arc::downgrade(&processor);
         let task_handle = tokio::spawn(async move {
-            if let Err(e) = processor_clone.start().await {
-                tracing::error!("Failed to start session processor: {}", e);
-                return Err(e);
+            if let Some(processor_strong) = processor_weak.upgrade() {
+                if let Err(e) = processor_strong.start().await {
+                    tracing::error!("Failed to start session processor: {}", e);
+                    return Err(e);
+                }
             }
             Ok(())
         });
@@ -266,7 +270,7 @@ impl LazyComponents {
         // In a real implementation, we should track spawned tasks
         // and provide a way to shut them down gracefully
         
-        let _ = self.session_processor.set(processor.clone());
+        let _ = self.session_processor.set(Arc::clone(&processor));
         
         info!("SessionProcessor initialized lazily");
         processor
@@ -275,20 +279,20 @@ impl LazyComponents {
     /// Get or initialize issue detector processor
     pub async fn get_issue_detector_processor(&self) -> Arc<IssueDetectorProcessor> {
         if let Some(processor) = self.issue_detector_processor.get() {
-            return processor.clone();
+            return Arc::clone(processor);
         }
         
         let _guard = self.init_mutex.lock().await;
         
         // Double-check after acquiring lock
         if let Some(processor) = self.issue_detector_processor.get() {
-            return processor.clone();
+            return Arc::clone(processor);
         }
         
         debug!("Lazy initializing IssueDetectorProcessor");
-        let processor = Arc::new(IssueDetectorProcessor::new(self.brp_client.clone()));
+        let processor = Arc::new(IssueDetectorProcessor::new(Arc::clone(&self.brp_client)));
         
-        let _ = self.issue_detector_processor.set(processor.clone());
+        let _ = self.issue_detector_processor.set(Arc::clone(&processor));
         
         info!("IssueDetectorProcessor initialized lazily");
         processor
@@ -297,20 +301,20 @@ impl LazyComponents {
     /// Get or initialize performance budget processor
     pub async fn get_performance_budget_processor(&self) -> Arc<PerformanceBudgetProcessor> {
         if let Some(processor) = self.performance_budget_processor.get() {
-            return processor.clone();
+            return Arc::clone(processor);
         }
         
         let _guard = self.init_mutex.lock().await;
         
         // Double-check after acquiring lock
         if let Some(processor) = self.performance_budget_processor.get() {
-            return processor.clone();
+            return Arc::clone(processor);
         }
         
         debug!("Lazy initializing PerformanceBudgetProcessor");
-        let processor = Arc::new(PerformanceBudgetProcessor::new(self.brp_client.clone()));
+        let processor = Arc::new(PerformanceBudgetProcessor::new(Arc::clone(&self.brp_client)));
         
-        let _ = self.performance_budget_processor.set(processor.clone());
+        let _ = self.performance_budget_processor.set(Arc::clone(&processor));
         
         info!("PerformanceBudgetProcessor initialized lazily");
         processor
@@ -319,22 +323,18 @@ impl LazyComponents {
     /// Get or initialize debug command router with all processors
     pub async fn get_debug_command_router(&self) -> Arc<DebugCommandRouter> {
         if let Some(router) = self.debug_command_router.get() {
-            return router.clone();
+            return Arc::clone(router);
         }
         
         let _guard = self.init_mutex.lock().await;
         
         // Double-check after acquiring lock
         if let Some(router) = self.debug_command_router.get() {
-            return router.clone();
+            return Arc::clone(router);
         }
         
         debug!("Lazy initializing DebugCommandRouter");
         let router = Arc::new(DebugCommandRouter::new());
-        
-        // Register all processors lazily
-        let router_clone = router.clone();
-        let components = self;
         
         // Initialize processors synchronously to avoid race conditions
         // This ensures the router is fully configured before being returned
@@ -359,7 +359,7 @@ impl LazyComponents {
         
         info!("Debug command router processors registered lazily");
         
-        let _ = self.debug_command_router.set(router.clone());
+        let _ = self.debug_command_router.set(Arc::clone(&router));
         
         info!("DebugCommandRouter initialized lazily");
         router
@@ -368,20 +368,20 @@ impl LazyComponents {
     /// Get or initialize pattern learning system
     pub async fn get_pattern_learning_system(&self) -> Arc<PatternLearningSystem> {
         if let Some(system) = self.pattern_learning_system.get() {
-            return system.clone();
+            return Arc::clone(system);
         }
         
         let _guard = self.init_mutex.lock().await;
         
         // Double-check after acquiring lock
         if let Some(system) = self.pattern_learning_system.get() {
-            return system.clone();
+            return Arc::clone(system);
         }
         
         debug!("Lazy initializing PatternLearningSystem");
         let system = Arc::new(PatternLearningSystem::new());
         
-        let _ = self.pattern_learning_system.set(system.clone());
+        let _ = self.pattern_learning_system.set(Arc::clone(&system));
         
         info!("PatternLearningSystem initialized lazily");
         system
@@ -390,21 +390,21 @@ impl LazyComponents {
     /// Get or initialize suggestion engine
     pub async fn get_suggestion_engine(&self) -> Arc<SuggestionEngine> {
         if let Some(engine) = self.suggestion_engine.get() {
-            return engine.clone();
+            return Arc::clone(engine);
         }
         
         let _guard = self.init_mutex.lock().await;
         
         // Double-check after acquiring lock
         if let Some(engine) = self.suggestion_engine.get() {
-            return engine.clone();
+            return Arc::clone(engine);
         }
         
         debug!("Lazy initializing SuggestionEngine");
         let pattern_system = self.get_pattern_learning_system().await;
         let engine = Arc::new(SuggestionEngine::new(pattern_system));
         
-        let _ = self.suggestion_engine.set(engine.clone());
+        let _ = self.suggestion_engine.set(Arc::clone(&engine));
         
         info!("SuggestionEngine initialized lazily");
         engine
@@ -413,14 +413,14 @@ impl LazyComponents {
     /// Get or initialize workflow automation
     pub async fn get_workflow_automation(&self) -> Arc<WorkflowAutomation> {
         if let Some(automation) = self.workflow_automation.get() {
-            return automation.clone();
+            return Arc::clone(automation);
         }
         
         let _guard = self.init_mutex.lock().await;
         
         // Double-check after acquiring lock
         if let Some(automation) = self.workflow_automation.get() {
-            return automation.clone();
+            return Arc::clone(automation);
         }
         
         debug!("Lazy initializing WorkflowAutomation");
@@ -428,7 +428,7 @@ impl LazyComponents {
         let suggestion_engine = self.get_suggestion_engine().await;
         let automation = Arc::new(WorkflowAutomation::new(pattern_system, suggestion_engine));
         
-        let _ = self.workflow_automation.set(automation.clone());
+        let _ = self.workflow_automation.set(Arc::clone(&automation));
         
         info!("WorkflowAutomation initialized lazily");
         automation
@@ -437,14 +437,14 @@ impl LazyComponents {
     /// Get or initialize hot reload system
     pub async fn get_hot_reload_system(&self) -> Arc<HotReloadSystem> {
         if let Some(system) = self.hot_reload_system.get() {
-            return system.clone();
+            return Arc::clone(system);
         }
         
         let _guard = self.init_mutex.lock().await;
         
         // Double-check after acquiring lock
         if let Some(system) = self.hot_reload_system.get() {
-            return system.clone();
+            return Arc::clone(system);
         }
         
         debug!("Lazy initializing HotReloadSystem");
@@ -460,15 +460,17 @@ impl LazyComponents {
             workflow_automation,
         ));
         
-        // Start the hot reload system
-        let system_clone = system.clone();
+        // Start the hot reload system using weak reference
+        let system_weak = Arc::downgrade(&system);
         tokio::spawn(async move {
-            if let Err(e) = system_clone.start().await {
-                tracing::error!("Failed to start hot reload system: {}", e);
+            if let Some(system_strong) = system_weak.upgrade() {
+                if let Err(e) = system_strong.start().await {
+                    tracing::error!("Failed to start hot reload system: {}", e);
+                }
             }
         });
         
-        let _ = self.hot_reload_system.set(system.clone());
+        let _ = self.hot_reload_system.set(Arc::clone(&system));
         
         info!("HotReloadSystem initialized lazily");
         system
