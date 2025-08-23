@@ -6,7 +6,7 @@
 **Team:** mcp-rust-expert, bevy-game-dev, general-purpose  
 
 ## Story Status Board
-- [🔄] **BEVDBG-004**: Update BRP Protocol for Bevy 0.16 (5 pts) - *@bevy-game-dev WORKING*
+- [✅] **BEVDBG-004**: Update BRP Protocol for Bevy 0.16 (5 pts) - *@bevy-game-dev COMPLETE*
 - [✅] **BEVDBG-005**: Production-Grade BRP Connection (8 pts) - *@mcp-rust-expert COMPLETE*  
 - [✅] **BEVDBG-006**: Implement BRP Command Validation (5 pts) - *@general-purpose COMPLETE*
 
