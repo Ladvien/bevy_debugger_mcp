@@ -622,6 +622,7 @@ dependencies = [
  "is-terminal",
  "nix 0.27.1",
  "notify",
+ "once_cell",
  "rand 0.9.2",
  "rand_distr 0.5.1",
  "regex",
