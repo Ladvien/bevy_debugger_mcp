@@ -18,7 +18,7 @@
 
 use rmcp::{
     model::*,
-    service::{RoleServer, Service, RequestContext, NotificationContext},
+    handler::server::ServerHandler,
     serve_server,
 };
 use std::sync::Arc;
@@ -50,36 +50,86 @@ impl McpServerV2 {
     
     /// Run the server in stdio mode for Claude Code
     pub async fn run_stdio(self) -> Result<()> {
-        info!("Starting MCP server in stdio mode with proper SDK");
+        info!("Starting MCP server in stdio mode for Claude Code integration");
         
-        // Start BRP connection in background
+        // Initialize BRP connection
+        {
+            let client = self.brp_client.read().await;
+            if let Err(e) = client.init().await {
+                error!("Failed to initialize BRP client: {}", e);
+                return Err(crate::error::Error::Connection(format!("BRP initialization failed: {}", e)));
+            }
+        }
+        
+        // Start BRP connection heartbeat in background
         let brp_client = self.brp_client.clone();
         tokio::spawn(async move {
             loop {
                 {
                     let mut client = brp_client.write().await;
                     if let Err(e) = client.connect_with_retry().await {
-                        error!("Failed to connect to BRP: {}", e);
+                        error!("BRP heartbeat failed: {}", e);
                     }
                 }
                 tokio::time::sleep(tokio::time::Duration::from_secs(30)).await;
             }
         });
         
+        // Setup signal handlers for graceful shutdown
+        let (shutdown_tx, mut shutdown_rx) = tokio::sync::mpsc::channel(1);
+        
+        // Handle SIGTERM and SIGINT
+        tokio::spawn(async move {
+            #[cfg(unix)]
+            {
+                use tokio::signal::unix::{signal, SignalKind};
+                
+                let mut sigterm = signal(SignalKind::terminate()).expect("Failed to setup SIGTERM handler");
+                let mut sigint = signal(SignalKind::interrupt()).expect("Failed to setup SIGINT handler");
+                
+                tokio::select! {
+                    _ = sigterm.recv() => {
+                        info!("Received SIGTERM, shutting down gracefully");
+                    }
+                    _ = sigint.recv() => {
+                        info!("Received SIGINT, shutting down gracefully");  
+                    }
+                }
+            }
+            #[cfg(not(unix))]
+            {
+                tokio::signal::ctrl_c().await.expect("Failed to setup Ctrl-C handler");
+                info!("Received Ctrl-C, shutting down gracefully");
+            }
+            
+            let _ = shutdown_tx.send(()).await;
+        });
+        
+        info!("MCP stdio transport starting - ready for Claude Code connection");
+        
         // Create stdio transport
         let stdin = tokio::io::stdin();
         let stdout = tokio::io::stdout();
         
-        // Run the server using serve_server
-        let _running = serve_server(self, (stdin, stdout)).await.map_err(|e| {
-            error!("MCP server initialization error: {}", e);
-            crate::error::Error::DebugError(format!("MCP server initialization failed: {}", e))
-        })?;
-        
-        // The server will run until the connection closes
-        info!("MCP server running on stdio");
-        
-        Ok(())
+        // Run the server using the tools handler with proper error handling
+        tokio::select! {
+            result = serve_server(self.tools.as_ref().clone(), (stdin, stdout)) => {
+                match result {
+                    Ok(_) => {
+                        info!("MCP stdio server completed successfully");
+                        Ok(())
+                    }
+                    Err(e) => {
+                        error!("MCP stdio server error: {}", e);
+                        Err(crate::error::Error::DebugError(format!("MCP stdio server failed: {}", e)))
+                    }
+                }
+            }
+            _ = shutdown_rx.recv() => {
+                info!("Graceful shutdown requested");
+                Ok(())
+            }
+        }
     }
     
     /// Run the server in TCP mode for background operation
@@ -93,74 +143,5 @@ impl McpServerV2 {
     }
 }
 
-// Implement Service for McpServerV2
-impl Service<RoleServer> for McpServerV2 {
-    async fn handle_request(
-        &self,
-        request: ClientRequest,
-        context: RequestContext<RoleServer>,
-    ) -> std::result::Result<ServerResult, rmcp::Error> {
-        match request {
-            ClientRequest::InitializeRequest(req) => {
-                // Set peer info
-                if context.peer.peer_info().is_none() {
-                    context.peer.set_peer_info(req.params.clone());
-                }
-                
-                Ok(ServerResult::InitializeResult(InitializeResult {
-                    protocol_version: "2024-11-05".to_string(),
-                    server_info: Implementation {
-                        name: "bevy-debugger-mcp".to_string(),
-                        version: env!("CARGO_PKG_VERSION").to_string(),
-                    },
-                    capabilities: ServerCapabilities {
-                        experimental: None,
-                        logging: None,
-                        prompts: None,
-                        resources: None,
-                        tools: Some(ToolsCapability {
-                            list_changed: None,
-                        }),
-                        completions: None,
-                    },
-                    instructions: None,
-                }))
-            }
-            ClientRequest::ListToolsRequest(_req) => {
-                // For now, return empty tool list
-                // The actual tools are handled by the tool_router macro
-                Ok(ServerResult::ListToolsResult(ListToolsResult { 
-                    tools: vec![],
-                    next_cursor: None,
-                }))
-            }
-            ClientRequest::CallToolRequest(req) => {
-                // For now, return an error
-                // The actual tool calls should be handled by the tool_router
-                Err(rmcp::Error::MethodNotFound {
-                    method: req.params.name,
-                })
-            }
-            _ => Err(rmcp::Error::MethodNotFound {
-                method: "unknown".to_string(),
-            })
-        }
-    }
-    
-    async fn handle_notification(
-        &self,
-        _notification: ClientNotification,
-        _context: NotificationContext<RoleServer>,
-    ) -> std::result::Result<(), rmcp::Error> {
-        // Handle notifications if needed
-        Ok(())
-    }
-    
-    fn get_info(&self) -> ServerInfo {
-        ServerInfo {
-            protocol_version: "2024-11-05".to_string(),
-            name: "bevy-debugger-mcp".to_string(),
-            version: env!("CARGO_PKG_VERSION").to_string()
-        }
-    }
-}
+// McpServerV2 acts as a coordinator - the actual MCP handling is done by BevyDebuggerTools
+// No ServerHandler implementation needed here since tools handle the MCP protocol directly
