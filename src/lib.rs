@@ -266,3 +266,7 @@ pub mod query_optimization_guide;
 pub mod security;
 pub mod secure_mcp_tools;
 pub mod bevy_observability_integration;
+
+// Epic 6: Production features - Observability stack
+#[cfg(feature = "observability")]
+pub mod observability;
