@@ -623,74 +623,15 @@ impl SecureMcpTools {
 
 // Implement ServerHandler for the secure tools
 impl ServerHandler for SecureMcpTools {
-    type Error = McpError;
-    
-    fn initialize(&self, req: InitializeRequest) -> impl Future<Output = Result<InitializeResult, Self::Error>> + Send {
-        async move {
-            info!("Initializing secure MCP tools server");
-            
-            let server_info = ServerInfo {
+    fn get_info(&self) -> ServerInfo {
+        ServerInfo {
+            protocol_version: ProtocolVersion::V_2024_11_05,
+            capabilities: ServerCapabilities::builder().enable_tools().build(),
+            server_info: Implementation {
                 name: "bevy-debugger-mcp-secure".to_string(),
                 version: env!("CARGO_PKG_VERSION").to_string(),
-            };
-            
-            let capabilities = ServerCapabilities {
-                tools: Some(ToolCapabilities {
-                    list_changed: Some(false),
-                }),
-                prompts: None,
-                resources: None,
-                logging: None,
-            };
-            
-            Ok(InitializeResult {
-                protocol_version: "2024-11-05".to_string(),
-                capabilities,
-                server_info,
-            })
-        }
-    }
-
-    fn list_tools(&self, req: ListToolsRequest) -> impl Future<Output = Result<ListToolsResult, Self::Error>> + Send {
-        async move {
-            Ok(ListToolsResult {
-                tools: self.tool_router.list_tools(),
-            })
-        }
-    }
-
-    fn call_tool(&self, req: CallToolRequest) -> impl Future<Output = Result<CallToolResult, Self::Error>> + Send {
-        async move {
-            info!("Secure tool call: {}", req.name);
-            self.tool_router.call_tool(self, &req.name, req.arguments.unwrap_or_default()).await
-        }
-    }
-
-    fn list_prompts(&self, req: ListPromptsRequest) -> impl Future<Output = Result<ListPromptsResult, Self::Error>> + Send {
-        async move {
-            Ok(ListPromptsResult {
-                prompts: vec![],
-            })
-        }
-    }
-
-    fn get_prompt(&self, req: GetPromptRequest) -> impl Future<Output = Result<GetPromptResult, Self::Error>> + Send {
-        async move {
-            Err(McpError::method_not_found(format!("Prompt not found: {}", req.name), None))
-        }
-    }
-
-    fn list_resources(&self, req: ListResourcesRequest) -> impl Future<Output = Result<ListResourcesResult, Self::Error>> + Send {
-        async move {
-            Ok(ListResourcesResult {
-                resources: vec![],
-            })
-        }
-    }
-
-    fn read_resource(&self, req: ReadResourceRequest) -> impl Future<Output = Result<ReadResourceResult, Self::Error>> + Send {
-        async move {
-            Err(McpError::method_not_found(format!("Resource not found: {}", req.uri), None))
+            },
+            instructions: Some("Security-enhanced AI-assisted debugging tools for Bevy games. All operations require JWT authentication with role-based permissions.".to_string()),
         }
     }
 }
