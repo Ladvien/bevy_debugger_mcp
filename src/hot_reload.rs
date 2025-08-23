@@ -18,6 +18,7 @@
 
 use notify::{Config, Event, RecommendedWatcher, RecursiveMode, Watcher, EventKind};
 use serde::{Deserialize, Serialize};
+use sha2::{Sha256, Digest};
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
@@ -500,7 +501,9 @@ impl HotReloadSystem {
     /// Update model version tracking
     async fn update_model_version(&self, model_type: &str, path: &Path) -> Result<()> {
         let content = tokio::fs::read(path).await?;
-        let checksum = format!("{:x}", md5::compute(&content));
+        let mut hasher = Sha256::new();
+        hasher.update(&content);
+        let checksum = format!("{:x}", hasher.finalize());
         
         let version = ModelVersion {
             version: format!("{}_{}", chrono::Utc::now().format("%Y%m%d_%H%M%S"), &checksum[..8]),

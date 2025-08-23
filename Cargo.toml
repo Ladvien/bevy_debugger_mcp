@@ -72,7 +72,6 @@ hostname = "0.3"
 rustc_version_runtime = "0.3"
 is-terminal = "0.4"
 notify = "6.0"
-md5 = "0.7"
 
 # Performance optimization dependencies
 ahash = { version = "0.8", optional = true }
@@ -153,7 +152,7 @@ tokio-test = "0.4"
 bevy = { version = "0.16", features = ["default", "bevy_remote"] }
 nix = { version = "0.27", features = ["signal", "process"] }
 tempfile = "3.0"
-sha2 = "0.10"
+sha2 = "0.10.9"
 criterion = { version = "0.5", features = ["html_reports", "async_tokio"] }
 rand = "0.9.2"
 chrono = { version = "0.4", features = ["serde"] }
