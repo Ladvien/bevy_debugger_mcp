@@ -183,18 +183,64 @@ impl VisualOverlayManager {
     
     /// System to update performance metrics
     fn update_performance_metrics(
-        // This would be implemented as a proper Bevy system
-        // For now, it's a placeholder
+        time: Res<Time>,
+        mut overlay_manager: ResMut<VisualOverlayManager>,
     ) {
-        // Implementation would gather metrics from all overlays
+        let start_time = std::time::Instant::now();
+        
+        // Aggregate metrics from all overlays
+        let mut total_render_time = 0;
+        let mut total_element_count = 0;
+        let mut total_memory_usage = 0;
+        let mut total_frame_updates = 0;
+        let mut any_active = false;
+        
+        for overlay in overlay_manager.overlays.values() {
+            let metrics = overlay.get_metrics();
+            total_render_time += metrics.render_time_us;
+            total_element_count += metrics.element_count;
+            total_memory_usage += metrics.memory_usage_bytes;
+            total_frame_updates += metrics.frame_updates;
+            any_active |= metrics.active_this_frame;
+        }
+        
+        overlay_manager.total_metrics = OverlayMetrics {
+            render_time_us: total_render_time,
+            element_count: total_element_count,
+            memory_usage_bytes: total_memory_usage,
+            frame_updates: total_frame_updates,
+            active_this_frame: any_active,
+        };
+        
+        // Track system execution time
+        let execution_time = start_time.elapsed().as_micros() as u64;
+        overlay_manager.total_metrics.render_time_us += execution_time;
     }
     
     /// System to check performance budget and warn if exceeded
     fn check_performance_budget(
-        // This would be implemented as a proper Bevy system
-        // For now, it's a placeholder
+        overlay_manager: Res<VisualOverlayManager>,
     ) {
-        // Implementation would check if budget is exceeded and warn
+        if overlay_manager.is_performance_budget_exceeded() {
+            warn!(
+                "Visual debug overlay performance budget exceeded: {}μs > {}μs",
+                overlay_manager.total_metrics.render_time_us,
+                overlay_manager.performance_budget_us
+            );
+            
+            // Log details about which overlays are consuming time
+            for (name, overlay) in &overlay_manager.overlays {
+                let metrics = overlay.get_metrics();
+                if metrics.render_time_us > 100 { // Log overlays taking more than 100μs
+                    warn!(
+                        "Overlay '{}' performance: {}μs, {} elements",
+                        name,
+                        metrics.render_time_us,
+                        metrics.element_count
+                    );
+                }
+            }
+        }
     }
 }
 
