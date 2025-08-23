@@ -48,3 +48,4 @@ claude_cache/
 
 # macOS service files (runtime generated)
 *.log.bak
+.DS_Store
