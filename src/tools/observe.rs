@@ -129,7 +129,16 @@ impl ObserveState {
 
 impl Default for ObserveState {
     fn default() -> Self {
-        Self::new()
+        Self::new().unwrap_or_else(|_| {
+            // Fallback to basic state if regex compilation fails
+            ObserveState {
+                active_queries: HashMap::new(),
+                watch_count: 0,
+                brp_client: None,
+                observer_state: ObserverState::Idle,
+                query_parser: None, // Will use None as fallback
+            }
+        })
     }
 }
 

@@ -144,6 +144,10 @@ pub struct CheckpointManager {
 }
 
 impl CheckpointManager {
+    /// Helper to handle poisoned RwLock by returning an error instead of panicking
+    fn handle_lock_poison<T>() -> Error {
+        Error::Connection("RwLock was poisoned by a panic in another thread".to_string())
+    }
     pub fn new(config: CheckpointConfig) -> Self {
         Self {
             config,

@@ -206,6 +206,9 @@ pub enum Error {
     #[error("Timeout: {0}")]
     Timeout(String),
 
+    #[error("Internal error: {0}")]
+    Internal(String),
+
     /// Rich error with full context
     #[error("Error: {context}")]
     WithContext {

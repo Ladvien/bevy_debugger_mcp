@@ -92,8 +92,10 @@ impl DeadlockDetector {
 
         // Check for potential deadlocks before acquiring
         if let Some(current_locks) = state.held_locks.get(&thread_id) {
+            let current_locks = current_locks.clone(); // Clone to avoid borrow checker issues
+            
             // Add edges from all currently held locks to this new one
-            for &held_lock in current_locks {
+            for &held_lock in &current_locks {
                 let edge = LockEdge { from: held_lock, to: lock_id };
                 state.dependency_graph.insert(edge);
 
@@ -101,6 +103,7 @@ impl DeadlockDetector {
                 if self.has_cycle_from(&state, lock_id) {
                     self.report_potential_deadlock(&state, &current_locks, lock_id, location);
                     state.detections += 1;
+                    break; // Avoid multiple reports for the same cycle
                 }
             }
         }
