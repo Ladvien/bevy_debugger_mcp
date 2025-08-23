@@ -155,26 +155,36 @@ Tool routing broken due to incompatible macro patterns with rmcp 0.2.1.
 
 ## Epic 2: Bevy Integration [26 points]
 
-### BEVDBG-004: Update BRP Protocol for Bevy 0.16
+### BEVDBG-004: Update BRP Protocol for Bevy 0.16 ✅ COMPLETE
 **Priority:** 🟠 P1 High  
 **Points:** 5  
 **Sprint:** 2  
+**Status:** ✅ COMPLETED 2025-08-23
 
 **Problem Statement:**  
 BRP message structures potentially incompatible with Bevy 0.16's protocol changes.
 
 **Definition of Done:**
 - ✅ All BRP messages match Bevy 0.16 spec
-- ✅ Entity generation field included
+- ✅ Entity generation field included  
 - ✅ TypeId alignment verified
 - ✅ Integration test against real Bevy 0.16 game
 - ✅ Backwards compatibility documented
 
+**Completion Summary:**
+- Added strict parameter to bevy/query for component validation control
+- Implemented new Bevy 0.16 BRP methods: bevy/insert, bevy/remove, bevy/reparent
+- Enhanced entity representation with EntityWithGeneration structure
+- Created comprehensive integration test suite (brp_bevy_16_compatibility.rs)
+- Documented migration guide with backwards compatibility details (BEVY_0_16_MIGRATION.md)
+- Updated validation logic and error codes for new message types
+- Verified compatibility with fully-qualified component type names
+
 **Verification Steps:**
-1. Compare against Bevy 0.16 remote protocol docs
-2. Test each message type with example game
-3. Verify serialization formats match
-4. Document breaking changes
+1. ✅ Compared against Bevy 0.16 remote protocol docs
+2. ✅ Test each message type with example game (integration tests)
+3. ✅ Verified serialization formats match 
+4. ✅ Documented breaking changes (migration guide)
 
 ---
 

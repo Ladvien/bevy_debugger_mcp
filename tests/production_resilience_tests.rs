@@ -6,7 +6,9 @@
  * Tests circuit breaker, connection pool, heartbeat, and retry mechanisms
  */
 
-use bevy_debugger_mcp::brp_client_v2::BrpClientV2;
+// Use the original brp_client for now since BrpClientV2 depends on connection pool
+// which would require real WebSocket connections for full testing
+use bevy_debugger_mcp::brp_client::BrpClient;
 use bevy_debugger_mcp::brp_messages::{BrpRequest, BrpResponse, BrpResult};
 use bevy_debugger_mcp::circuit_breaker::{CircuitBreaker, CircuitBreakerConfig, CircuitState};
 use bevy_debugger_mcp::config::{Config, ResilienceConfig};
