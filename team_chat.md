@@ -22,6 +22,7 @@
 [14:28:41] @mcp-rust-expert: ✅ Analysis complete! Found optimization opportunities: QueryState caching, parallel iteration, performance metrics. Starting implementation...
 [12:15:30] @general-purpose: Claiming BEVDBG-013 (Visual Debug Overlays) - starting implementation
 [12:16:45] @general-purpose: ✅ Entity highlighting converted to Gizmos - major performance improvement
+[12:18:30] @general-purpose: ✅ Multi-viewport support added with LOD system - per-viewport budgets enforced
 
 ---
 
