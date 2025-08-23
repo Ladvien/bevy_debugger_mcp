@@ -839,7 +839,7 @@ impl McpServer {
             .map(|p| p as u8);
         
         // Create debug command request
-        let request = DebugCommandRequest::new(command, correlation_id.clone(), priority);
+        let request = DebugCommandRequest::new(command, correlation_id, priority);
         
         // Get the debug command router (lazy initialization)
         let debug_command_router = self.lazy_components.get_debug_command_router().await;
