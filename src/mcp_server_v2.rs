@@ -16,7 +16,11 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
 
-use rmcp::{model::*, service::server::McpService};
+use rmcp::{
+    model::*,
+    service::{RoleServer, Service, RequestContext, NotificationContext},
+    serve_server,
+};
 use std::sync::Arc;
 use tokio::sync::RwLock;
 use tracing::{error, info};
@@ -48,23 +52,6 @@ impl McpServerV2 {
     pub async fn run_stdio(self) -> Result<()> {
         info!("Starting MCP server in stdio mode with proper SDK");
         
-        // Create server info
-        let server_info = Implementation {
-            name: "bevy-debugger-mcp".to_string(),
-            version: env!("CARGO_PKG_VERSION").to_string(),
-        };
-        
-        // Create server capabilities
-        let capabilities = ServerCapabilities {
-            experimental: None,
-            logging: None,
-            prompts: None,
-            resources: None,
-            tools: Some(ToolCapability {
-                list_changed: None,
-            }),
-        };
-        
         // Start BRP connection in background
         let brp_client = self.brp_client.clone();
         tokio::spawn(async move {
@@ -79,18 +66,18 @@ impl McpServerV2 {
             }
         });
         
-        // Create MCP service with our tools
-        let service = McpService::builder()
-            .server_info(server_info)
-            .capabilities(capabilities)
-            .tool_handler(self.tools.router())
-            .build();
+        // Create stdio transport
+        let stdin = tokio::io::stdin();
+        let stdout = tokio::io::stdout();
         
-        // Run the service on stdio
-        service.stdio_transport().await.map_err(|e| {
-            error!("MCP server error: {}", e);
-            crate::error::Error::DebugError(format!("MCP server failed: {}", e))
+        // Run the server using serve_server
+        let _running = serve_server(self, (stdin, stdout)).await.map_err(|e| {
+            error!("MCP server initialization error: {}", e);
+            crate::error::Error::DebugError(format!("MCP server initialization failed: {}", e))
         })?;
+        
+        // The server will run until the connection closes
+        info!("MCP server running on stdio");
         
         Ok(())
     }
@@ -99,51 +86,81 @@ impl McpServerV2 {
     pub async fn run_tcp(self) -> Result<()> {
         info!("Starting MCP server in TCP mode on port {}", self.config.mcp_port);
         
-        // Create server info
-        let server_info = Implementation {
-            name: "bevy-debugger-mcp".to_string(),
-            version: env!("CARGO_PKG_VERSION").to_string(),
-        };
-        
-        // Create server capabilities
-        let capabilities = ServerCapabilities {
-            experimental: None,
-            logging: None,
-            prompts: None,
-            resources: None,
-            tools: Some(ToolCapability {
-                list_changed: None,
-            }),
-        };
-        
-        // Start BRP connection in background
-        let brp_client = self.brp_client.clone();
-        tokio::spawn(async move {
-            loop {
-                {
-                    let mut client = brp_client.write().await;
-                    if let Err(e) = client.connect_with_retry().await {
-                        error!("Failed to connect to BRP: {}", e);
-                    }
+        // For now, TCP mode is not implemented
+        // You can use stdio mode instead
+        error!("TCP mode not implemented, use stdio mode");
+        Err(crate::error::Error::DebugError("TCP mode not implemented".to_string()))
+    }
+}
+
+// Implement Service for McpServerV2
+impl Service<RoleServer> for McpServerV2 {
+    async fn handle_request(
+        &self,
+        request: ClientRequest,
+        context: RequestContext<RoleServer>,
+    ) -> std::result::Result<ServerResult, rmcp::Error> {
+        match request {
+            ClientRequest::InitializeRequest(req) => {
+                // Set peer info
+                if context.peer.peer_info().is_none() {
+                    context.peer.set_peer_info(req.params.clone());
                 }
-                tokio::time::sleep(tokio::time::Duration::from_secs(30)).await;
+                
+                Ok(ServerResult::InitializeResult(InitializeResult {
+                    protocol_version: "2024-11-05".to_string(),
+                    server_info: Implementation {
+                        name: "bevy-debugger-mcp".to_string(),
+                        version: env!("CARGO_PKG_VERSION").to_string(),
+                    },
+                    capabilities: ServerCapabilities {
+                        experimental: None,
+                        logging: None,
+                        prompts: None,
+                        resources: None,
+                        tools: Some(ToolsCapability {
+                            list_changed: None,
+                        }),
+                        completions: None,
+                    },
+                    instructions: None,
+                }))
             }
-        });
-        
-        // Create MCP service with our tools
-        let service = McpService::builder()
-            .server_info(server_info)
-            .capabilities(capabilities)
-            .tool_handler(self.tools.router())
-            .build();
-        
-        // Run the service on TCP
-        let addr = format!("127.0.0.1:{}", self.config.mcp_port);
-        service.tcp_transport(&addr).await.map_err(|e| {
-            error!("MCP TCP server error: {}", e);
-            crate::error::Error::DebugError(format!("MCP TCP server failed: {}", e))
-        })?;
-        
+            ClientRequest::ListToolsRequest(_req) => {
+                // For now, return empty tool list
+                // The actual tools are handled by the tool_router macro
+                Ok(ServerResult::ListToolsResult(ListToolsResult { 
+                    tools: vec![],
+                    next_cursor: None,
+                }))
+            }
+            ClientRequest::CallToolRequest(req) => {
+                // For now, return an error
+                // The actual tool calls should be handled by the tool_router
+                Err(rmcp::Error::MethodNotFound {
+                    method: req.params.name,
+                })
+            }
+            _ => Err(rmcp::Error::MethodNotFound {
+                method: "unknown".to_string(),
+            })
+        }
+    }
+    
+    async fn handle_notification(
+        &self,
+        _notification: ClientNotification,
+        _context: NotificationContext<RoleServer>,
+    ) -> std::result::Result<(), rmcp::Error> {
+        // Handle notifications if needed
         Ok(())
+    }
+    
+    fn get_info(&self) -> ServerInfo {
+        ServerInfo {
+            protocol_version: "2024-11-05".to_string(),
+            name: "bevy-debugger-mcp".to_string(),
+            version: env!("CARGO_PKG_VERSION").to_string()
+        }
     }
 }

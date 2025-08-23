@@ -175,6 +175,8 @@ pub mod debug_brp_handler;
 pub mod debug_command_processor;
 pub mod entity_inspector;
 pub mod mcp_server;
+// pub mod mcp_server_v2;  // Commented out - needs rmcp API fixes
+pub mod mcp_tools;
 pub mod query_builder_processor;
 
 // Performance profiling and visual debugging

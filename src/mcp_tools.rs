@@ -20,6 +20,7 @@ use rmcp::{Error as McpError, model::*, tool, tool_router, handler::server::tool
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use std::sync::Arc;
+use std::future::Future;
 use tokio::sync::RwLock;
 use tracing::{error, info, debug};
 
