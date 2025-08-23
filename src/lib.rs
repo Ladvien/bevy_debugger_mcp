@@ -256,3 +256,6 @@ pub mod hot_reload;
 
 // Bevy reflection integration (Epic BEVDBG-012)
 pub mod bevy_reflection;
+
+// Query performance optimization (Epic BEVDBG-014)
+pub mod query_optimization;

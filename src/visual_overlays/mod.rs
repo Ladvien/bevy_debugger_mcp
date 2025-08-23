@@ -16,6 +16,8 @@ pub mod custom_markers;
 use crate::brp_messages::DebugOverlayType;
 #[cfg(feature = "visual_overlays")]
 use bevy::prelude::*;
+#[cfg(feature = "visual_overlays")]
+use bevy::render::camera::{CameraProjection, Viewport};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
