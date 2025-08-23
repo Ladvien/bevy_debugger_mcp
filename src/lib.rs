@@ -221,6 +221,7 @@ pub mod checkpoint;
 pub mod state_diff;
 pub mod session_manager;
 pub mod session_processor;
+pub mod replay_actor;
 
 // Analysis and monitoring
 pub mod anomaly_detector;
@@ -237,6 +238,7 @@ pub mod profiling;
 pub mod compile_opts;
 pub mod memory_optimization_tracker;
 pub mod deadlock_detector;
+pub mod lock_contention_benchmark;
 pub mod tools;
 
 // Machine learning and pattern recognition (Epic BEVDBG-013)

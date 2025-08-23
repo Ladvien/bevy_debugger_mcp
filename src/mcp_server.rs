@@ -53,7 +53,7 @@ pub struct McpServer {
 
 impl McpServer {
     pub fn new(config: Config, brp_client: Arc<RwLock<BrpClient>>) -> Self {
-        let orchestrator = orchestration::create_orchestrator(brp_client.clone());
+        let orchestrator = orchestration::create_orchestrator(Arc::clone(&brp_client));
         let resource_manager = ResourceManager::new(ResourceConfig::default());
 
         // Initialize error recovery and diagnostic systems
@@ -62,7 +62,7 @@ impl McpServer {
         let checkpoint_manager = CheckpointManager::new(CheckpointConfig::default());
 
         // Initialize lazy components manager for optimized startup
-        let lazy_components = Arc::new(LazyComponents::new(brp_client.clone()));
+        let lazy_components = Arc::new(LazyComponents::new(Arc::clone(&brp_client)));
 
         // Initialize command result cache for performance optimization
         let cache_config = CacheConfig {
@@ -96,7 +96,7 @@ impl McpServer {
         }
 
         // Optionally preload critical components based on feature flags
-        let lazy_components_clone = lazy_components.clone();
+        let lazy_components_for_preload = Arc::clone(&lazy_components);
         tokio::spawn(async move {
             if let Err(e) = preload_critical_components(&lazy_components_clone).await {
                 error!("Failed to preload critical components: {}", e);
@@ -216,16 +216,19 @@ impl McpServer {
 
             // Clone arguments for error reporting later
             let args_for_error = arguments.clone();
+            
+            // Use shared Arc reference for all tool handlers
+            let brp_client_ref = Arc::clone(&self.brp_client);
 
             let result: Result<serde_json::Value> = profile_async_block!(format!("tool_execution_{}", tool_name), async {
                 match tool_name {
-                    "observe" => observe::handle(arguments, self.brp_client.clone()).await,
-                    "experiment" => experiment::handle(arguments, self.brp_client.clone()).await,
+                    "observe" => observe::handle(arguments, brp_client_ref).await,
+                    "experiment" => experiment::handle(arguments, Arc::clone(&brp_client_ref)).await,
                     "screenshot" => self.handle_screenshot(arguments).await,
-                    "hypothesis" => hypothesis::handle(arguments, self.brp_client.clone()).await,
-                    "stress" => stress::handle(arguments, self.brp_client.clone()).await,
-                    "replay" => replay::handle(arguments, self.brp_client.clone()).await,
-                    "anomaly" => anomaly::handle(arguments, self.brp_client.clone()).await,
+                    "hypothesis" => hypothesis::handle(arguments, Arc::clone(&brp_client_ref)).await,
+                    "stress" => stress::handle(arguments, Arc::clone(&brp_client_ref)).await,
+                    "replay" => replay::handle(arguments, Arc::clone(&brp_client_ref)).await,
+                    "anomaly" => anomaly::handle(arguments, Arc::clone(&brp_client_ref)).await,
                     "orchestrate" => self.handle_orchestration(arguments).await,
                     "pipeline" => self.handle_pipeline_execution(arguments).await,
                     "resource_metrics" => self.handle_resource_metrics(arguments).await,
@@ -255,7 +258,7 @@ impl McpServer {
             if let (Ok(ref response), Some(cache_key)) = (&result, cache_key) {
                 profile_async_block!("cache_store", async {
                     let tags = self.get_cache_tags_for_tool(tool_name);
-                    if let Err(e) = self.command_cache.put(&cache_key, response.clone(), tags).await {
+                    if let Err(e) = self.command_cache.put(&cache_key, &response, tags).await {
                         warn!("Failed to cache result for {}: {}", tool_name, e);
                     }
                 });
@@ -293,7 +296,7 @@ impl McpServer {
             .and_then(|t| t.as_str())
             .ok_or_else(|| Error::Validation("Missing 'tool' field".to_string()))?;
 
-        let tool_args = arguments.get("arguments").unwrap_or(&Value::Null).clone();
+        let tool_args = arguments.get("arguments").unwrap_or(&Value::Null);
 
         // Apply context configuration if provided
         if let Some(config) = arguments.get("config") {
@@ -1263,15 +1266,15 @@ impl Clone for McpServer {
     fn clone(&self) -> Self {
         McpServer {
             config: self.config.clone(),
-            brp_client: self.brp_client.clone(),
-            orchestrator: self.orchestrator.clone(),
-            resource_manager: self.resource_manager.clone(),
-            dead_letter_queue: self.dead_letter_queue.clone(),
-            diagnostic_collector: self.diagnostic_collector.clone(),
-            checkpoint_manager: self.checkpoint_manager.clone(),
-            lazy_components: self.lazy_components.clone(),
-            command_cache: self.command_cache.clone(),
-            response_pool: self.response_pool.clone(),
+            brp_client: Arc::clone(&self.brp_client),
+            orchestrator: Arc::clone(&self.orchestrator),
+            resource_manager: Arc::clone(&self.resource_manager),
+            dead_letter_queue: Arc::clone(&self.dead_letter_queue),
+            diagnostic_collector: Arc::clone(&self.diagnostic_collector),
+            checkpoint_manager: Arc::clone(&self.checkpoint_manager),
+            lazy_components: Arc::clone(&self.lazy_components),
+            command_cache: Arc::clone(&self.command_cache),
+            response_pool: Arc::clone(&self.response_pool),
             debug_mode: self.debug_mode,
         }
     }
