@@ -349,17 +349,22 @@ struct SemanticPattern {
 
 impl SemanticAnalyzer {
     /// Create a new semantic analyzer with default thresholds
-    #[must_use]
-    pub fn new() -> Self {
+    /// 
+    /// # Errors
+    /// Returns error if regex patterns fail to compile
+    pub fn new() -> Result<Self> {
         Self::with_thresholds(SemanticThresholds::default())
     }
 
     /// Create a semantic analyzer with custom thresholds
-    #[must_use]
-    pub fn with_thresholds(thresholds: SemanticThresholds) -> Self {
+    /// 
+    /// # Errors
+    /// Returns error if regex patterns fail to compile
+    pub fn with_thresholds(thresholds: SemanticThresholds) -> Result<Self> {
         let patterns = vec![
             SemanticPattern {
-                pattern: Regex::new(r"(?i)find\s+stuck\s+entities?").unwrap(),
+                pattern: Regex::new(r"(?i)find\s+stuck\s+entities?")
+                    .map_err(|e| Error::Validation(format!("Invalid regex pattern: {}", e)))?,
                 concepts: vec![GameConcept::StuckEntities],
                 builder_fn: |analyzer, _| {
                     Ok(SemanticQueryBuilder::new()
@@ -369,7 +374,7 @@ impl SemanticAnalyzer {
             },
             SemanticPattern {
                 pattern: Regex::new(r"(?i)(?:show|find)\s+fast\s+moving\s+(?:objects?|entities?)")
-                    .unwrap(),
+                    .map_err(|e| Error::Validation(format!("Invalid regex pattern: {}", e)))?,
                 concepts: vec![GameConcept::FastMovingObjects],
                 builder_fn: |analyzer, _| {
                     Ok(SemanticQueryBuilder::new()
@@ -378,7 +383,8 @@ impl SemanticAnalyzer {
                 },
             },
             SemanticPattern {
-                pattern: Regex::new(r"(?i)find\s+overlapping\s+colliders?").unwrap(),
+                pattern: Regex::new(r"(?i)find\s+overlapping\s+colliders?")
+                    .map_err(|e| Error::Validation(format!("Invalid regex pattern: {}", e)))?,
                 concepts: vec![GameConcept::OverlappingColliders],
                 builder_fn: |analyzer, _| {
                     Ok(SemanticQueryBuilder::new()
@@ -387,7 +393,8 @@ impl SemanticAnalyzer {
                 },
             },
             SemanticPattern {
-                pattern: Regex::new(r"(?i)find\s+(?:memory\s+leaks?|leaked\s+entities?)").unwrap(),
+                pattern: Regex::new(r"(?i)find\s+(?:memory\s+leaks?|leaked\s+entities?)")
+                    .map_err(|e| Error::Validation(format!("Invalid regex pattern: {}", e)))?,
                 concepts: vec![GameConcept::PotentialMemoryLeaks],
                 builder_fn: |analyzer, _| {
                     Ok(SemanticQueryBuilder::new()
@@ -397,7 +404,7 @@ impl SemanticAnalyzer {
             },
             SemanticPattern {
                 pattern: Regex::new(r"(?i)find\s+(?:inconsistent|invalid)\s+(?:state|entities?)")
-                    .unwrap(),
+                    .map_err(|e| Error::Validation(format!("Invalid regex pattern: {}", e)))?,
                 concepts: vec![GameConcept::InconsistentState],
                 builder_fn: |analyzer, _| {
                     Ok(SemanticQueryBuilder::new()
@@ -406,7 +413,8 @@ impl SemanticAnalyzer {
                 },
             },
             SemanticPattern {
-                pattern: Regex::new(r"(?i)find\s+physics\s+violations?").unwrap(),
+                pattern: Regex::new(r"(?i)find\s+physics\s+violations?")
+                    .map_err(|e| Error::Validation(format!("Invalid regex pattern: {}", e)))?,
                 concepts: vec![GameConcept::PhysicsViolations],
                 builder_fn: |analyzer, _| {
                     Ok(SemanticQueryBuilder::new()
@@ -416,7 +424,8 @@ impl SemanticAnalyzer {
             },
             // Compound queries
             SemanticPattern {
-                pattern: Regex::new(r"(?i)find\s+stuck\s+(?:and|or)\s+fast\s+entities?").unwrap(),
+                pattern: Regex::new(r"(?i)find\s+stuck\s+(?:and|or)\s+fast\s+entities?")
+                    .map_err(|e| Error::Validation(format!("Invalid regex pattern: {}", e)))?,
                 concepts: vec![GameConcept::StuckEntities, GameConcept::FastMovingObjects],
                 builder_fn: |analyzer, caps| {
                     let logic = if caps[0].to_lowercase().contains("and") {
@@ -433,10 +442,10 @@ impl SemanticAnalyzer {
             },
         ];
 
-        Self {
+        Ok(Self {
             thresholds,
             patterns,
-        }
+        })
     }
 
     /// Analyze a semantic query and return structured query result
@@ -521,7 +530,7 @@ impl SemanticAnalyzer {
 
 impl Default for SemanticAnalyzer {
     fn default() -> Self {
-        Self::new()
+        Self::new().expect("Default semantic analyzer should initialize successfully")
     }
 }
 

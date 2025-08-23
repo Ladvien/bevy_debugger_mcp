@@ -182,7 +182,7 @@ impl RegexQueryParser {
 
         Ok(Self {
             patterns,
-            semantic_analyzer: SemanticAnalyzer::new(),
+            semantic_analyzer: SemanticAnalyzer::new()?,
         })
     }
 }
