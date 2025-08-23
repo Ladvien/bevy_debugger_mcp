@@ -165,12 +165,15 @@ pub mod prelude {
 // Core functionality
 pub mod error;
 pub mod config;
+pub mod circuit_breaker;
+pub mod connection_pool;
 
 // Communication
 pub mod brp_client;
 pub mod brp_command_handler;
 pub mod brp_integration;
 pub mod brp_messages;
+pub mod brp_validation;
 pub mod debug_brp_handler;
 pub mod debug_command_processor;
 pub mod entity_inspector;

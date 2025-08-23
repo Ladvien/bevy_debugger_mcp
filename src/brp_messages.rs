@@ -4,7 +4,37 @@ use std::collections::HashMap;
 use std::fmt;
 
 /// Unique identifier for an entity in the Bevy ECS world
+/// In Bevy 0.16, this represents both the entity index and generation
 pub type EntityId = u64;
+
+/// Extended entity representation with generation field for Bevy 0.16 compatibility
+#[derive(Debug, Clone, Copy, Eq, PartialEq, Hash, Serialize, Deserialize)]
+pub struct EntityWithGeneration {
+    /// Entity index
+    pub index: u32,
+    /// Entity generation (for reuse detection)
+    pub generation: u32,
+}
+
+impl EntityWithGeneration {
+    /// Create a new entity with generation
+    pub fn new(index: u32, generation: u32) -> Self {
+        Self { index, generation }
+    }
+    
+    /// Convert to combined u64 entity ID for backward compatibility
+    pub fn to_entity_id(self) -> EntityId {
+        ((self.generation as u64) << 32) | (self.index as u64)
+    }
+    
+    /// Extract entity with generation from u64 entity ID
+    pub fn from_entity_id(entity_id: EntityId) -> Self {
+        Self {
+            index: entity_id as u32,
+            generation: (entity_id >> 32) as u32,
+        }
+    }
+}
 
 /// Unique identifier for a component type
 pub type ComponentTypeId = String;
@@ -24,6 +54,9 @@ pub enum BrpRequest {
         filter: Option<QueryFilter>,
         /// Maximum number of results to return
         limit: Option<usize>,
+        /// Bevy 0.16: Strict mode for component validation (defaults to false)
+        /// When false, missing/invalid components are skipped instead of causing errors
+        strict: Option<bool>,
     },
 
     /// Get specific entity's components

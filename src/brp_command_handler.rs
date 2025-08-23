@@ -23,6 +23,7 @@ use std::sync::Arc;
 use tokio::sync::RwLock;
 
 use crate::brp_messages::{BrpRequest, BrpResponse};
+use crate::brp_validation::BrpValidator;
 use crate::error::Result;
 
 /// Version information for command handlers
@@ -92,9 +93,11 @@ pub trait BrpCommandHandler: Send + Sync {
 
     /// Validate a request before processing.
     /// Override this to add custom validation logic.
-    /// Default implementation accepts all requests.
+    /// Default implementation uses comprehensive BRP validation.
     async fn validate(&self, request: &BrpRequest) -> Result<()> {
-        Ok(())
+        // Use basic validation from brp_messages module as fallback
+        crate::brp_messages::validation::validate_request(request)
+            .map_err(|e| crate::error::Error::Validation(e))
     }
 
     /// Get the handler's priority (higher = processed first).
@@ -109,6 +112,7 @@ pub trait BrpCommandHandler: Send + Sync {
 pub struct CommandHandlerRegistry {
     handlers: Arc<RwLock<Vec<Arc<dyn BrpCommandHandler>>>>,
     version_map: Arc<RwLock<HashMap<String, CommandVersion>>>,
+    validator: Arc<BrpValidator>,
 }
 
 impl CommandHandlerRegistry {
@@ -116,6 +120,16 @@ impl CommandHandlerRegistry {
         Self {
             handlers: Arc::new(RwLock::new(Vec::new())),
             version_map: Arc::new(RwLock::new(HashMap::new())),
+            validator: Arc::new(BrpValidator::new()),
+        }
+    }
+    
+    /// Create a new registry with custom validation configuration
+    pub fn with_validator(validator: BrpValidator) -> Self {
+        Self {
+            handlers: Arc::new(RwLock::new(Vec::new())),
+            version_map: Arc::new(RwLock::new(HashMap::new())),
+            validator: Arc::new(validator),
         }
     }
 
@@ -146,13 +160,25 @@ impl CommandHandlerRegistry {
         None
     }
 
-    /// Process a request using the appropriate handler
+    /// Process a request using the appropriate handler with comprehensive validation
     pub async fn process(&self, request: BrpRequest) -> Result<BrpResponse> {
+        self.process_with_session(request, "default_session").await
+    }
+    
+    /// Process a request with session-specific validation
+    pub async fn process_with_session(&self, request: BrpRequest, session_id: &str) -> Result<BrpResponse> {
         if let Some(handler) = self.find_handler(&request).await {
-            // Validate first
+            // First run comprehensive validation
+            let request_size = serde_json::to_vec(&request)
+                .map_err(|e| crate::error::Error::Json(e))?
+                .len();
+            
+            self.validator.validate_request(&request, session_id, request_size).await?;
+            
+            // Then run handler-specific validation
             handler.validate(&request).await?;
             
-            // Then handle
+            // Finally handle the request
             handler.handle(request).await
         } else {
             Err(crate::error::Error::Validation(format!(
@@ -176,6 +202,11 @@ impl CommandHandlerRegistry {
         } else {
             false
         }
+    }
+    
+    /// Get the validator for configuration
+    pub fn get_validator(&self) -> Arc<BrpValidator> {
+        self.validator.clone()
     }
 }
 
