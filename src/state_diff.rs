@@ -2,6 +2,7 @@
 use serde::{Deserialize, Serialize};
 use std::collections::{HashMap, HashSet};
 use std::time::Duration;
+use tracing::warn;
 
 use crate::brp_messages::{ComponentTypeId, ComponentValue, EntityData, EntityId};
 
@@ -497,7 +498,13 @@ impl StateDiff {
 
         // Find added components
         for component_type in after_components.difference(&before_components) {
-            let new_value = after.components.get(*component_type).unwrap();
+            let new_value = match after.components.get(*component_type) {
+                Some(value) => value,
+                None => {
+                    warn!("Component {:?} found in key set but not in component map", component_type);
+                    continue;
+                }
+            };
             changes.push(Change::new(
                 ChangeType::ComponentAdded,
                 after.id,
@@ -509,7 +516,13 @@ impl StateDiff {
 
         // Find removed components
         for component_type in before_components.difference(&after_components) {
-            let old_value = before.components.get(*component_type).unwrap();
+            let old_value = match before.components.get(*component_type) {
+                Some(value) => value,
+                None => {
+                    warn!("Component {:?} found in key set but not in component map", component_type);
+                    continue;
+                }
+            };
             changes.push(Change::new(
                 ChangeType::ComponentRemoved,
                 before.id,
@@ -521,8 +534,20 @@ impl StateDiff {
 
         // Find modified components
         for component_type in before_components.intersection(&after_components) {
-            let before_value = before.components.get(*component_type).unwrap();
-            let after_value = after.components.get(*component_type).unwrap();
+            let before_value = match before.components.get(*component_type) {
+                Some(value) => value,
+                None => {
+                    warn!("Component {:?} found in key set but not in component map", component_type);
+                    continue;
+                }
+            };
+            let after_value = match after.components.get(*component_type) {
+                Some(value) => value,
+                None => {
+                    warn!("Component {:?} found in key set but not in component map", component_type);
+                    continue;
+                }
+            };
 
             if !before_value.fuzzy_eq(after_value, &self.fuzzy_config) {
                 let mut change = Change::new(
