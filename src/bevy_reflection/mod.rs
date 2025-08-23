@@ -24,12 +24,13 @@
 //! - TypeRegistry integration tools
 //! - Reflection-based query optimization
 
+pub mod inspector;
 pub mod custom_inspectors;
 pub mod type_registry_tools;
 pub mod reflection_queries;
 
-// Re-export main types from the parent module
-pub use crate::bevy_reflection::{
+// Re-export main types from inspector module
+pub use inspector::{
     BevyReflectionInspector, ReflectionMetadata, FieldMetadata, TypeCategory,
     ReflectionInspectionResult, InspectedValue, CustomInspector,
     ReflectionDiffResult, FieldDiff, ChangeType, ChangeSeverity, DiffSummary,

@@ -28,7 +28,7 @@ use std::sync::Arc;
 use tokio::sync::RwLock;
 use tracing::{debug, info, warn};
 
-use crate::bevy_reflection::{BevyReflectionInspector, ReflectionMetadata, TypeCategory};
+use crate::bevy_reflection::inspector::{BevyReflectionInspector, ReflectionMetadata, TypeCategory};
 use crate::bevy_reflection::type_registry_tools::{TypeRegistryManager, TypeQuery};
 use crate::brp_messages::{BrpRequest, EntityData, ComponentValue};
 use crate::brp_client::BrpClient;
@@ -539,14 +539,14 @@ impl ReflectionQueryEngine {
                 complexity = 0.6 + (arr.len() as f64 / 100.0).min(0.3);
                 // Add complexity for nested structures
                 for item in arr.iter().take(10) { // Sample first 10 items
-                    complexity += self.calculate_component_complexity(item).await * 0.1;
+                    complexity += Box::pin(self.calculate_component_complexity(item)).await * 0.1;
                 }
             }
             Value::Object(obj) => {
                 complexity = 0.7 + (obj.len() as f64 / 50.0).min(0.2);
                 // Add complexity for nested structures
                 for value in obj.values().take(10) { // Sample first 10 fields
-                    complexity += self.calculate_component_complexity(value).await * 0.1;
+                    complexity += Box::pin(self.calculate_component_complexity(value)).await * 0.1;
                 }
             }
         }

@@ -34,7 +34,7 @@ use std::sync::Arc;
 use tokio::sync::RwLock;
 use tracing::{debug, info, warn};
 
-use crate::bevy_reflection::{ReflectionMetadata, FieldMetadata, TypeCategory};
+use crate::bevy_reflection::inspector::{ReflectionMetadata, FieldMetadata, TypeCategory};
 use crate::error::{Error, Result};
 
 /// TypeRegistry manager for dynamic component type discovery

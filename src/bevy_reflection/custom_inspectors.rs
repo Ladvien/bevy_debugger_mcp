@@ -22,7 +22,7 @@
 //! that require domain-specific knowledge for proper inspection and visualization.
 
 use serde_json::{json, Value};
-use crate::bevy_reflection::{CustomInspector, InspectedValue};
+use crate::bevy_reflection::inspector::{CustomInspector, InspectedValue};
 use crate::brp_messages::ComponentValue;
 use crate::error::{Error, Result};
 
