@@ -102,6 +102,33 @@ pub enum BrpRequest {
         filter: Option<QueryFilter>,
     },
 
+    /// Insert components into an entity (Bevy 0.16)
+    #[serde(rename = "bevy/insert")]
+    Insert {
+        /// Target entity ID
+        entity: EntityId,
+        /// Component type and value pairs to insert
+        components: HashMap<ComponentTypeId, ComponentValue>,
+    },
+
+    /// Remove components from an entity (Bevy 0.16)
+    #[serde(rename = "bevy/remove")]
+    Remove {
+        /// Target entity ID
+        entity: EntityId,
+        /// Component types to remove
+        components: Vec<ComponentTypeId>,
+    },
+
+    /// Change entity parent-child relationships (Bevy 0.16)
+    #[serde(rename = "bevy/reparent")]
+    Reparent {
+        /// Child entity ID
+        entity: EntityId,
+        /// New parent entity ID (None to remove from parent)
+        parent: Option<EntityId>,
+    },
+
     /// Take a screenshot of the primary window
     #[serde(rename = "bevy_debugger/screenshot")]
     Screenshot {
@@ -621,8 +648,10 @@ pub struct EntityMetadata {
     pub memory_size: usize,
     /// Last modified timestamp
     pub last_modified: Option<u64>,
-    /// Entity generation
+    /// Entity generation (Bevy 0.16 compatibility)
     pub generation: u32,
+    /// Entity index (Bevy 0.16 compatibility)
+    pub index: u32,
     /// Component type information
     pub component_types: Vec<DetailedComponentTypeInfo>,
     /// Which components have been modified
