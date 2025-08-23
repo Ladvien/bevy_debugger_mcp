@@ -35,6 +35,8 @@ pub struct ObserveRequest {
     pub diff: bool,
     #[serde(default)]
     pub detailed: bool,
+    #[serde(default)]
+    pub reflection: bool,
 }
 
 #[derive(Debug, Deserialize, JsonSchema)]
@@ -109,7 +111,7 @@ impl BevyDebuggerTools {
 #[tool_router]
 impl BevyDebuggerTools {
     /// Observe and query Bevy game state
-    #[tool(description = "Observe and query Bevy game state in real-time. Use this to inspect entities, components, resources, and game state. Perfect for debugging entity spawning, component updates, and understanding your ECS architecture.")]
+    #[tool(description = "Observe and query Bevy game state in real-time with optional reflection-based component inspection. Use this to inspect entities, components, resources, and game state. Enable 'reflection' parameter for deep component analysis including field inspection, type information, and custom inspectors for complex types like Option<T>, Vec<T>, HashMap<K,V>. Perfect for debugging entity spawning, component updates, and understanding your ECS architecture.")]
     pub async fn observe(&self, Parameters(req): Parameters<ObserveRequest>) -> Result<CallToolResult, McpError> {
         debug!("Executing observe query: {}", req.query);
         
@@ -117,6 +119,7 @@ impl BevyDebuggerTools {
             "query": req.query,
             "diff": req.diff,
             "detailed": req.detailed,
+            "reflection": req.reflection,
         });
         
         match observe::handle(arguments, self.brp_client.clone()).await {
