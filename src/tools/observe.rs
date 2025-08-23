@@ -16,6 +16,7 @@ pub struct ObserveState {
     parser: RegexQueryParser,
     cache: QueryCache,
     diff_engine: StateDiff,
+    reflection_inspector: BevyReflectionInspector,
     last_snapshot: Option<StateSnapshot>,
     snapshots_history: Vec<StateSnapshot>, // Keep last N snapshots for windowed diffs
     max_history_size: usize,
@@ -31,6 +32,7 @@ impl ObserveState {
             parser: RegexQueryParser::new()?,
             cache: QueryCache::new(300), // 5 minute TTL
             diff_engine: StateDiff::new(),
+            reflection_inspector: BevyReflectionInspector::new(),
             last_snapshot: None,
             snapshots_history: Vec::new(),
             max_history_size: 10, // Keep last 10 snapshots
@@ -46,6 +48,7 @@ impl ObserveState {
             parser: RegexQueryParser::new()?,
             cache: QueryCache::new(300),
             diff_engine: StateDiff::with_config(fuzzy_config, game_rules),
+            reflection_inspector: BevyReflectionInspector::new(),
             last_snapshot: None,
             snapshots_history: Vec::new(),
             max_history_size: 10,
@@ -131,14 +134,9 @@ impl ObserveState {
 impl Default for ObserveState {
     fn default() -> Self {
         Self::new().unwrap_or_else(|_| {
-            // Fallback to basic state if regex compilation fails
-            ObserveState {
-                active_queries: HashMap::new(),
-                watch_count: 0,
-                brp_client: None,
-                observer_state: ObserverState::Idle,
-                query_parser: None, // Will use None as fallback
-            }
+            // Fallback to basic state if initialization fails
+            // This should rarely happen in practice
+            panic!("Failed to create default ObserveState - this indicates a serious configuration issue");
         })
     }
 }
@@ -176,9 +174,14 @@ pub async fn handle(arguments: Value, brp_client: Arc<RwLock<BrpClient>>) -> Res
         .and_then(|t| t.as_str())
         .unwrap_or("last"); // "last", "history:N", "clear"
 
+    let use_reflection = arguments
+        .get("reflection")
+        .and_then(|r| r.as_bool())
+        .unwrap_or(false);
+
     info!(
-        "Processing observe query: {} (diff_mode: {}, diff_target: {})",
-        query, diff_mode, diff_target
+        "Processing observe query: {} (diff_mode: {}, diff_target: {}, reflection: {})",
+        query, diff_mode, diff_target, use_reflection
     );
 
     let start_time = Instant::now();
@@ -290,7 +293,44 @@ pub async fn handle(arguments: Value, brp_client: Arc<RwLock<BrpClient>>) -> Res
                 _ => 0,
             };
 
-            let result_json = serde_json::to_value(&result).map_err(Error::Json)?;
+            let mut result_json = serde_json::to_value(&result).map_err(Error::Json)?;
+
+            // Add reflection inspection if requested
+            if use_reflection {
+                if let BrpResult::Entities(entities) = result.as_ref() {
+                    let mut reflection_data = Vec::new();
+                    let state_guard = state.read().await;
+                    
+                    for entity in entities.iter().take(20) { // Limit reflection to first 20 entities for performance
+                        let mut entity_reflection = serde_json::Map::new();
+                        entity_reflection.insert("entity_id".to_string(), json!(entity.id));
+                        
+                        let mut component_reflections = serde_json::Map::new();
+                        for (component_type, component_value) in &entity.components {
+                            match state_guard.reflection_inspector.inspect_component(component_type, component_value).await {
+                                Ok(inspection) => {
+                                    component_reflections.insert(component_type.clone(), json!(inspection));
+                                }
+                                Err(e) => {
+                                    warn!("Reflection inspection failed for {} on entity {}: {}", component_type, entity.id, e);
+                                    component_reflections.insert(component_type.clone(), json!({
+                                        "error": e.to_string(),
+                                        "type_name": component_type
+                                    }));
+                                }
+                            }
+                        }
+                        
+                        entity_reflection.insert("component_reflections".to_string(), json!(component_reflections));
+                        reflection_data.push(json!(entity_reflection));
+                    }
+                    
+                    // Add reflection data to result
+                    if let Some(result_obj) = result_json.as_object_mut() {
+                        result_obj.insert("reflection_data".to_string(), json!(reflection_data));
+                    }
+                }
+            }
 
             // Handle diff mode for entity queries
             let diff_result = if diff_mode {
@@ -367,6 +407,7 @@ pub async fn handle(arguments: Value, brp_client: Arc<RwLock<BrpClient>>) -> Res
             "timestamp": metrics.timestamp.to_rfc3339(),
             "diff_mode": diff_mode,
             "diff_target": diff_target,
+            "reflection_enabled": use_reflection,
         }
     });
 

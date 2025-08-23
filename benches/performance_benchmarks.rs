@@ -11,6 +11,10 @@ use bevy_debugger_mcp::{
     brp_client::BrpClient,
     mcp_server::McpServer,
     lazy_init::LazyComponents,
+    query_optimization::{QueryOptimizer, QueryPerformanceMetrics},
+    parallel_query_executor::{ParallelQueryExecutor, ParallelExecutionConfig},
+    tools::{observe, observe_optimized},
+    brp_messages::{BrpRequest, QueryFilter},
 };
 
 #[cfg(feature = "visual-debugging")]
