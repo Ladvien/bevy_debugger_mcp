@@ -219,7 +219,8 @@ impl CheckpointManager {
 
         // Store in memory
         {
-            let mut checkpoints = self.checkpoints.write().unwrap();
+            let mut checkpoints = self.checkpoints.write()
+                .map_err(|_| Self::handle_lock_poison::<()>())?;
 
             // Remove oldest checkpoints if we're at the limit
             while checkpoints.len() >= self.config.max_checkpoints {
@@ -253,7 +254,8 @@ impl CheckpointManager {
     /// Restore a checkpoint by ID
     pub async fn restore_checkpoint(&self, checkpoint_id: &str) -> Result<Checkpoint> {
         let checkpoint = {
-            let checkpoints = self.checkpoints.read().unwrap();
+            let checkpoints = self.checkpoints.read()
+                .map_err(|_| Self::handle_lock_poison::<()>())?;
             checkpoints.get(checkpoint_id).cloned()
         };
 
@@ -274,7 +276,8 @@ impl CheckpointManager {
                     if let Ok(cp) = self.load_checkpoint_from_disk(checkpoint_id).await {
                         if !cp.is_expired() {
                             // Add back to memory
-                            let mut checkpoints = self.checkpoints.write().unwrap();
+                            let mut checkpoints = self.checkpoints.write()
+                                .map_err(|_| Self::handle_lock_poison::<()>())?;
                             checkpoints.insert(checkpoint_id.to_string(), cp.clone());
 
                             info!(
@@ -294,36 +297,49 @@ impl CheckpointManager {
     }
 
     /// Get all available checkpoints
-    pub async fn list_checkpoints(&self) -> Vec<Checkpoint> {
-        let checkpoints = self.checkpoints.read().unwrap();
-        checkpoints.values().cloned().collect()
+    /// 
+    /// # Errors
+    /// Returns error if the lock is poisoned
+    pub async fn list_checkpoints(&self) -> Result<Vec<Checkpoint>> {
+        let checkpoints = self.checkpoints.read()
+            .map_err(|_| Self::handle_lock_poison::<()>())?;
+        Ok(checkpoints.values().cloned().collect())
     }
 
     /// Get checkpoints by operation type
-    pub async fn list_checkpoints_by_operation(&self, operation_type: &str) -> Vec<Checkpoint> {
-        let checkpoints = self.checkpoints.read().unwrap();
-        checkpoints
+    /// 
+    /// # Errors
+    /// Returns error if the lock is poisoned
+    pub async fn list_checkpoints_by_operation(&self, operation_type: &str) -> Result<Vec<Checkpoint>> {
+        let checkpoints = self.checkpoints.read()
+            .map_err(|_| Self::handle_lock_poison::<()>())?;
+        Ok(checkpoints
             .values()
             .filter(|cp| cp.operation_type == operation_type)
             .cloned()
-            .collect()
+            .collect())
     }
 
     /// Get checkpoints by component
-    pub async fn list_checkpoints_by_component(&self, component: &str) -> Vec<Checkpoint> {
-        let checkpoints = self.checkpoints.read().unwrap();
-        checkpoints
+    /// 
+    /// # Errors
+    /// Returns error if the lock is poisoned
+    pub async fn list_checkpoints_by_component(&self, component: &str) -> Result<Vec<Checkpoint>> {
+        let checkpoints = self.checkpoints.read()
+            .map_err(|_| Self::handle_lock_poison::<()>())?;
+        Ok(checkpoints
             .values()
             .filter(|cp| cp.component == component)
             .cloned()
-            .collect()
+            .collect())
     }
 
     /// Delete a checkpoint
     pub async fn delete_checkpoint(&self, checkpoint_id: &str) -> Result<()> {
         // Remove from memory
         let removed = {
-            let mut checkpoints = self.checkpoints.write().unwrap();
+            let mut checkpoints = self.checkpoints.write()
+                .map_err(|_| Self::handle_lock_poison::<()>())?;
             checkpoints.remove(checkpoint_id).is_some()
         };
 
@@ -346,8 +362,12 @@ impl CheckpointManager {
     }
 
     /// Get checkpoint statistics
-    pub async fn get_statistics(&self) -> CheckpointStats {
-        let checkpoints = self.checkpoints.read().unwrap();
+    /// 
+    /// # Errors  
+    /// Returns error if the lock is poisoned
+    pub async fn get_statistics(&self) -> Result<CheckpointStats> {
+        let checkpoints = self.checkpoints.read()
+            .map_err(|_| Self::handle_lock_poison::<()>())?;
 
         let mut stats = CheckpointStats {
             total_count: checkpoints.len(),
@@ -393,7 +413,7 @@ impl CheckpointManager {
             }
         }
 
-        stats
+        Ok(stats)
     }
 
     async fn cleanup_expired_checkpoints(
@@ -404,20 +424,33 @@ impl CheckpointManager {
         let mut to_remove = Vec::new();
 
         {
-            let checkpoints_guard = checkpoints.read().unwrap();
-            for (id, checkpoint) in checkpoints_guard.iter() {
-                if checkpoint.is_expired() || checkpoint.age_seconds() > max_age {
-                    to_remove.push(id.clone());
+            match checkpoints.read() {
+                Ok(checkpoints_guard) => {
+                    for (id, checkpoint) in checkpoints_guard.iter() {
+                        if checkpoint.is_expired() || checkpoint.age_seconds() > max_age {
+                            to_remove.push(id.clone());
+                        }
+                    }
+                }
+                Err(_) => {
+                    warn!("Failed to acquire read lock for checkpoint cleanup - skipping this cycle");
+                    return;
                 }
             }
         }
 
         if !to_remove.is_empty() {
-            let mut checkpoints_guard = checkpoints.write().unwrap();
-            for id in &to_remove {
-                checkpoints_guard.remove(id);
+            match checkpoints.write() {
+                Ok(mut checkpoints_guard) => {
+                    for id in &to_remove {
+                        checkpoints_guard.remove(id);
+                    }
+                    info!("Cleaned up {} expired checkpoints", to_remove.len());
+                }
+                Err(_) => {
+                    warn!("Failed to acquire write lock for checkpoint cleanup - expired checkpoints remain");
+                }
             }
-            info!("Cleaned up {} expired checkpoints", to_remove.len());
         }
     }
 
@@ -453,7 +486,8 @@ impl CheckpointManager {
                     match self.load_checkpoint_from_disk(checkpoint_id).await {
                         Ok(checkpoint) => {
                             if !checkpoint.is_expired() {
-                                let mut checkpoints = self.checkpoints.write().unwrap();
+                                let mut checkpoints = self.checkpoints.write()
+                                    .map_err(|_| Self::handle_lock_poison::<()>())?;
                                 checkpoints.insert(checkpoint.id.clone(), checkpoint);
                                 loaded_count += 1;
                             } else {
@@ -499,10 +533,16 @@ impl CheckpointManager {
 
         // Save all checkpoints to disk if configured
         if self.config.persist_to_disk {
-            let checkpoints = self.checkpoints.read().unwrap();
-            for checkpoint in checkpoints.values() {
-                if let Err(e) = self.save_checkpoint_to_disk(checkpoint).await {
-                    error!("Failed to save checkpoint during shutdown: {}", e);
+            match self.checkpoints.read() {
+                Ok(checkpoints) => {
+                    for checkpoint in checkpoints.values() {
+                        if let Err(e) = self.save_checkpoint_to_disk(checkpoint).await {
+                            error!("Failed to save checkpoint during shutdown: {}", e);
+                        }
+                    }
+                }
+                Err(_) => {
+                    error!("Failed to acquire lock during shutdown - some checkpoints may not be saved");
                 }
             }
         }
