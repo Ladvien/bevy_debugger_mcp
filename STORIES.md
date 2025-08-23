@@ -1,30 +1,6 @@
 ## Epic: Technical Debt - Deprecated Patterns and Dependencies
 
 
-### Story 3: Replace lazy_static with std::sync::OnceLock
-**Title:** Modernize lazy_static usage to std::sync::OnceLock
-
-**Description:**
-Replace deprecated `lazy_static` crate with Rust's built-in `OnceLock` in `/src/tools/replay.rs`.
-
-**Acceptance Criteria:**
-- [ ] Remove lazy_static dependency from Cargo.toml
-- [ ] Replace lazy_static usage in `/src/tools/replay.rs:16`
-- [ ] Use `std::sync::OnceLock` pattern
-- [ ] Verify functionality remains unchanged
-- [ ] Update minimum Rust version if needed
-
-**Definition of Done:**
-- Code changes committed and reviewed
-- All unit tests pass
-- Integration tests pass
-- No compiler warnings related to rand
-- Documentation updated if needed
-- Code reviewed by at least one team member
-
-**Story Points:** 2
-
----
 
 ## Epic: Unused Dependencies and Dead Code
 

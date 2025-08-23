@@ -950,7 +950,7 @@ async fn handle_branch_tree(
     }))
 }
 
-// lazy_static is now a direct dependency
+// Static globals now use std::sync::OnceLock instead of lazy_static
 
 #[cfg(test)]
 mod tests {
