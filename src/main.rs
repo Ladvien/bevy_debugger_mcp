@@ -27,7 +27,7 @@ use is_terminal::IsTerminal;
 use bevy_debugger_mcp::brp_client::BrpClient;
 use bevy_debugger_mcp::config::Config;
 use bevy_debugger_mcp::error::Result;
-use bevy_debugger_mcp::mcp_server;
+use bevy_debugger_mcp::{mcp_server, mcp_server_v2};
 
 #[tokio::main]
 async fn main() -> Result<()> {
@@ -78,11 +78,14 @@ async fn main() -> Result<()> {
 }
 
 async fn run_stdio_mode(config: Config) -> Result<()> {
-    // For now, stdio mode is not fully implemented
-    // The rmcp library integration needs more work
-    error!("Stdio mode is not yet fully implemented. Please use TCP mode with --tcp flag.");
-    error!("To use with Claude Code, you may need to run in TCP mode and configure accordingly.");
-    Err(crate::error::Error::DebugError("Stdio mode not implemented".to_string()))
+    let brp_client = Arc::new(RwLock::new(BrpClient::new(&config)));
+    {
+        let client = brp_client.read().await;
+        client.init().await?;
+    }
+    
+    let server = mcp_server_v2::McpServerV2::new(config, brp_client);
+    server.run_stdio().await
 }
 
 async fn run_tcp_mode(config: Config) -> Result<()> {

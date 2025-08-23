@@ -42,8 +42,8 @@ path = "tests/screenshot_integration_wrapper.rs"
 
 [dependencies]
 # MCP SDK for proper protocol implementation
-rmcp = { version = "0.2.0", features = ["server"] }
-rmcp-macros = "0.2.0"
+rmcp = { version = "0.2.1", features = ["server"] }
+rmcp-macros = "0.2.1"
 
 tokio = { version = "1", features = ["full"] }
 tokio-tungstenite = "0.24"
