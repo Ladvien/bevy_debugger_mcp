@@ -260,3 +260,4 @@ pub mod bevy_reflection;
 // Query performance optimization (Epic BEVDBG-014)
 pub mod query_optimization;
 pub mod parallel_query_executor;
+pub mod query_optimization_guide;
