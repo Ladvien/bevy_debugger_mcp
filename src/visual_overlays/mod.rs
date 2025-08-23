@@ -58,6 +58,93 @@ pub struct OverlayMetrics {
     pub frame_updates: usize,
     /// Whether the overlay is active this frame
     pub active_this_frame: bool,
+    /// Per-viewport rendering statistics
+    pub viewport_stats: HashMap<String, ViewportRenderStats>,
+}
+
+/// Per-viewport rendering statistics
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+pub struct ViewportRenderStats {
+    /// Number of elements rendered in this viewport
+    pub elements_rendered: usize,
+    /// Render time for this viewport in microseconds
+    pub render_time_us: u64,
+    /// Whether this viewport was active this frame
+    pub active: bool,
+    /// Viewport dimensions
+    pub viewport_size: Option<(u32, u32)>,
+}
+
+/// Configuration for viewport-specific rendering
+#[derive(Resource, Debug, Clone)]
+pub struct ViewportConfig {
+    /// Per-viewport overlay visibility settings
+    pub viewport_overlays: HashMap<String, ViewportOverlaySettings>,
+    /// Default settings for new viewports
+    pub default_settings: ViewportOverlaySettings,
+    /// Whether to automatically detect new viewports
+    pub auto_detect_viewports: bool,
+    /// Maximum number of viewports to support
+    pub max_viewports: usize,
+}
+
+/// Overlay settings for a specific viewport
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ViewportOverlaySettings {
+    /// Whether overlays are enabled for this viewport
+    pub enabled: bool,
+    /// Maximum render time budget per viewport in microseconds
+    pub render_budget_us: u64,
+    /// Maximum number of overlay elements per viewport
+    pub max_elements: usize,
+    /// LOD (Level of Detail) settings based on distance
+    pub lod_settings: LodSettings,
+    /// Specific overlay type visibility
+    pub overlay_visibility: HashMap<String, bool>,
+}
+
+/// Level of Detail settings for performance optimization
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct LodSettings {
+    /// Distance thresholds for different LOD levels
+    pub distance_thresholds: Vec<f32>, // [near, medium, far]
+    /// Element count limits for each LOD level
+    pub element_limits: Vec<usize>,
+    /// Detail levels for each LOD (0.0 = minimal, 1.0 = full detail)
+    pub detail_levels: Vec<f32>,
+}
+
+impl Default for ViewportConfig {
+    fn default() -> Self {
+        Self {
+            viewport_overlays: HashMap::new(),
+            default_settings: ViewportOverlaySettings::default(),
+            auto_detect_viewports: true,
+            max_viewports: 8, // Support up to 8 viewports
+        }
+    }
+}
+
+impl Default for ViewportOverlaySettings {
+    fn default() -> Self {
+        Self {
+            enabled: true,
+            render_budget_us: 800, // 0.8ms per viewport
+            max_elements: 50, // Limit elements per viewport
+            lod_settings: LodSettings::default(),
+            overlay_visibility: HashMap::new(),
+        }
+    }
+}
+
+impl Default for LodSettings {
+    fn default() -> Self {
+        Self {
+            distance_thresholds: vec![10.0, 50.0, 200.0],
+            element_limits: vec![100, 50, 20],
+            detail_levels: vec![1.0, 0.7, 0.3],
+        }
+    }
 }
 
 /// Manager for all visual debug overlays
@@ -99,10 +186,14 @@ impl VisualOverlayManager {
             overlay.initialize(app);
         }
         
+        // Add viewport configuration resource
+        app.insert_resource(ViewportConfig::default());
+        
         // Add global systems
         app.add_systems(PostUpdate, (
             Self::update_performance_metrics,
             Self::check_performance_budget.after(Self::update_performance_metrics),
+            Self::manage_viewport_config,
         ));
     }
     
@@ -242,6 +333,54 @@ impl VisualOverlayManager {
                     );
                 }
             }
+        }
+    }
+    
+    /// System to manage viewport configuration and auto-detection
+    fn manage_viewport_config(
+        mut viewport_config: ResMut<ViewportConfig>,
+        cameras: Query<(Entity, &Camera, &GlobalTransform), With<Camera>>,
+    ) {
+        if !viewport_config.auto_detect_viewports {
+            return;
+        }
+        
+        let mut active_viewports = std::collections::HashSet::new();
+        
+        // Detect active viewports from cameras
+        for (entity, camera, _transform) in &cameras {
+            if !camera.is_active {
+                continue;
+            }
+            
+            let viewport_id = format!("camera_{}", entity.index());
+            active_viewports.insert(viewport_id.clone());
+            
+            // Add new viewport if not exists
+            if !viewport_config.viewport_overlays.contains_key(&viewport_id) {
+                if viewport_config.viewport_overlays.len() < viewport_config.max_viewports {
+                    viewport_config.viewport_overlays.insert(
+                        viewport_id.clone(),
+                        viewport_config.default_settings.clone(),
+                    );
+                    info!("Auto-detected new viewport: {}", viewport_id);
+                } else {
+                    warn!("Maximum viewport limit reached: {}", viewport_config.max_viewports);
+                }
+            }
+        }
+        
+        // Remove inactive viewports (optional cleanup)
+        let inactive_viewports: Vec<String> = viewport_config
+            .viewport_overlays
+            .keys()
+            .filter(|k| !active_viewports.contains(*k))
+            .cloned()
+            .collect();
+        
+        for viewport_id in inactive_viewports {
+            viewport_config.viewport_overlays.remove(&viewport_id);
+            debug!("Removed inactive viewport: {}", viewport_id);
         }
     }
 }

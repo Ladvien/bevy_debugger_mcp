@@ -286,89 +286,148 @@ impl VisualOverlay for EntityHighlightOverlay {
     }
 }
 
-/// System to render highlighted entities using Gizmos
+/// System to render highlighted entities using Gizmos (per-viewport aware)
 fn render_highlighted_entities(
     mut gizmos: Gizmos,
     config: Res<HighlightConfig>,
     gizmo_config: Res<HighlightGizmosConfig>,
+    viewport_config: Res<super::ViewportConfig>,
     time: Res<Time>,
     query: Query<(&Transform, &HighlightedEntity), With<Visibility>>,
-    cameras: Query<(&Camera, &GlobalTransform)>,
+    cameras: Query<(Entity, &Camera, &GlobalTransform), With<Camera>>,
 ) {
     let start_time = std::time::Instant::now();
-    let mut rendered_count = 0;
+    let mut total_rendered = 0;
+    let mut viewport_stats = HashMap::new();
     
     // Early exit if no highlights
     if query.is_empty() {
         return;
     }
     
-    // Performance optimization: limit rendering based on distance from cameras
-    let camera_positions: Vec<Vec3> = cameras
-        .iter()
-        .map(|(_, transform)| transform.translation())
-        .collect();
-    
-    for (transform, highlight) in &query {
-        // Distance culling for performance
-        if !camera_positions.is_empty() {
-            let entity_pos = transform.translation;
-            let in_range = camera_positions.iter().any(|cam_pos| {
-                cam_pos.distance(entity_pos) <= gizmo_config.max_distance
-            });
-            
-            if !in_range {
+    // Process each active viewport/camera separately
+    for (camera_entity, camera, camera_transform) in &cameras {
+        if !camera.is_active {
+            continue;
+        }
+        
+        let viewport_id = format!("camera_{}", camera_entity.index());
+        let viewport_settings = viewport_config.viewport_overlays.get(&viewport_id)
+            .unwrap_or(&viewport_config.default_settings);
+        
+        // Skip if overlays disabled for this viewport
+        if !viewport_settings.enabled {
+            continue;
+        }
+        
+        // Check if entity highlighting is enabled for this viewport
+        if let Some(&overlay_enabled) = viewport_settings.overlay_visibility.get("entity_highlight") {
+            if !overlay_enabled {
                 continue;
             }
         }
         
-        let mut color = highlight.color;
+        let viewport_start_time = std::time::Instant::now();
+        let mut viewport_rendered = 0;
+        let camera_pos = camera_transform.translation();
         
-        // Apply animation if enabled
-        if highlight.animated {
-            let pulse = (time.elapsed_secs() * config.animation_speed).sin();
-            let alpha_mod = (pulse * 0.3 + 0.7).max(0.4).min(1.0); // Keep it visible
-            color = color.with_alpha(color.alpha() * alpha_mod);
+        // Determine LOD level based on viewport settings
+        let default_lod = super::LodSettings::default();
+        let lod_settings = &viewport_settings.lod_settings;
+        
+        for (transform, highlight) in &query {
+            if viewport_rendered >= viewport_settings.max_elements {
+                break; // Respect per-viewport element limit
+            }
+            
+            let entity_pos = transform.translation;
+            let distance = camera_pos.distance(entity_pos);
+            
+            // Distance culling for performance
+            if distance > gizmo_config.max_distance {
+                continue;
+            }
+            
+            // Apply LOD based on distance
+            let (lod_level, detail_factor) = calculate_lod(distance, lod_settings);
+            
+            // Skip rendering if too far for current LOD
+            if lod_level >= lod_settings.element_limits.len() {
+                continue;
+            }
+            
+            // Check per-viewport render budget
+            let current_viewport_time = viewport_start_time.elapsed().as_micros() as u64;
+            if current_viewport_time > viewport_settings.render_budget_us {
+                warn!("Viewport {} exceeded render budget: {}μs", viewport_id, current_viewport_time);
+                break;
+            }
+        
+            let mut color = highlight.color;
+            
+            // Apply animation if enabled (reduced for LOD)
+            if highlight.animated {
+                let pulse = (time.elapsed_secs() * config.animation_speed).sin();
+                let alpha_mod = (pulse * 0.3 + 0.7).max(0.4).min(1.0);
+                color = color.with_alpha(color.alpha() * alpha_mod);
+            }
+            
+            // Apply LOD detail factor to visual complexity
+            let effective_thickness = config.outline_thickness * detail_factor;
+            let effective_intensity = config.glow_intensity * detail_factor;
+            
+            // Render based on highlight mode and LOD
+            match highlight.mode {
+                HighlightMode::Outline => {
+                    render_outline_gizmo(&mut gizmos, transform, color, effective_thickness);
+                }
+                HighlightMode::Wireframe => {
+                    render_wireframe_gizmo_lod(&mut gizmos, transform, color, &gizmo_config, detail_factor);
+                }
+                HighlightMode::Glow => {
+                    render_glow_gizmo(&mut gizmos, transform, color, effective_intensity);
+                }
+                HighlightMode::Tint => {
+                    render_tint_gizmo(&mut gizmos, transform, color);
+                }
+                HighlightMode::SolidColor => {
+                    render_solid_gizmo(&mut gizmos, transform, color);
+                }
+            }
+            
+            // Render debug label if enabled and high detail
+            if gizmo_config.show_labels && detail_factor > 0.7 {
+                let label_pos = transform.translation + Vec3::Y * 2.0;
+                gizmos.sphere(label_pos, Quat::IDENTITY, 0.1 * detail_factor, color);
+            }
+            
+            viewport_rendered += 1;
+            total_rendered += 1;
         }
         
-        match highlight.mode {
-            HighlightMode::Outline => {
-                render_outline_gizmo(&mut gizmos, transform, color, config.outline_thickness);
-            }
-            HighlightMode::Wireframe => {
-                render_wireframe_gizmo(&mut gizmos, transform, color, &gizmo_config);
-            }
-            HighlightMode::Glow => {
-                render_glow_gizmo(&mut gizmos, transform, color, config.glow_intensity);
-            }
-            HighlightMode::Tint => {
-                render_tint_gizmo(&mut gizmos, transform, color);
-            }
-            HighlightMode::SolidColor => {
-                render_solid_gizmo(&mut gizmos, transform, color);
-            }
-        }
+        // Record viewport statistics
+        let viewport_render_time = viewport_start_time.elapsed().as_micros() as u64;
+        viewport_stats.insert(viewport_id.clone(), super::ViewportRenderStats {
+            elements_rendered: viewport_rendered,
+            render_time_us: viewport_render_time,
+            active: true,
+            viewport_size: None, // Could be extracted from camera viewport if needed
+        });
         
-        // Render debug label if enabled
-        if gizmo_config.show_labels {
-            let label_pos = transform.translation + Vec3::Y * 2.0;
-            // Note: Text rendering with Gizmos requires additional setup
-            // For now, we'll use a simple marker
-            gizmos.sphere(label_pos, Quat::IDENTITY, 0.1, color);
-        }
-        
-        rendered_count += 1;
-        
-        // Performance brake: don't render too many in one frame
-        if rendered_count >= 100 {
-            break;
+        // Log viewport performance if over budget
+        if viewport_render_time > viewport_settings.render_budget_us {
+            debug!(
+                "Viewport {} render time: {}μs, elements: {}",
+                viewport_id, viewport_render_time, viewport_rendered
+            );
         }
     }
     
-    // Track performance
-    let render_time = start_time.elapsed().as_micros() as u64;
-    if render_time > 1000 { // Warn if over 1ms
-        warn!("Entity highlight rendering took {}μs for {} entities", render_time, rendered_count);
+    // Track overall performance
+    let total_render_time = start_time.elapsed().as_micros() as u64;
+    if total_render_time > 1000 { // Warn if over 1ms total
+        warn!("Entity highlight rendering took {}μs for {} entities across {} viewports", 
+              total_render_time, total_rendered, viewport_stats.len());
     }
 }
 
@@ -412,13 +471,33 @@ fn render_outline_gizmo(gizmos: &mut Gizmos, transform: &Transform, color: Color
     );
 }
 
+/// Calculate LOD level and detail factor based on distance
+fn calculate_lod(distance: f32, lod_settings: &super::LodSettings) -> (usize, f32) {
+    for (i, &threshold) in lod_settings.distance_thresholds.iter().enumerate() {
+        if distance <= threshold {
+            let detail_factor = lod_settings.detail_levels.get(i).copied().unwrap_or(1.0);
+            return (i, detail_factor);
+        }
+    }
+    
+    // Beyond all thresholds - lowest LOD
+    let last_level = lod_settings.distance_thresholds.len();
+    let detail_factor = lod_settings.detail_levels.get(last_level).copied().unwrap_or(0.1);
+    (last_level, detail_factor)
+}
+
 /// Render a wireframe gizmo for an entity
 fn render_wireframe_gizmo(gizmos: &mut Gizmos, transform: &Transform, color: Color, config: &HighlightGizmosConfig) {
+    render_wireframe_gizmo_lod(gizmos, transform, color, config, 1.0);
+}
+
+/// Render a wireframe gizmo with LOD support
+fn render_wireframe_gizmo_lod(gizmos: &mut Gizmos, transform: &Transform, color: Color, config: &HighlightGizmosConfig, detail_factor: f32) {
     let position = transform.translation;
     let rotation = transform.rotation;
     let scale = transform.scale;
     
-    // Draw detailed wireframe
+    // Always draw basic wireframe
     gizmos.cuboid(
         Transform {
             translation: position,
@@ -428,21 +507,23 @@ fn render_wireframe_gizmo(gizmos: &mut Gizmos, transform: &Transform, color: Col
         color,
     );
     
-    // Add additional detail lines if needed
-    let corners = [
-        position + rotation * (Vec3::new(-0.5, -0.5, -0.5) * scale),
-        position + rotation * (Vec3::new(0.5, -0.5, -0.5) * scale),
-        position + rotation * (Vec3::new(0.5, 0.5, -0.5) * scale),
-        position + rotation * (Vec3::new(-0.5, 0.5, -0.5) * scale),
-        position + rotation * (Vec3::new(-0.5, -0.5, 0.5) * scale),
-        position + rotation * (Vec3::new(0.5, -0.5, 0.5) * scale),
-        position + rotation * (Vec3::new(0.5, 0.5, 0.5) * scale),
-        position + rotation * (Vec3::new(-0.5, 0.5, 0.5) * scale),
-    ];
-    
-    // Draw cross lines for more visibility
-    for i in 0..4 {
-        gizmos.line(corners[i], corners[i + 4], color);
+    // Add additional detail based on LOD
+    if detail_factor > 0.5 {
+        let corners = [
+            position + rotation * (Vec3::new(-0.5, -0.5, -0.5) * scale),
+            position + rotation * (Vec3::new(0.5, -0.5, -0.5) * scale),
+            position + rotation * (Vec3::new(0.5, 0.5, -0.5) * scale),
+            position + rotation * (Vec3::new(-0.5, 0.5, -0.5) * scale),
+            position + rotation * (Vec3::new(-0.5, -0.5, 0.5) * scale),
+            position + rotation * (Vec3::new(0.5, -0.5, 0.5) * scale),
+            position + rotation * (Vec3::new(0.5, 0.5, 0.5) * scale),
+            position + rotation * (Vec3::new(-0.5, 0.5, 0.5) * scale),
+        ];
+        
+        // Draw cross lines for more visibility (only at high detail)
+        for i in 0..4 {
+            gizmos.line(corners[i], corners[i + 4], color);
+        }
     }
 }
 
