@@ -131,6 +131,13 @@ impl SemanticQueryBuilder {
         self.thresholds = thresholds;
         self
     }
+    
+    /// Set custom thresholds from reference (memory optimized)
+    #[must_use]
+    pub fn with_thresholds_ref(mut self, thresholds: &SemanticThresholds) -> Self {
+        self.thresholds = thresholds.clone();
+        self
+    }
 
     /// Add component filter
     #[must_use]
@@ -210,7 +217,7 @@ impl SemanticQueryBuilder {
                     },
                 ];
                 let explanation = MatchExplanation {
-                    concept: concept.clone(),
+                    concept: *concept,
                     reason: format!(
                         "Entities with velocity magnitude below {} units/second",
                         self.thresholds.stuck_velocity_threshold
@@ -229,7 +236,7 @@ impl SemanticQueryBuilder {
                     value: serde_json::json!(self.thresholds.fast_velocity_threshold),
                 }];
                 let explanation = MatchExplanation {
-                    concept: concept.clone(),
+                    concept: *concept,
                     reason: format!(
                         "Entities with velocity above {} units/second",
                         self.thresholds.fast_velocity_threshold
@@ -243,7 +250,7 @@ impl SemanticQueryBuilder {
                 let components = vec!["Transform".to_string(), "Collider".to_string()];
                 let filters = Vec::new(); // Complex spatial analysis would require post-processing
                 let explanation = MatchExplanation {
-                    concept: concept.clone(),
+                    concept: *concept,
                     reason: "Entities with colliders that may be overlapping (requires spatial analysis)".to_string(),
                     confidence: 0.7,
                     relevant_components: components.clone(),
@@ -254,7 +261,7 @@ impl SemanticQueryBuilder {
                 let components = vec!["Transform".to_string()];
                 let filters = Vec::new(); // Would require analysis of entity lifecycle
                 let explanation = MatchExplanation {
-                    concept: concept.clone(),
+                    concept: *concept,
                     reason: "Entities that may be consuming resources without active purpose"
                         .to_string(),
                     confidence: 0.6,
@@ -279,7 +286,7 @@ impl SemanticQueryBuilder {
                     },
                 ];
                 let explanation = MatchExplanation {
-                    concept: concept.clone(),
+                    concept: *concept,
                     reason: "Entities marked as alive but with zero or negative health".to_string(),
                     confidence: 0.95,
                     relevant_components: components.clone(),
@@ -290,7 +297,7 @@ impl SemanticQueryBuilder {
                 let components = vec!["Transform".to_string(), "RigidBody".to_string()];
                 let filters = Vec::new(); // Would require physics constraint validation
                 let explanation = MatchExplanation {
-                    concept: concept.clone(),
+                    concept: *concept,
                     reason: "Entities potentially violating physics constraints".to_string(),
                     confidence: 0.75,
                     relevant_components: components.clone(),
@@ -357,7 +364,7 @@ impl SemanticAnalyzer {
                 builder_fn: |analyzer, _| {
                     Ok(SemanticQueryBuilder::new()
                         .with_concept(GameConcept::StuckEntities)
-                        .with_thresholds(analyzer.thresholds.clone()))
+                        .with_thresholds_ref(&analyzer.thresholds))
                 },
             },
             SemanticPattern {
@@ -367,7 +374,7 @@ impl SemanticAnalyzer {
                 builder_fn: |analyzer, _| {
                     Ok(SemanticQueryBuilder::new()
                         .with_concept(GameConcept::FastMovingObjects)
-                        .with_thresholds(analyzer.thresholds.clone()))
+                        .with_thresholds_ref(&analyzer.thresholds))
                 },
             },
             SemanticPattern {
@@ -376,7 +383,7 @@ impl SemanticAnalyzer {
                 builder_fn: |analyzer, _| {
                     Ok(SemanticQueryBuilder::new()
                         .with_concept(GameConcept::OverlappingColliders)
-                        .with_thresholds(analyzer.thresholds.clone()))
+                        .with_thresholds_ref(&analyzer.thresholds))
                 },
             },
             SemanticPattern {
@@ -385,7 +392,7 @@ impl SemanticAnalyzer {
                 builder_fn: |analyzer, _| {
                     Ok(SemanticQueryBuilder::new()
                         .with_concept(GameConcept::PotentialMemoryLeaks)
-                        .with_thresholds(analyzer.thresholds.clone()))
+                        .with_thresholds_ref(&analyzer.thresholds))
                 },
             },
             SemanticPattern {
@@ -395,7 +402,7 @@ impl SemanticAnalyzer {
                 builder_fn: |analyzer, _| {
                     Ok(SemanticQueryBuilder::new()
                         .with_concept(GameConcept::InconsistentState)
-                        .with_thresholds(analyzer.thresholds.clone()))
+                        .with_thresholds_ref(&analyzer.thresholds))
                 },
             },
             SemanticPattern {
@@ -404,7 +411,7 @@ impl SemanticAnalyzer {
                 builder_fn: |analyzer, _| {
                     Ok(SemanticQueryBuilder::new()
                         .with_concept(GameConcept::PhysicsViolations)
-                        .with_thresholds(analyzer.thresholds.clone()))
+                        .with_thresholds_ref(&analyzer.thresholds))
                 },
             },
             // Compound queries
@@ -421,7 +428,7 @@ impl SemanticAnalyzer {
                         .with_concept(GameConcept::StuckEntities)
                         .with_concept(GameConcept::FastMovingObjects)
                         .with_logic(logic)
-                        .with_thresholds(analyzer.thresholds.clone()))
+                        .with_thresholds_ref(&analyzer.thresholds))
                 },
             },
         ];
@@ -581,7 +588,7 @@ mod tests {
             ..Default::default()
         };
 
-        let analyzer = SemanticAnalyzer::with_thresholds(custom_thresholds.clone());
+        let analyzer = SemanticAnalyzer::with_thresholds(custom_thresholds);
         let result = analyzer.analyze("find stuck entities").unwrap();
 
         assert!(result.explanations[0].reason.contains("0.05"));
