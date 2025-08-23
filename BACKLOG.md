@@ -104,10 +104,11 @@ Claude Code requires stdio transport but server returns "not implemented" error.
 
 ---
 
-### BEVDBG-003: Fix Tool Router Architecture
+### BEVDBG-003: Fix Tool Router Architecture ✅ COMPLETE
 **Priority:** 🔴 P0 Critical  
 **Points:** 13  
 **Sprint:** 1-2  
+**Completed:** 2025-08-23
 
 **Problem Statement:**  
 Tool routing broken due to incompatible macro patterns with rmcp 0.2.1.
@@ -122,12 +123,18 @@ Tool routing broken due to incompatible macro patterns with rmcp 0.2.1.
 **Tool Migration Checklist:**
 | Tool | Status | Tests | Docs |
 |------|--------|-------|------|
-| observe | ⬜ | ⬜ | ⬜ |
-| experiment | ⬜ | ⬜ | ⬜ |
-| hypothesis | ⬜ | ⬜ | ⬜ |
-| anomaly | ⬜ | ⬜ | ⬜ |
-| stress | ⬜ | ⬜ | ⬜ |
-| replay | ⬜ | ⬜ | ⬜ |
+| observe | ✅ | ✅ | ✅ |
+| experiment | ✅ | ✅ | ✅ |
+| hypothesis | ✅ | ✅ | ✅ |
+| detect_anomaly | ✅ | ✅ | ✅ |
+| stress_test | ✅ | ✅ | ✅ |
+| replay | ✅ | ✅ | ✅ |
+
+**Implementation Complete:**
+- All tools updated to use `Result<CallToolResult, McpError>` return type
+- ServerHandler implementation cleaned up and consolidated
+- Tool router macros properly integrated with rmcp 0.2.1 API
+- Comprehensive integration tests added
 
 ---
 
