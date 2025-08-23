@@ -235,6 +235,7 @@ pub mod command_cache;
 pub mod response_pool;
 pub mod profiling;
 pub mod compile_opts;
+pub mod memory_optimization_tracker;
 pub mod tools;
 
 // Machine learning and pattern recognition (Epic BEVDBG-013)
