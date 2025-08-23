@@ -13,6 +13,22 @@ use bevy_debugger_mcp::{
     lazy_init::LazyComponents,
 };
 
+#[cfg(feature = "visual-debugging")]
+use bevy_debugger_mcp::visual_overlays::{
+    VisualOverlayManager, 
+    entity_highlight::{EntityHighlightOverlay, HighlightedEntity, HighlightMode},
+    OverlayMetrics,
+    ViewportConfig,
+    ViewportOverlaySettings,
+    LodSettings,
+};
+
+#[cfg(feature = "visual-debugging")]
+use bevy::{prelude::*, gizmos::Gizmos};
+
+#[cfg(feature = "visual-debugging")]
+use std::collections::HashMap;
+
 // Conditionally import optimization features
 #[cfg(feature = "caching")]
 use bevy_debugger_mcp::command_cache::{CommandCache, CacheConfig};
@@ -408,6 +424,23 @@ fn benchmark_performance_regression(c: &mut Criterion) {
     }
 }
 
+#[cfg(feature = "visual-debugging")]
+criterion_group!(
+    benches,
+    benchmark_server_creation,
+    benchmark_tool_calls,
+    benchmark_cache_operations,
+    benchmark_response_pool,
+    benchmark_lazy_initialization,
+    benchmark_profiling_overhead,
+    benchmark_feature_flags,
+    benchmark_json_serialization,
+    benchmark_performance_regression,
+    benchmark_visual_overlays,
+    benchmark_viewport_management,
+);
+
+#[cfg(not(feature = "visual-debugging"))]
 criterion_group!(
     benches,
     benchmark_server_creation,
@@ -479,4 +512,187 @@ mod test_utils {
         
         println!("✅ Performance acceptance criteria validated");
     }
+}
+
+/// Visual overlay performance benchmarks
+#[cfg(feature = "visual-debugging")]
+fn benchmark_visual_overlays(c: &mut Criterion) {
+    use bevy::MinimalPlugins;
+    
+    // Create a minimal Bevy app for testing
+    let mut app = App::new();
+    app.add_plugins(MinimalPlugins)
+       .add_plugins(bevy_debugger_mcp::visual_overlays::VisualDebugOverlayPlugin::default());
+    
+    // Create test entities with highlights
+    for i in 0..1000 {
+        let entity = app.world.spawn((
+            Transform::from_translation(Vec3::new(i as f32 * 2.0, 0.0, 0.0)),
+            Visibility::Visible,
+            HighlightedEntity {
+                color: Color::srgb(1.0, 0.0, 0.0),
+                mode: HighlightMode::Outline,
+                timestamp: std::time::Instant::now(),
+                priority: 0,
+                animated: i % 10 == 0, // 10% animated
+            },
+        )).id();
+    }
+    
+    // Add a test camera
+    app.world.spawn((
+        Camera3dBundle {
+            transform: Transform::from_translation(Vec3::new(0.0, 0.0, 10.0)),
+            ..default()
+        },
+    ));
+    
+    c.bench_function("visual_overlay_render_1000_entities", |b| {
+        b.iter(|| {
+            let start = std::time::Instant::now();
+            app.update();
+            let render_time = start.elapsed();
+            
+            // Ensure we stay under 1ms budget
+            assert!(
+                render_time.as_micros() < 1000,
+                "Visual overlay rendering took {}μs, target is < 1000μs",
+                render_time.as_micros()
+            );
+            
+            black_box(render_time);
+        });
+    });
+    
+    // Benchmark with multiple viewports
+    let mut multi_viewport_app = App::new();
+    multi_viewport_app.add_plugins(MinimalPlugins)
+                     .add_plugins(bevy_debugger_mcp::visual_overlays::VisualDebugOverlayPlugin::default());
+    
+    // Create multiple cameras (viewports)
+    for i in 0..4 {
+        multi_viewport_app.world.spawn((
+            Camera3dBundle {
+                transform: Transform::from_translation(Vec3::new(i as f32 * 10.0, 0.0, 10.0)),
+                ..default()
+            },
+        ));
+    }
+    
+    // Create test entities
+    for i in 0..500 {
+        multi_viewport_app.world.spawn((
+            Transform::from_translation(Vec3::new(i as f32 * 2.0, 0.0, 0.0)),
+            Visibility::Visible,
+            HighlightedEntity {
+                color: Color::srgb(0.0, 1.0, 0.0),
+                mode: HighlightMode::Wireframe,
+                timestamp: std::time::Instant::now(),
+                priority: 0,
+                animated: false,
+            },
+        ));
+    }
+    
+    c.bench_function("visual_overlay_render_multi_viewport", |b| {
+        b.iter(|| {
+            let start = std::time::Instant::now();
+            multi_viewport_app.update();
+            let render_time = start.elapsed();
+            
+            // Per BEVDBG-013 requirements: <1ms per frame total
+            assert!(
+                render_time.as_micros() < 1000,
+                "Multi-viewport overlay rendering took {}μs, target is < 1000μs total",
+                render_time.as_micros()
+            );
+            
+            black_box(render_time);
+        });
+    });
+    
+    // Benchmark LOD performance
+    c.bench_function("visual_overlay_lod_performance", |b| {
+        let mut lod_app = App::new();
+        lod_app.add_plugins(MinimalPlugins)
+               .add_plugins(bevy_debugger_mcp::visual_overlays::VisualDebugOverlayPlugin::default());
+        
+        // Create entities at various distances
+        for i in 0..100 {
+            for distance_tier in 0..5 {
+                let distance = (distance_tier as f32 * 50.0) + 10.0; // 10, 60, 110, 160, 210
+                lod_app.world.spawn((
+                    Transform::from_translation(Vec3::new(i as f32 * 2.0, 0.0, distance)),
+                    Visibility::Visible,
+                    HighlightedEntity {
+                        color: Color::srgb(0.0, 0.0, 1.0),
+                        mode: HighlightMode::Glow,
+                        timestamp: std::time::Instant::now(),
+                        priority: 0,
+                        animated: false,
+                    },
+                ));
+            }
+        }
+        
+        // Add camera at origin
+        lod_app.world.spawn((
+            Camera3dBundle {
+                transform: Transform::from_translation(Vec3::new(0.0, 0.0, 0.0)),
+                ..default()
+            },
+        ));
+        
+        b.iter(|| {
+            let start = std::time::Instant::now();
+            lod_app.update();
+            let render_time = start.elapsed();
+            
+            // LOD should keep us well under budget even with many entities
+            assert!(
+                render_time.as_micros() < 800, // Even stricter for LOD test
+                "LOD overlay rendering took {}μs, LOD should keep < 800μs",
+                render_time.as_micros()
+            );
+            
+            black_box(render_time);
+        });
+    });
+}
+
+/// Benchmark viewport configuration management
+#[cfg(feature = "visual-debugging")]
+fn benchmark_viewport_management(c: &mut Criterion) {
+    let mut config = ViewportConfig::default();
+    
+    c.bench_function("viewport_config_update", |b| {
+        b.iter(|| {
+            for i in 0..10 {
+                let viewport_id = format!("camera_{}", i);
+                config.viewport_overlays.insert(
+                    viewport_id,
+                    ViewportOverlaySettings {
+                        enabled: true,
+                        render_budget_us: 800,
+                        max_elements: 50,
+                        lod_settings: LodSettings::default(),
+                        overlay_visibility: HashMap::new(),
+                    },
+                );
+            }
+            black_box(&config);
+        });
+    });
+    
+    c.bench_function("lod_calculation", |b| {
+        let lod_settings = LodSettings::default();
+        b.iter(|| {
+            for distance in [5.0, 25.0, 75.0, 150.0, 300.0] {
+                let (level, factor) = bevy_debugger_mcp::visual_overlays::entity_highlight::calculate_lod(
+                    distance, &lod_settings
+                );
+                black_box((level, factor));
+            }
+        });
+    });
 }

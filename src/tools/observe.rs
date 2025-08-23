@@ -9,6 +9,7 @@ use crate::brp_messages::{BrpResponse, BrpResult, EntityData};
 use crate::error::{Error, Result};
 use crate::query_parser::{QueryCache, QueryMetrics, QueryParser, RegexQueryParser};
 use crate::state_diff::{FuzzyCompareConfig, GameRules, StateDiff, StateDiffResult, StateSnapshot};
+use crate::bevy_reflection::{BevyReflectionInspector, ReflectionInspectionResult};
 
 /// Shared state for the observe tool
 pub struct ObserveState {

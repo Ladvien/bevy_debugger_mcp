@@ -472,7 +472,7 @@ fn render_outline_gizmo(gizmos: &mut Gizmos, transform: &Transform, color: Color
 }
 
 /// Calculate LOD level and detail factor based on distance
-fn calculate_lod(distance: f32, lod_settings: &super::LodSettings) -> (usize, f32) {
+pub fn calculate_lod(distance: f32, lod_settings: &super::LodSettings) -> (usize, f32) {
     for (i, &threshold) in lod_settings.distance_thresholds.iter().enumerate() {
         if distance <= threshold {
             let detail_factor = lod_settings.detail_levels.get(i).copied().unwrap_or(1.0);
