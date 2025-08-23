@@ -37,19 +37,23 @@ struct QueryPattern {
 
 impl RegexQueryParser {
     /// Create a new regex-based query parser
-    #[must_use]
-    pub fn new() -> Self {
+    /// 
+    /// # Errors
+    /// Returns error if any regex pattern fails to compile
+    pub fn new() -> Result<Self> {
         let patterns = vec![
             // List all entities
             QueryPattern {
-                pattern: Regex::new(r"^(?i)list\s+all\s+entities?$").unwrap(),
+                pattern: Regex::new(r"^(?i)list\s+all\s+entities?$")
+                    .map_err(|e| Error::Validation(format!("Invalid regex pattern: {}", e)))?,
                 builder: |_| Ok(BrpRequest::ListEntities { filter: None }),
                 description: "list all entities - List all entities in the game",
             },
 
             // Show specific entity
             QueryPattern {
-                pattern: Regex::new(r"^(?i)show\s+entity\s+(\d+)$").unwrap(),
+                pattern: Regex::new(r"^(?i)show\s+entity\s+(\d+)$")
+                    .map_err(|e| Error::Validation(format!("Invalid regex pattern: {}", e)))?,
                 builder: |caps| {
                     let entity_id = caps[1].parse::<u64>()
                         .map_err(|_| Error::Brp("Invalid entity ID".to_string()))?;
@@ -63,7 +67,8 @@ impl RegexQueryParser {
 
             // Find entities with component
             QueryPattern {
-                pattern: Regex::new(r"^(?i)find\s+entities\s+with\s+component\s+([a-zA-Z_:]+)$").unwrap(),
+                pattern: Regex::new(r"^(?i)find\s+entities\s+with\s+component\s+([a-zA-Z_:]+)$")
+                    .map_err(|e| Error::Validation(format!("Invalid regex pattern: {}", e)))?,
                 builder: |caps| {
                     let component_type = caps[1].to_string();
                     Ok(BrpRequest::Query {
@@ -80,7 +85,8 @@ impl RegexQueryParser {
 
             // Find entities without component
             QueryPattern {
-                pattern: Regex::new(r"^(?i)find\s+entities\s+without\s+component\s+([a-zA-Z_:]+)$").unwrap(),
+                pattern: Regex::new(r"^(?i)find\s+entities\s+without\s+component\s+([a-zA-Z_:]+)$")
+                    .map_err(|e| Error::Validation(format!("Invalid regex pattern: {}", e)))?,
                 builder: |caps| {
                     let component_type = caps[1].to_string();
                     Ok(BrpRequest::Query {
@@ -97,14 +103,16 @@ impl RegexQueryParser {
 
             // List component types
             QueryPattern {
-                pattern: Regex::new(r"^(?i)list\s+components?$").unwrap(),
+                pattern: Regex::new(r"^(?i)list\s+components?$")
+                    .map_err(|e| Error::Validation(format!("Invalid regex pattern: {}", e)))?,
                 builder: |_| Ok(BrpRequest::ListComponents),
                 description: "list components - List all available component types",
             },
 
             // Find entities with multiple components
             QueryPattern {
-                pattern: Regex::new(r"^(?i)find\s+entities\s+with\s+(?:components?\s+)?([a-zA-Z_:,\s]+)$").unwrap(),
+                pattern: Regex::new(r"^(?i)find\s+entities\s+with\s+(?:components?\s+)?([a-zA-Z_:,\s]+)$")
+                    .map_err(|e| Error::Validation(format!("Invalid regex pattern: {}", e)))?,
                 builder: |caps| {
                     let components_str = &caps[1];
                     let components: Vec<String> = components_str
@@ -131,7 +139,8 @@ impl RegexQueryParser {
 
             // Get entity with specific components only
             QueryPattern {
-                pattern: Regex::new(r"^(?i)show\s+entity\s+(\d+)\s+components?\s+([a-zA-Z_:,\s]+)$").unwrap(),
+                pattern: Regex::new(r"^(?i)show\s+entity\s+(\d+)\s+components?\s+([a-zA-Z_:,\s]+)$")
+                    .map_err(|e| Error::Validation(format!("Invalid regex pattern: {}", e)))?,
                 builder: |caps| {
                     let entity_id = caps[1].parse::<u64>()
                         .map_err(|_| Error::Brp("Invalid entity ID".to_string()))?;
@@ -152,7 +161,8 @@ impl RegexQueryParser {
 
             // Query with limit
             QueryPattern {
-                pattern: Regex::new(r"^(?i)find\s+(\d+)\s+entities\s+with\s+component\s+([a-zA-Z_:]+)$").unwrap(),
+                pattern: Regex::new(r"^(?i)find\s+(\d+)\s+entities\s+with\s+component\s+([a-zA-Z_:]+)$")
+                    .map_err(|e| Error::Validation(format!("Invalid regex pattern: {}", e)))?,
                 builder: |caps| {
                     let limit = caps[1].parse::<usize>()
                         .map_err(|_| Error::Brp("Invalid limit".to_string()))?;
@@ -170,16 +180,16 @@ impl RegexQueryParser {
             },
         ];
 
-        Self {
+        Ok(Self {
             patterns,
             semantic_analyzer: SemanticAnalyzer::new(),
-        }
+        })
     }
 }
 
 impl Default for RegexQueryParser {
     fn default() -> Self {
-        Self::new()
+        Self::new().expect("Default regex patterns should be valid")
     }
 }
 

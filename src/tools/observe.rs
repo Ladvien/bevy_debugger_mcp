@@ -22,29 +22,33 @@ pub struct ObserveState {
 
 impl ObserveState {
     /// Create new observe state
-    #[must_use]
-    pub fn new() -> Self {
-        Self {
-            parser: RegexQueryParser::new(),
+    /// 
+    /// # Errors
+    /// Returns error if query parser initialization fails
+    pub fn new() -> Result<Self> {
+        Ok(Self {
+            parser: RegexQueryParser::new()?,
             cache: QueryCache::new(300), // 5 minute TTL
             diff_engine: StateDiff::new(),
             last_snapshot: None,
             snapshots_history: Vec::new(),
             max_history_size: 10, // Keep last 10 snapshots
-        }
+        })
     }
 
     /// Create with custom diff configuration
-    #[must_use]
-    pub fn with_diff_config(fuzzy_config: FuzzyCompareConfig, game_rules: GameRules) -> Self {
-        Self {
-            parser: RegexQueryParser::new(),
+    /// 
+    /// # Errors
+    /// Returns error if query parser initialization fails
+    pub fn with_diff_config(fuzzy_config: FuzzyCompareConfig, game_rules: GameRules) -> Result<Self> {
+        Ok(Self {
+            parser: RegexQueryParser::new()?,
             cache: QueryCache::new(300),
             diff_engine: StateDiff::with_config(fuzzy_config, game_rules),
             last_snapshot: None,
             snapshots_history: Vec::new(),
             max_history_size: 10,
-        }
+        })
     }
 
     /// Add a new snapshot and maintain history
@@ -134,7 +138,9 @@ static OBSERVE_STATE: std::sync::OnceLock<Arc<RwLock<ObserveState>>> = std::sync
 
 fn get_observe_state() -> Arc<RwLock<ObserveState>> {
     OBSERVE_STATE
-        .get_or_init(|| Arc::new(RwLock::new(ObserveState::new())))
+        .get_or_init(|| Arc::new(RwLock::new(
+            ObserveState::new().expect("Default observe state should initialize successfully")
+        )))
         .clone()
 }
 
@@ -400,7 +406,7 @@ pub async fn get_cache_stats() -> Value {
 pub async fn clear_cache() {
     let state = get_observe_state();
     let mut state_guard = state.write().await;
-    *state_guard = ObserveState::new();
+    *state_guard = ObserveState::new().expect("Default observe state should initialize successfully");
 }
 
 #[cfg(test)]
