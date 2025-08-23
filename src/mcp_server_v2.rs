@@ -29,23 +29,34 @@ use crate::brp_client::BrpClient;
 use crate::config::Config;
 use crate::error::Result;
 use crate::mcp_tools::BevyDebuggerTools;
+use crate::secure_mcp_tools::SecureMcpTools;
+use crate::security::{SecurityManager, SecurityConfig};
 
 /// Proper MCP server implementation using the official SDK
 pub struct McpServerV2 {
     config: Config,
     brp_client: Arc<RwLock<BrpClient>>,
     tools: Arc<BevyDebuggerTools>,
+    secure_tools: Arc<SecureMcpTools>,
+    security_manager: Arc<SecurityManager>,
 }
 
 impl McpServerV2 {
-    pub fn new(config: Config, brp_client: Arc<RwLock<BrpClient>>) -> Self {
+    pub fn new(config: Config, brp_client: Arc<RwLock<BrpClient>>) -> Result<Self> {
         let tools = Arc::new(BevyDebuggerTools::new(brp_client.clone()));
         
-        Self {
+        // Initialize security system
+        let security_config = SecurityConfig::default(); // TODO: Load from config
+        let security_manager = Arc::new(SecurityManager::new(security_config)?);
+        let secure_tools = Arc::new(SecureMcpTools::new(brp_client.clone(), security_manager.clone()));
+        
+        Ok(Self {
             config,
             brp_client,
             tools,
-        }
+            secure_tools,
+            security_manager,
+        })
     }
     
     /// Run the server in stdio mode for Claude Code
@@ -111,9 +122,19 @@ impl McpServerV2 {
         let stdin = tokio::io::stdin();
         let stdout = tokio::io::stdout();
         
-        // Run the server using the tools handler with proper error handling
+        // Start security cleanup task
+        let security_manager = self.security_manager.clone();
+        tokio::spawn(async move {
+            let mut interval = tokio::time::interval(tokio::time::Duration::from_secs(300)); // Clean up every 5 minutes
+            loop {
+                interval.tick().await;
+                security_manager.cleanup().await;
+            }
+        });
+
+        // Run the server using the secure tools handler with proper error handling
         tokio::select! {
-            result = serve_server(self.tools.as_ref().clone(), (stdin, stdout)) => {
+            result = serve_server(self.secure_tools.as_ref().clone(), (stdin, stdout)) => {
                 match result {
                     Ok(_) => {
                         info!("MCP stdio server completed successfully");

@@ -209,6 +209,9 @@ pub enum Error {
     #[error("Internal error: {0}")]
     Internal(String),
 
+    #[error("Security error: {0}")]
+    SecurityError(String),
+
     /// Rich error with full context
     #[error("Error: {context}")]
     WithContext {

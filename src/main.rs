@@ -107,7 +107,7 @@ async fn run_stdio_mode(config: Config) -> Result<()> {
         client.init().await?;
     }
     
-    let server = mcp_server_v2::McpServerV2::new(config, brp_client);
+    let server = mcp_server_v2::McpServerV2::new(config, brp_client)?;
     server.run_stdio().await
 }
 

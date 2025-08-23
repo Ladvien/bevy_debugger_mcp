@@ -261,3 +261,8 @@ pub mod bevy_reflection;
 pub mod query_optimization;
 pub mod parallel_query_executor;
 pub mod query_optimization_guide;
+
+// Production features
+pub mod security;
+pub mod secure_mcp_tools;
+pub mod bevy_observability_integration;
