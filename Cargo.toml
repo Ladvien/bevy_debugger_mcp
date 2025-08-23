@@ -72,6 +72,7 @@ hostname = "0.3"
 rustc_version_runtime = "0.3"
 is-terminal = "0.4"
 notify = "6.0"
+once_cell = "1.20"
 
 # Performance optimization dependencies
 ahash = { version = "0.8", optional = true }
