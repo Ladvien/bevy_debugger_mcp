@@ -24,10 +24,11 @@
 
 ## Epic 1: MCP Server Core [29 points]
 
-### BEVDBG-001: Migrate to rmcp 0.2.1 API
+### BEVDBG-001: Migrate to rmcp 0.2.1 API ✅ COMPLETE
 **Priority:** 🔴 P0 Critical  
 **Points:** 8  
 **Sprint:** 1  
+**Status:** ✅ COMPLETED 2025-08-23
 
 **Problem Statement:**  
 Server won't compile with rmcp 0.2.0+ due to breaking API changes in trait signatures and macros.
@@ -38,6 +39,12 @@ Server won't compile with rmcp 0.2.0+ due to breaking API changes in trait signa
 - ✅ MCP handshake test passes
 - ✅ Tool discovery returns all 6 tools
 - ✅ CI pipeline green
+
+**Completion Notes:**
+- Fixed tool_handler macro Result type mismatch issues
+- Updated ServerInfo structure to match rmcp 0.2.1 InitializeResult format
+- Resolved all 5 critical compilation errors
+- Added comprehensive API compatibility tests
 
 **Implementation Tasks:**
 1. Replace `Service<RoleServer>` → `ServerHandler` trait (2h)
