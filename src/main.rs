@@ -31,6 +31,29 @@ use bevy_debugger_mcp::{mcp_server, mcp_server_v2};
 
 #[tokio::main]
 async fn main() -> Result<()> {
+    // Set up global panic handler that logs before exit
+    std::panic::set_hook(Box::new(|panic_info| {
+        let payload = if let Some(s) = panic_info.payload().downcast_ref::<&str>() {
+            s.to_string()
+        } else if let Some(s) = panic_info.payload().downcast_ref::<String>() {
+            s.clone()
+        } else {
+            "Unknown panic payload".to_string()
+        };
+        
+        let location = if let Some(location) = panic_info.location() {
+            format!("{}:{}:{}", location.file(), location.line(), location.column())
+        } else {
+            "Unknown location".to_string()
+        };
+        
+        eprintln!("FATAL PANIC in bevy-debugger-mcp: {} at {}", payload, location);
+        eprintln!("This indicates a critical bug that should be reported.");
+        eprintln!("Stack trace should appear above this message.");
+        
+        // Ensure logs are flushed
+        std::io::Write::flush(&mut std::io::stderr()).unwrap_or(());
+    }));
     let args: Vec<String> = std::env::args().collect();
     
     // Check for help flag

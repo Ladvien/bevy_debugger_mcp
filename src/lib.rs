@@ -244,6 +244,10 @@ pub mod benchmark_runner;
 pub mod brp_client_refactored;
 pub mod tools;
 
+// Panic prevention and reliability testing
+#[cfg(test)]
+pub mod panic_prevention_tests;
+
 // Machine learning and pattern recognition (Epic BEVDBG-013)
 pub mod pattern_learning;
 pub mod suggestion_engine;
