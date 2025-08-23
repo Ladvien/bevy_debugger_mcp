@@ -237,6 +237,7 @@ pub mod response_pool;
 pub mod profiling;
 pub mod compile_opts;
 pub mod memory_optimization_tracker;
+pub mod memory_pools;
 pub mod deadlock_detector;
 pub mod lock_contention_benchmark;
 pub mod benchmark_runner;
