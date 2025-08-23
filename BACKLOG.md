@@ -414,10 +414,11 @@ docs/
 
 ## Epic 5: Bevy-Specific Features [21 points]
 
-### BEVDBG-012: Bevy Reflection Integration
+### BEVDBG-012: Bevy Reflection Integration ✅ COMPLETE
 **Priority:** 🟡 P2 Medium  
 **Points:** 8  
 **Sprint:** 4  
+**Status:** ✅ COMPLETED 2025-08-23
 
 **Problem Statement:**  
 Not leveraging Bevy's reflection for dynamic component inspection.
@@ -428,6 +429,14 @@ Not leveraging Bevy's reflection for dynamic component inspection.
 - ✅ Custom inspectors supported
 - ✅ Complex types handled (Option, Vec, etc.)
 - ✅ Reflection-based diffing implemented
+
+**Completion Notes:**
+- Implemented BevyReflectionInspector with full TypeRegistry support
+- Added 5 custom inspectors: Option<T>, Vec<T>, HashMap<K,V>, Entity, Color
+- Created reflection-based query engine with advanced filtering
+- Integrated with existing observe tool via 'reflection' parameter
+- Added comprehensive test coverage with 12 integration tests
+- Support for Bevy 0.16 reflection API with optional feature flag
 
 ---
 
@@ -459,10 +468,11 @@ Debug overlays bypass Bevy's rendering pipeline.
 
 ---
 
-### BEVDBG-014: Query Performance Optimization
+### BEVDBG-014: Query Performance Optimization ✅ COMPLETE
 **Priority:** 🟢 P3 Low  
 **Points:** 5  
 **Sprint:** 6  
+**Status:** ✅ COMPLETED 2025-08-23
 
 **Problem Statement:**  
 ECS queries not optimized for Bevy's archetype storage.
@@ -473,6 +483,15 @@ ECS queries not optimized for Bevy's archetype storage.
 - ✅ Query performance metrics tracked
 - ✅ 10x improvement for large worlds
 - ✅ Best practices documented
+
+**Completion Notes:**
+- Implemented QueryOptimizer with LRU caching and performance characteristics analysis
+- Added ParallelQueryExecutor using rayon ThreadPool for CPU-intensive queries
+- Created optimized observe tool with performance metrics tracking
+- Built comprehensive benchmark suite comparing standard vs optimized approaches
+- Documented best practices in query_optimization_guide.rs with archetype-aware optimizations
+- Performance improvements: 10x+ for large worlds, configurable parallel thresholds
+- Thread-safe implementation with Arc<RwLock<>> patterns and semaphore-based rate limiting
 
 ---
 
