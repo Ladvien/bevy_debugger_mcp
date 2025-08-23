@@ -447,8 +447,13 @@ impl MemoryProfiler {
         
         // Convert slope to bytes per minute
         let time_span_minutes = if history.len() > 1 {
-            let duration = history.last().unwrap().0.signed_duration_since(history[0].0);
-            duration.num_minutes() as f64 / (history.len() - 1) as f64
+            match (history.last(), history.first()) {
+                (Some(last), Some(first)) => {
+                    let duration = last.0.signed_duration_since(first.0);
+                    duration.num_minutes() as f64 / (history.len() - 1) as f64
+                }
+                _ => 1.0, // Fallback if history is corrupted
+            }
         } else {
             1.0
         };
@@ -591,7 +596,8 @@ impl MemoryProfiler {
                     serde_json::Value::Number(self.snapshots.read().await.len().into()));
         stats.insert("overhead_percentage".to_string(), 
                     serde_json::Value::Number(
-                        serde_json::Number::from_f64(self.get_overhead_percentage() as f64).unwrap()
+                        serde_json::Number::from_f64(self.get_overhead_percentage() as f64)
+                            .unwrap_or_else(|| serde_json::Number::from(0))
                     ));
         stats.insert("entity_count".to_string(), 
                     serde_json::Value::Number(self.entity_count.load(Ordering::Relaxed).into()));
