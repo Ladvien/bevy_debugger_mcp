@@ -108,7 +108,7 @@ pub enum PermissionLevel {
 }
 
 /// User session for permission tracking
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone)]
 pub struct UserSession {
     /// Unique session ID
     pub session_id: String,
@@ -127,13 +127,12 @@ pub struct UserSession {
 }
 
 /// Rate limiting state tracking
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone)]
 pub struct RateLimitState {
     /// Operations in current window
     pub operations_in_window: u32,
     
     /// Window start time
-    #[serde(skip)]
     pub window_start: Instant,
 }
 
@@ -498,6 +497,22 @@ impl BrpValidator {
             
             BrpRequest::Spawn { components } => {
                 // Similar validation for spawn
+                for (type_id, value) in components {
+                    let value_size = serde_json::to_vec(value)
+                        .map_err(|e| Error::Validation(format!("Invalid component value: {}", e)))?
+                        .len();
+                    
+                    if value_size > self.config.limits.max_component_value_size {
+                        return Err(Error::Validation(format!(
+                            "Component '{}' value size {} exceeds maximum {}",
+                            type_id, value_size, self.config.limits.max_component_value_size
+                        )));
+                    }
+                }
+            },
+            
+            BrpRequest::Insert { components, .. } => {
+                // Validate component values size for Insert
                 for (type_id, value) in components {
                     let value_size = serde_json::to_vec(value)
                         .map_err(|e| Error::Validation(format!("Invalid component value: {}", e)))?

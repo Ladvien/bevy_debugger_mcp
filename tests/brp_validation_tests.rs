@@ -113,6 +113,7 @@ async fn test_permission_levels() {
             where_clause: None,
         }),
         limit: Some(10),
+        strict: Some(false),
     };
     assert!(validator.validate_request(&query_request, session_id, request_size).await.is_ok());
 
@@ -288,6 +289,7 @@ async fn test_query_limits() {
             where_clause: None,
         }),
         limit: Some(3),
+        strict: Some(false),
     };
 
     let result = validator.validate_request(&valid_query, session_id, request_size).await;
@@ -301,6 +303,7 @@ async fn test_query_limits() {
             where_clause: None,
         }),
         limit: Some(10),
+        strict: Some(false),
     };
 
     let result = validator.validate_request(&invalid_query, session_id, request_size).await;
