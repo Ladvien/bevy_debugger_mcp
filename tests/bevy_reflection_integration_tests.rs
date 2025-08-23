@@ -19,9 +19,6 @@
 //! Integration tests for Bevy reflection system
 
 use bevy_debugger_mcp::bevy_reflection::*;
-use bevy_debugger_mcp::bevy_reflection::custom_inspectors::*;
-use bevy_debugger_mcp::bevy_reflection::type_registry_tools::*;
-use bevy_debugger_mcp::bevy_reflection::reflection_queries::*;
 use serde_json::{json, Value};
 use std::collections::HashMap;
 
