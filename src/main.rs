@@ -29,6 +29,9 @@ use bevy_debugger_mcp::config::Config;
 use bevy_debugger_mcp::error::Result;
 use bevy_debugger_mcp::{mcp_server, mcp_server_v2};
 
+#[cfg(feature = "observability")]
+use bevy_debugger_mcp::observability::ObservabilityService;
+
 #[tokio::main]
 async fn main() -> Result<()> {
     // Set up global panic handler that logs before exit
@@ -107,6 +110,16 @@ async fn run_stdio_mode(config: Config) -> Result<()> {
         client.init().await?;
     }
     
+    // Initialize observability if enabled
+    #[cfg(feature = "observability")]
+    let _observability = if config.observability.metrics_enabled || config.observability.tracing_enabled {
+        let obs_service = ObservabilityService::new(config.clone(), brp_client.clone()).await?;
+        obs_service.start().await?;
+        Some(obs_service)
+    } else {
+        None
+    };
+    
     let server = mcp_server_v2::McpServerV2::new(config, brp_client)?;
     server.run_stdio().await
 }
@@ -117,6 +130,34 @@ async fn run_tcp_mode(config: Config) -> Result<()> {
         let client = brp_client.read().await;
         client.init().await?;
     }
+    
+    // Initialize observability if enabled
+    #[cfg(feature = "observability")]
+    let observability = if config.observability.metrics_enabled || config.observability.tracing_enabled {
+        let obs_service = ObservabilityService::new(config.clone(), brp_client.clone()).await?;
+        obs_service.start().await?;
+        
+        // Start health endpoints if enabled
+        if config.observability.health_check_enabled {
+            let health_service = obs_service.health();
+            let health_router = health_service.create_router();
+            
+            tokio::spawn(async move {
+                let app = health_router.with_state(health_service);
+                let health_listener = tokio::net::TcpListener::bind(
+                    format!("127.0.0.1:{}", config.observability.health_check_port)
+                ).await.expect("Failed to bind health check port");
+                
+                info!("Health endpoints available at http://127.0.0.1:{}", config.observability.health_check_port);
+                axum::serve(health_listener, app).await.expect("Health server failed");
+            });
+        }
+        
+        Some(obs_service)
+    } else {
+        None
+    };
+    
     let mcp_server = mcp_server::McpServer::new(config.clone(), brp_client);
     
     // Start TCP server
@@ -138,6 +179,13 @@ async fn run_tcp_mode(config: Config) -> Result<()> {
         }
         _ = signal::ctrl_c() => {
             info!("Received SIGINT, shutting down gracefully");
+            
+            #[cfg(feature = "observability")]
+            if let Some(obs) = observability {
+                if let Err(e) = obs.shutdown().await {
+                    warn!("Error shutting down observability: {}", e);
+                }
+            }
         }
     }
 

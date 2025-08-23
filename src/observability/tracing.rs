@@ -10,12 +10,11 @@ use opentelemetry::{
     trace::{TraceError, Tracer, TracerProvider},
     KeyValue,
 };
-use opentelemetry_otlp::{WithExportConfig, WithBatchConfig};
+use opentelemetry_otlp::WithExportConfig;
 use opentelemetry_sdk::{
     trace::{self, RandomIdGenerator, Sampler},
     Resource,
 };
-use opentelemetry_jaeger::JaegerTraceExporter;
 use std::collections::HashMap;
 use std::sync::Arc;
 use tracing::{info, warn, error};
@@ -56,61 +55,20 @@ impl TracingService {
             KeyValue::new("deployment.environment", config.environment.clone()),
         ]);
 
-        // Configure tracer based on configuration
-        let tracer = if config.jaeger_endpoint.is_some() {
-            // Use Jaeger exporter when endpoint is configured
-            let jaeger_endpoint = config.jaeger_endpoint.as_ref().unwrap();
-            info!("Configuring Jaeger exporter to: {}", jaeger_endpoint);
-            
-            let tracer_provider = opentelemetry_jaeger::new_agent_pipeline()
-                .with_service_name("bevy-debugger-mcp")
-                .with_trace_config(
-                    trace::config()
-                        .with_sampler(Sampler::AlwaysOn)
-                        .with_id_generator(RandomIdGenerator::default())
-                        .with_resource(resource),
-                )
-                .install_batch(opentelemetry_sdk::runtime::Tokio)
-                .map_err(|e| Error::Config(format!("Failed to create Jaeger tracer: {}", e)))?;
-            
-            tracer_provider.tracer("bevy-debugger-mcp")
-        } else if config.otlp_endpoint.is_some() {
-            // Use OTLP exporter when endpoint is configured  
-            let otlp_endpoint = config.otlp_endpoint.as_ref().unwrap();
-            info!("Configuring OTLP exporter to: {}", otlp_endpoint);
-            
-            let tracer_provider = opentelemetry_otlp::new_pipeline()
-                .tracing()
-                .with_exporter(
-                    opentelemetry_otlp::new_exporter()
-                        .tonic()
-                        .with_endpoint(otlp_endpoint)
-                )
-                .with_trace_config(
-                    trace::config()
-                        .with_sampler(Sampler::AlwaysOn)
-                        .with_id_generator(RandomIdGenerator::default())
-                        .with_resource(resource),
-                )
-                .install_batch(opentelemetry_sdk::runtime::Tokio)
-                .map_err(|e| Error::Config(format!("Failed to create OTLP tracer: {}", e)))?;
-            
-            tracer_provider.tracer("bevy-debugger-mcp")
-        } else {
-            // Use stdout exporter for development
-            info!("Using stdout exporter for tracing (development mode)");
-            
-            let tracer_provider = opentelemetry_stdout::new_pipeline()
-                .with_trace_config(
-                    trace::config()
-                        .with_sampler(Sampler::AlwaysOn)
-                        .with_id_generator(RandomIdGenerator::default())
-                        .with_resource(resource),
-                )
-                .install_simple();
-            
-            tracer_provider.tracer("bevy-debugger-mcp")
-        };
+        // For now, use a simple in-memory tracer for development
+        // TODO: Add proper Jaeger/OTLP configuration when compatible versions are available
+        info!("Initializing basic OpenTelemetry tracer");
+        
+        let tracer_provider = opentelemetry_sdk::trace::TracerProvider::builder()
+            .with_config(
+                trace::config()
+                    .with_sampler(Sampler::AlwaysOn)
+                    .with_id_generator(RandomIdGenerator::default())
+                    .with_resource(resource),
+            )
+            .build();
+        
+        let tracer = tracer_provider.tracer("bevy-debugger-mcp");
 
         Ok(Box::new(tracer))
     }

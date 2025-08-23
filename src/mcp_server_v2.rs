@@ -45,8 +45,9 @@ impl McpServerV2 {
     pub fn new(config: Config, brp_client: Arc<RwLock<BrpClient>>) -> Result<Self> {
         let tools = Arc::new(BevyDebuggerTools::new(brp_client.clone()));
         
-        // Initialize security system
-        let security_config = SecurityConfig::default(); // TODO: Load from config
+        // Initialize production-ready security system
+        let security_config = SecurityConfig::new()?;
+        security_config.print_security_summary();
         let security_manager = Arc::new(SecurityManager::new(security_config)?);
         let secure_tools = Arc::new(SecureMcpTools::new(brp_client.clone(), security_manager.clone()));
         

@@ -14,7 +14,7 @@ use std::sync::Arc;
 use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 use tokio::sync::RwLock;
 use tracing::{error, info, warn};
-use sysinfo::{System, SystemExt, ProcessExt, Pid};
+use sysinfo::{System, Process, Pid};
 
 use crate::config::Config;
 use crate::error::{Result, Error};
@@ -230,7 +230,6 @@ impl MetricsCollector {
                 {
                     let mut system = system_info.write().await;
                     system.refresh_processes();
-                    system.refresh_cpu();
                     
                     if let Some(process) = system.process(Pid::from(process_id as usize)) {
                         memory_gauge.set(process.memory() as f64 * 1024.0); // Convert KB to bytes

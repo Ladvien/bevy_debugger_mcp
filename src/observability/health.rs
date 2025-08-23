@@ -306,7 +306,7 @@ impl HealthService {
 
     /// Check system resources
     async fn check_system_resources() -> ComponentHealth {
-        use sysinfo::{System, SystemExt, ProcessExt, Pid};
+        use sysinfo::{System, Process, Pid};
         
         let start = Instant::now();
         let mut system = System::new_all();

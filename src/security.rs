@@ -104,35 +104,8 @@ pub struct AuditEntry {
     pub session_id: Option<String>,
 }
 
-/// Security configuration
-#[derive(Debug, Clone)]
-pub struct SecurityConfig {
-    pub jwt_secret: String,
-    pub jwt_expiry_hours: u64,
-    pub rate_limit_requests_per_minute: u32,
-    pub rate_limit_burst: u32,
-    pub password_min_length: usize,
-    pub session_timeout_hours: u64,
-    pub max_failed_logins: u32,
-    pub lockout_duration_minutes: u64,
-    pub audit_log_retention_days: u64,
-}
-
-impl Default for SecurityConfig {
-    fn default() -> Self {
-        Self {
-            jwt_secret: "bevy_debugger_mcp_secret_change_in_production".to_string(),
-            jwt_expiry_hours: 24,
-            rate_limit_requests_per_minute: 60,
-            rate_limit_burst: 10,
-            password_min_length: 8,
-            session_timeout_hours: 8,
-            max_failed_logins: 5,
-            lockout_duration_minutes: 30,
-            audit_log_retention_days: 90,
-        }
-    }
-}
+// Re-export the production security configuration
+pub use crate::security_config::{ProductionSecurityConfig as SecurityConfig, ENVIRONMENT_VARIABLES_HELP};
 
 /// Active session tracking
 #[derive(Debug, Clone)]
@@ -173,8 +146,8 @@ impl SecurityManager {
         let encoding_key = EncodingKey::from_secret(config.jwt_secret.as_ref());
         let decoding_key = DecodingKey::from_secret(config.jwt_secret.as_ref());
 
-        // Setup rate limiter
-        let quota = Quota::per_minute(config.rate_limit_requests_per_minute)
+        // Setup global rate limiter (will be supplemented with per-IP limiting)
+        let quota = Quota::per_minute(config.rate_limit_per_ip)
             .allow_burst(config.rate_limit_burst.try_into().unwrap_or(10));
         let rate_limiter = Arc::new(RateLimiter::direct(quota));
 
@@ -203,57 +176,65 @@ impl SecurityManager {
         Ok(manager)
     }
 
-    /// Initialize default users for first-time setup
+    /// Initialize default users for first-time setup with secure passwords
     async fn initialize_default_users(&self) -> Result<()> {
         let mut users = self.users.write().await;
         
         if users.is_empty() {
-            info!("No users found, creating default admin user");
+            if self.config.production_mode {
+                // In production, do not create default users - require explicit user creation
+                warn!("Production mode: No default users created. Use user management tools to create initial admin user.");
+                return Ok(());
+            }
             
-            let password = "admin123"; // Should be changed immediately
-            let password_hash = self.hash_password(password)?;
+            info!("Development mode: Creating default users with secure random passwords");
+            
+            // Generate secure random passwords for development
+            let admin_password = SecurityConfig::generate_initial_password()?;
+            let dev_password = SecurityConfig::generate_initial_password()?;
+            let viewer_password = SecurityConfig::generate_initial_password()?;
             
             let admin_user = User {
                 id: "admin".to_string(),
                 username: "admin".to_string(),
-                password_hash,
+                password_hash: self.hash_password(&admin_password)?,
                 role: Role::Admin,
                 created_at: Utc::now(),
                 last_login: None,
                 active: true,
             };
             
-            users.insert("admin".to_string(), admin_user);
-            warn!("Default admin user created with password 'admin123' - CHANGE IMMEDIATELY!");
-            
-            // Create a developer user for testing
-            let dev_password_hash = self.hash_password("dev123")?;
             let dev_user = User {
                 id: "developer".to_string(),
                 username: "developer".to_string(),
-                password_hash: dev_password_hash,
+                password_hash: self.hash_password(&dev_password)?,
                 role: Role::Developer,
                 created_at: Utc::now(),
                 last_login: None,
                 active: true,
             };
             
-            users.insert("developer".to_string(), dev_user);
-            
-            // Create a viewer user for testing
-            let viewer_password_hash = self.hash_password("viewer123")?;
             let viewer_user = User {
                 id: "viewer".to_string(),
                 username: "viewer".to_string(),
-                password_hash: viewer_password_hash,
+                password_hash: self.hash_password(&viewer_password)?,
                 role: Role::Viewer,
                 created_at: Utc::now(),
                 last_login: None,
                 active: true,
             };
             
+            users.insert("admin".to_string(), admin_user);
+            users.insert("developer".to_string(), dev_user);
             users.insert("viewer".to_string(), viewer_user);
-            info!("Default users created: admin, developer, viewer");
+            
+            // Log the generated passwords (only in development)
+            warn!("=== DEVELOPMENT MODE CREDENTIALS ===");
+            warn!("Admin username: admin, password: {}", admin_password);
+            warn!("Developer username: developer, password: {}", dev_password);
+            warn!("Viewer username: viewer, password: {}", viewer_password);
+            warn!("=== SAVE THESE CREDENTIALS NOW ===");
+            warn!("These are one-time generated passwords for development only");
         }
         
         Ok(())
@@ -261,12 +242,8 @@ impl SecurityManager {
 
     /// Hash a password using Argon2
     pub fn hash_password(&self, password: &str) -> Result<String> {
-        if password.len() < self.config.password_min_length {
-            return Err(Error::SecurityError(format!(
-                "Password must be at least {} characters long",
-                self.config.password_min_length
-            )));
-        }
+        // Use the production security config for password validation
+        self.config.validate_password(password)?;
 
         let salt = SaltString::generate(&mut OsRng);
         let argon2 = Argon2::default();
