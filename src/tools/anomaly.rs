@@ -395,11 +395,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_anomaly_detect_no_connection() {
-        let config = Config {
-            bevy_brp_host: "localhost".to_string(),
-            bevy_brp_port: 15702,
-            mcp_port: 3000,
-        };
+        let config = Config::default();
         let brp_client = Arc::new(RwLock::new(crate::brp_client::BrpClient::new(&config)));
 
         let args = json!({"action": "detect"});
@@ -410,11 +406,7 @@ mod tests {
     }
 
     fn create_test_brp_client() -> Arc<RwLock<BrpClient>> {
-        let config = Config {
-            bevy_brp_host: "localhost".to_string(),
-            bevy_brp_port: 15702,
-            mcp_port: 3000,
-        };
+        let config = Config::default();
         Arc::new(RwLock::new(crate::brp_client::BrpClient::new(&config)))
     }
 }

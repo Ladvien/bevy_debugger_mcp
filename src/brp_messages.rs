@@ -1078,13 +1078,17 @@ pub mod validation {
         match request {
             BrpRequest::Get { entity, .. } 
             | BrpRequest::Destroy { entity }
-            | BrpRequest::Insert { entity, .. }
-            | BrpRequest::Remove { entity, .. }
             | BrpRequest::Reparent { entity, .. } => {
                 validate_entity_id(*entity)
             }
-            BrpRequest::Set { entity, components }
-            | BrpRequest::Insert { entity, components } => {
+            BrpRequest::Set { entity, components } => {
+                validate_entity_id(*entity)?;
+                for type_id in components.keys() {
+                    validate_component_type_id(type_id)?;
+                }
+                Ok(())
+            }
+            BrpRequest::Insert { entity, components } => {
                 validate_entity_id(*entity)?;
                 for type_id in components.keys() {
                     validate_component_type_id(type_id)?;
