@@ -33,7 +33,7 @@ pub mod alerts;
 
 use std::sync::Arc;
 use tokio::sync::RwLock;
-use tracing::{error, info, warn};
+// Re-export tracing macros since they're used throughout the module
 use crate::config::Config;
 use crate::brp_client::BrpClient;
 use crate::error::Result;
@@ -55,7 +55,7 @@ pub struct ObservabilityService {
 impl ObservabilityService {
     /// Create a new observability service with all monitoring components
     pub async fn new(config: Config, brp_client: Arc<RwLock<BrpClient>>) -> Result<Self> {
-        info!("Initializing observability stack");
+        println!("Initializing observability stack");
 
         // Initialize metrics collection
         let metrics = Arc::new(MetricsCollector::new(&config)?);
@@ -69,7 +69,7 @@ impl ObservabilityService {
         // Initialize telemetry service
         let telemetry_service = Arc::new(TelemetryService::new(&config).await?);
 
-        info!("Observability stack initialized successfully");
+        println!("Observability stack initialized successfully");
 
         Ok(Self {
             config,
@@ -82,7 +82,7 @@ impl ObservabilityService {
 
     /// Start all observability services
     pub async fn start(&self) -> Result<()> {
-        info!("Starting observability services");
+        println!("Starting observability services");
 
         // Start metrics collection
         self.metrics.start().await?;
@@ -96,32 +96,32 @@ impl ObservabilityService {
         // Start telemetry service
         self.telemetry_service.start().await?;
 
-        info!("All observability services started");
+        println!("All observability services started");
         Ok(())
     }
 
     /// Shutdown all observability services gracefully
     pub async fn shutdown(&self) -> Result<()> {
-        info!("Shutting down observability services");
+        println!("Shutting down observability services");
 
         // Shutdown in reverse order
         if let Err(e) = self.telemetry_service.shutdown().await {
-            warn!("Error shutting down telemetry service: {}", e);
+            println!("Error shutting down telemetry service: {}", e);
         }
 
         if let Err(e) = self.health_service.shutdown().await {
-            warn!("Error shutting down health service: {}", e);
+            println!("Error shutting down health service: {}", e);
         }
 
         if let Err(e) = self.tracing_service.shutdown().await {
-            warn!("Error shutting down tracing service: {}", e);
+            println!("Error shutting down tracing service: {}", e);
         }
 
         if let Err(e) = self.metrics.shutdown().await {
-            warn!("Error shutting down metrics service: {}", e);
+            println!("Error shutting down metrics service: {}", e);
         }
 
-        info!("Observability services shutdown complete");
+        println!("Observability services shutdown complete");
         Ok(())
     }
 
