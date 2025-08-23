@@ -452,7 +452,10 @@ impl BrpValidator {
             | BrpRequest::SpawnEntity { .. }
             | BrpRequest::ModifyEntity { .. }
             | BrpRequest::DeleteEntity { .. }
-            | BrpRequest::QueryEntity { .. } => PermissionLevel::Write,
+            | BrpRequest::QueryEntity { .. }
+            | BrpRequest::Insert { .. }
+            | BrpRequest::Remove { .. }
+            | BrpRequest::Reparent { .. } => PermissionLevel::Write,
             
             BrpRequest::Screenshot { .. }
             | BrpRequest::Debug { .. } => PermissionLevel::Admin,
@@ -532,6 +535,10 @@ impl BrpValidator {
             | BrpRequest::DeleteEntity { entity_id }
             | BrpRequest::QueryEntity { entity_id } => vec![*entity_id],
             
+            BrpRequest::Insert { entity, .. }
+            | BrpRequest::Remove { entity, .. }
+            | BrpRequest::Reparent { entity, .. } => vec![*entity],
+            
             _ => Vec::new(), // No specific entities to validate
         };
         
@@ -574,6 +581,14 @@ impl BrpValidator {
             
             BrpRequest::ModifyEntity { components, .. } => {
                 components.iter().map(|(type_id, _)| type_id).collect()
+            },
+            
+            BrpRequest::Insert { components, .. } => {
+                components.keys().collect()
+            },
+            
+            BrpRequest::Remove { components, .. } => {
+                components.iter().collect()
             },
             
             _ => Vec::new(), // No component types to validate

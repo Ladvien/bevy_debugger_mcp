@@ -167,9 +167,11 @@ pub mod error;
 pub mod config;
 pub mod circuit_breaker;
 pub mod connection_pool;
+pub mod heartbeat;
 
 // Communication
 pub mod brp_client;
+pub mod brp_client_v2;
 pub mod brp_command_handler;
 pub mod brp_integration;
 pub mod brp_messages;
