@@ -479,11 +479,8 @@ mod tests {
 
     #[tokio::test]
     async fn test_mock_client_creation() {
-        let config = Config {
-            bevy_brp_host: "localhost".to_string(),
-            bevy_brp_port: 15702,
-            mcp_port: 3000,
-        };
+        let mut config = Config::default();
+        config.mcp_port = 3000;
 
         let client = MockMcpClient::new(config).await.unwrap();
         assert_eq!(client.tools.len(), 7); // Should have all 7 main tools
@@ -491,11 +488,8 @@ mod tests {
 
     #[tokio::test]
     async fn test_initialize_flow() {
-        let config = Config {
-            bevy_brp_host: "localhost".to_string(),
-            bevy_brp_port: 15702,
-            mcp_port: 3000,
-        };
+        let mut config = Config::default();
+        config.mcp_port = 3000;
 
         let client = MockMcpClient::new(config).await.unwrap();
         let result = client.initialize().await.unwrap();
@@ -506,11 +500,8 @@ mod tests {
 
     #[tokio::test]
     async fn test_tools_listing() {
-        let config = Config {
-            bevy_brp_host: "localhost".to_string(),
-            bevy_brp_port: 15702,
-            mcp_port: 3000,
-        };
+        let mut config = Config::default();
+        config.mcp_port = 3000;
 
         let client = MockMcpClient::new(config).await.unwrap();
         let result = client.list_tools().await.unwrap();
@@ -531,11 +522,8 @@ mod tests {
 
     #[tokio::test]
     async fn test_debugging_session_simulation() {
-        let config = Config {
-            bevy_brp_host: "localhost".to_string(),
-            bevy_brp_port: 15702,
-            mcp_port: 3000,
-        };
+        let mut config = Config::default();
+        config.mcp_port = 3000;
 
         let client = MockMcpClient::new(config).await.unwrap();
         let report = client.simulate_debugging_session().await.unwrap();

@@ -345,7 +345,7 @@ mod tests {
 
     #[test]
     fn test_basic_query_parsing() {
-        let parser = RegexQueryParser::new();
+        let parser = RegexQueryParser::new().unwrap();
 
         // Test list all entities
         let result = parser.parse("list all entities").unwrap();
@@ -376,7 +376,7 @@ mod tests {
 
     #[test]
     fn test_case_insensitive_parsing() {
-        let parser = RegexQueryParser::new();
+        let parser = RegexQueryParser::new().unwrap();
 
         let result1 = parser.parse("LIST ALL ENTITIES").unwrap();
         let result2 = parser.parse("list all entities").unwrap();
@@ -387,7 +387,7 @@ mod tests {
 
     #[test]
     fn test_invalid_queries() {
-        let parser = RegexQueryParser::new();
+        let parser = RegexQueryParser::new().unwrap();
 
         assert!(parser.parse("").is_err());
         assert!(parser.parse("invalid query").is_err());
@@ -413,7 +413,7 @@ mod tests {
 
     #[test]
     fn test_multiple_components_query() {
-        let parser = RegexQueryParser::new();
+        let parser = RegexQueryParser::new().unwrap();
 
         let result = parser
             .parse("find entities with Transform, Velocity, Health")
