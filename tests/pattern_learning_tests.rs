@@ -96,7 +96,7 @@ async fn test_k_anonymity() {
         
         system.record_command(
             &session_id,
-            DebugCommand::GetSystemInfo,
+            DebugCommand::GetSystemInfo { system_name: None, include_scheduling: Some(true) },
             Duration::from_millis(10),
         ).await;
         
@@ -114,7 +114,7 @@ async fn test_k_anonymity() {
         
         system.record_command(
             &session_id,
-            DebugCommand::GetSystemInfo,
+            DebugCommand::GetSystemInfo { system_name: None, include_scheduling: Some(true) },
             Duration::from_millis(10),
         ).await;
         
@@ -136,7 +136,7 @@ async fn test_pattern_matching() {
         // Common debugging sequence
         system.record_command(
             &session_id,
-            DebugCommand::GetSystemInfo,
+            DebugCommand::GetSystemInfo { system_name: None, include_scheduling: Some(true) },
             Duration::from_millis(5),
         ).await;
         
@@ -180,7 +180,7 @@ async fn test_suggestion_generation() {
     let context = SuggestionContext {
         session_id: "test_session".to_string(),
         recent_commands: vec![
-            DebugCommand::GetSystemInfo,
+            DebugCommand::GetSystemInfo { system_name: None, include_scheduling: Some(true) },
         ],
         system_state: SystemState {
             entity_count: 1000,
@@ -257,7 +257,7 @@ async fn test_pattern_export_import() {
         
         system.record_command(
             &session_id,
-            DebugCommand::GetSystemInfo,
+            DebugCommand::GetSystemInfo { system_name: None, include_scheduling: Some(true) },
             Duration::from_millis(10),
         ).await;
         
@@ -319,7 +319,7 @@ async fn test_pattern_confidence_calculation() {
         
         system.record_command(
             &session_id,
-            DebugCommand::GetSystemInfo,
+            DebugCommand::GetSystemInfo { system_name: None, include_scheduling: Some(true) },
             Duration::from_millis(10),
         ).await;
         
@@ -343,7 +343,7 @@ async fn test_sequence_length_limits() {
     for i in 0..20 {
         system.record_command(
             session_id,
-            DebugCommand::GetSystemInfo,
+            DebugCommand::GetSystemInfo { system_name: None, include_scheduling: Some(true) },
             Duration::from_millis(5),
         ).await;
     }
@@ -370,7 +370,7 @@ async fn test_concurrent_sessions() {
             for _ in 0..3 {
                 system_clone.record_command(
                     &session_id,
-                    DebugCommand::GetSystemInfo,
+                    DebugCommand::GetSystemInfo { system_name: None, include_scheduling: Some(true) },
                     Duration::from_millis(10),
                 ).await;
                 

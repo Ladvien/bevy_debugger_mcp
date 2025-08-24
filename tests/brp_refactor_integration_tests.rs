@@ -36,7 +36,7 @@ impl BrpCommandHandler for MockCommandHandler {
     }
 
     fn can_handle(&self, request: &BrpRequest) -> bool {
-        matches!(request, BrpRequest::Query(_))
+        matches!(request, BrpRequest::Query { .. })
     }
 
     async fn handle(&self, _request: BrpRequest) -> Result<BrpResponse> {
@@ -66,7 +66,11 @@ async fn test_command_handler_registry() {
     registry.register(handler2).await;
     
     // Test finding handler
-    let request = BrpRequest::Query(json!({ "test": true }));
+    let request = BrpRequest::Query { 
+        filter: None, 
+        limit: None, 
+        strict: Some(false) 
+    };
     let handler = registry.find_handler(&request).await;
     
     assert!(handler.is_some());
@@ -135,7 +139,7 @@ async fn test_debug_handler_integration() {
     let debug_request = BrpRequest::Debug(DebugCommand::InspectEntity { entity_id: 123 });
     assert!(debug_handler.can_handle(&debug_request));
     
-    let non_debug_request = BrpRequest::ListEntities;
+    let non_debug_request = BrpRequest::ListEntities { filter: None };
     assert!(!debug_handler.can_handle(&non_debug_request));
 }
 
@@ -149,7 +153,7 @@ async fn test_backward_compatibility() {
     
     // Core requests should be handleable
     let core_requests = vec![
-        BrpRequest::ListEntities,
+        BrpRequest::ListEntities { filter: None },
         BrpRequest::ListComponents,
         BrpRequest::Query(json!({})),
     ];
@@ -219,11 +223,11 @@ async fn test_handler_validation() {
     registry.register(Arc::new(ValidatingHandler)).await;
     
     // Valid request should pass
-    let valid_request = BrpRequest::Get(123);
+    let valid_request = BrpRequest::Get { entity: 123, components: None };
     assert!(registry.process(valid_request).await.is_ok());
     
     // Invalid request should fail validation
-    let invalid_request = BrpRequest::Get(0);
+    let invalid_request = BrpRequest::Get { entity: 0, components: None };
     assert!(registry.process(invalid_request).await.is_err());
 }
 
@@ -251,7 +255,7 @@ async fn test_all_commands_have_handlers() {
         BrpRequest::Query(json!({})),
         BrpRequest::Get(123),
         BrpRequest::Set(json!({})),
-        BrpRequest::ListEntities,
+        BrpRequest::ListEntities { filter: None },
         BrpRequest::ListComponents,
         BrpRequest::SpawnEntity(json!({})),
         BrpRequest::DestroyEntity(123),

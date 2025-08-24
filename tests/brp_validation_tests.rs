@@ -319,13 +319,13 @@ async fn test_component_registry_operations() {
     let registry = ComponentRegistry::new();
     
     // Test default registered types
-    assert!(registry.is_registered("Transform"));
-    assert!(registry.is_registered("Name"));
-    assert!(registry.is_registered("Visibility"));
-    assert!(!registry.is_registered("CustomComponent"));
+    assert!(registry.is_registered(&"Transform".to_string()));
+    assert!(registry.is_registered(&"Name".to_string()));
+    assert!(registry.is_registered(&"Visibility".to_string()));
+    assert!(!registry.is_registered(&"CustomComponent".to_string()));
 
     // Test metadata retrieval
-    let transform_metadata = registry.get_metadata("Transform");
+    let transform_metadata = registry.get_metadata(&"Transform".to_string());
     assert!(transform_metadata.is_some());
     
     let metadata = transform_metadata.unwrap();

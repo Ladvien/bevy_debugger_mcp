@@ -9,78 +9,78 @@ use serde_json::{json, Value};
 pub fn generate_realistic_queries() -> Vec<(String, Value)> {
     vec![
         // Entity queries
-        ("observe", json!({
+        ("observe".to_string(), json!({
             "query": "entities with Transform"
         })),
-        ("observe", json!({
+        ("observe".to_string(), json!({
             "query": "entities with (Transform and Mesh)"
         })),
-        ("observe", json!({
+        ("observe".to_string(), json!({
             "query": "entities with Name containing 'player'"
         })),
-        ("observe", json!({
+        ("observe".to_string(), json!({
             "query": "entities with Health < 50"
         })),
-        ("observe", json!({
+        ("observe".to_string(), json!({
             "query": "entities in range 10 of (0, 0, 0)"
         })),
         
         // System profiling queries
-        ("experiment", json!({
+        ("experiment".to_string(), json!({
             "type": "performance",
             "systems": ["movement", "physics", "rendering"],
             "duration": 1000
         })),
-        ("experiment", json!({
+        ("experiment".to_string(), json!({
             "type": "memory",
             "duration": 2000,
             "include_entities": true
         })),
         
         // Resource monitoring
-        ("resource_metrics", json!({})),
-        ("health_check", json!({})),
+        ("resource_metrics".to_string(), json!({})),
+        ("health_check".to_string(), json!({})),
         
         // Complex queries
-        ("observe", json!({
+        ("observe".to_string(), json!({
             "query": "entities with (Combat and Health > 80) or (Merchant and Inventory.gold > 100)",
             "sort": "health",
             "limit": 50
         })),
-        ("observe", json!({
+        ("observe".to_string(), json!({
             "query": "all entities in faction 'warriors'",
             "include_relationships": true
         })),
         
         // Debugging specific queries
-        ("diagnostic_report", json!({
+        ("diagnostic_report".to_string(), json!({
             "action": "generate",
             "include_performance": true,
             "include_memory": true
         })),
-        ("anomaly", json!({
+        ("anomaly".to_string(), json!({
             "metric": "frame_time",
             "threshold": 16.67,
             "window": 1000
         })),
         
         // Session management
-        ("replay", json!({
+        ("replay".to_string(), json!({
             "session_id": "debug_session_001",
             "time_range": {"start": 0, "end": 30000}
         })),
-        ("checkpoint", json!({
+        ("checkpoint".to_string(), json!({
             "name": "before_optimization_test",
             "include_world_state": true
         })),
         
         // Tool orchestration
-        ("orchestrate", json!({
+        ("orchestrate".to_string(), json!({
             "tool": "observe",
             "arguments": {"query": "entities with Position.y > 10"},
             "follow_up": "experiment"
         })),
-        ("pipeline", json!({
+        ("pipeline".to_string(), json!({
             "template": "performance_analysis",
             "parameters": {
                 "duration": 5000,
@@ -89,12 +89,12 @@ pub fn generate_realistic_queries() -> Vec<(String, Value)> {
         })),
         
         // Stress testing
-        ("stress", json!({
+        ("stress".to_string(), json!({
             "type": "entity_spawn",
             "count": 100,
             "entity_type": "complex"
         })),
-        ("stress", json!({
+        ("stress".to_string(), json!({
             "type": "continuous_spawn",
             "intensity": 2,
             "duration": 30000
@@ -106,31 +106,31 @@ pub fn generate_realistic_queries() -> Vec<(String, Value)> {
 pub fn generate_stress_queries() -> Vec<(String, Value)> {
     vec![
         // High-frequency entity queries
-        ("observe", json!({
+        ("observe".to_string(), json!({
             "query": "all entities",
             "cache_ttl": 0 // Force no caching
         })),
-        ("observe", json!({
+        ("observe".to_string(), json!({
             "query": "entities with any component",
             "include_all_data": true
         })),
         
         // Complex relationship queries
-        ("observe", json!({
+        ("observe".to_string(), json!({
             "query": "entities with relationships to entities with Combat > 50",
             "recursive_depth": 3,
             "include_relationship_data": true
         })),
         
         // Large data queries
-        ("observe", json!({
+        ("observe".to_string(), json!({
             "query": "entities with Inventory",
             "include_inventory_contents": true,
             "expand_references": true
         })),
         
         // Expensive computation queries
-        ("experiment", json!({
+        ("experiment".to_string(), json!({
             "type": "pathfinding_analysis",
             "start_points": (0..20).map(|i| json!([i * 2, 0, i * 3])).collect::<Vec<_>>(),
             "end_points": (0..20).map(|i| json!([i * -2, 0, i * -3])).collect::<Vec<_>>(),
@@ -138,20 +138,20 @@ pub fn generate_stress_queries() -> Vec<(String, Value)> {
         })),
         
         // Memory-intensive queries
-        ("observe", json!({
+        ("observe".to_string(), json!({
             "query": "history of all entities over last 60 seconds",
             "include_state_changes": true,
             "resolution": "high"
         })),
         
         // Concurrent stress queries
-        ("observe", json!({
+        ("observe".to_string(), json!({
             "query": format!("entities with id in range {} to {}", 0, 10000),
             "batch_size": 1000
         })),
         
         // Deep analysis queries
-        ("experiment", json!({
+        ("experiment".to_string(), json!({
             "type": "system_dependency_analysis",
             "include_performance_impact": true,
             "analyze_bottlenecks": true,
@@ -159,7 +159,7 @@ pub fn generate_stress_queries() -> Vec<(String, Value)> {
         })),
         
         // High-volume data export
-        ("diagnostic_report", json!({
+        ("diagnostic_report".to_string(), json!({
             "action": "export_all_data",
             "format": "detailed_json",
             "include_history": true,
@@ -172,40 +172,40 @@ pub fn generate_stress_queries() -> Vec<(String, Value)> {
 pub fn generate_optimization_test_queries() -> Vec<(String, Value)> {
     vec![
         // Cache effectiveness tests
-        ("observe", json!({
+        ("observe".to_string(), json!({
             "query": "entities with Transform",
             "test_id": "cache_test_1"
         })),
-        ("observe", json!({
+        ("observe".to_string(), json!({
             "query": "entities with Transform", // Identical to above for cache hit
             "test_id": "cache_test_1_repeat"
         })),
         
         // Pool utilization tests
-        ("observe", json!({
+        ("observe".to_string(), json!({
             "query": "small dataset",
             "expected_response_size": "small"
         })),
-        ("observe", json!({
+        ("observe".to_string(), json!({
             "query": "entities with detailed data",
             "include_all_components": true,
             "expected_response_size": "large"
         })),
         
         // Lazy initialization tests
-        ("health_check", json!({
+        ("health_check".to_string(), json!({
             "initialize_components": false
         })),
-        ("observe", json!({
+        ("observe".to_string(), json!({
             "query": "first entity access",
             "force_initialization": true
         })),
         
         // Feature flag tests
-        ("observe", json!({
+        ("observe".to_string(), json!({
             "query": "test basic functionality"
         })),
-        ("experiment", json!({
+        ("experiment".to_string(), json!({
             "type": "feature_flag_test",
             "check_enabled_features": true
         })),
@@ -218,7 +218,7 @@ pub fn generate_complexity_queries() -> Vec<(String, Value)> {
     
     // Simple queries (O(n) complexity)
     for i in 0..10 {
-        queries.push(("observe", json!({
+        queries.push(("observe".to_string(), json!({
             "query": format!("entities with component_type_{}", i),
             "complexity": "simple"
         })));
@@ -226,7 +226,7 @@ pub fn generate_complexity_queries() -> Vec<(String, Value)> {
     
     // Medium complexity queries (O(n log n))
     for i in 0..5 {
-        queries.push(("observe", json!({
+        queries.push(("observe".to_string(), json!({
             "query": format!("entities with component_type_{} sorted by value", i),
             "sort": "value",
             "complexity": "medium"
@@ -241,7 +241,7 @@ pub fn generate_complexity_queries() -> Vec<(String, Value)> {
         "complexity": "high"
     })));
     
-    queries.push(("experiment", json!({
+    queries.push(("experiment".to_string(), json!({
         "type": "cross_reference_analysis",
         "analyze_all_relationships": true,
         "include_indirect_dependencies": true,
@@ -255,38 +255,38 @@ pub fn generate_complexity_queries() -> Vec<(String, Value)> {
 pub fn generate_edge_case_queries() -> Vec<(String, Value)> {
     vec![
         // Empty results
-        ("observe", json!({
+        ("observe".to_string(), json!({
             "query": "entities with NonExistentComponent"
         })),
         
         // Invalid queries
-        ("observe", json!({
+        ("observe".to_string(), json!({
             "query": "invalid query syntax ((("
         })),
         
         // Very large limits
-        ("observe", json!({
+        ("observe".to_string(), json!({
             "query": "all entities",
             "limit": 1000000
         })),
         
         // Invalid parameters
-        ("experiment", json!({
+        ("experiment".to_string(), json!({
             "type": "nonexistent_experiment_type"
         })),
         
         // Null/undefined values
-        ("observe", json!({
+        ("observe".to_string(), json!({
             "query": null
         })),
         
         // Very long strings
-        ("observe", json!({
+        ("observe".to_string(), json!({
             "query": "a".repeat(10000)
         })),
         
         // Nested complexity
-        ("observe", json!({
+        ("observe".to_string(), json!({
             "query": {
                 "nested": {
                     "very": {
@@ -299,7 +299,7 @@ pub fn generate_edge_case_queries() -> Vec<(String, Value)> {
         })),
         
         // Circular references (in parameters)
-        ("experiment", json!({
+        ("experiment".to_string(), json!({
             "type": "circular_test",
             "parameters": {
                 "reference": "self"
@@ -313,33 +313,33 @@ pub fn generate_sequential_queries() -> Vec<Vec<(String, Value)>> {
     vec![
         // Cache warm-up sequence
         vec![
-            ("health_check", json!({})), // Initialize systems
-            ("resource_metrics", json!({})), // Get baseline
-            ("observe", json!({"query": "entities with Transform"})), // First entity query
-            ("observe", json!({"query": "entities with Transform"})), // Should hit cache
+            ("health_check".to_string(), json!({})), // Initialize systems
+            ("resource_metrics".to_string(), json!({})), // Get baseline
+            ("observe".to_string(), json!({"query": "entities with Transform"})), // First entity query
+            ("observe".to_string(), json!({"query": "entities with Transform"})), // Should hit cache
         ],
         
         // Progressive complexity sequence
         vec![
-            ("observe", json!({"query": "entity count"})),
-            ("observe", json!({"query": "entities with Transform"})),
-            ("observe", json!({"query": "entities with (Transform and Mesh)"})),
-            ("observe", json!({"query": "entities with (Transform and Mesh and Health)"})),
+            ("observe".to_string(), json!({"query": "entity count"})),
+            ("observe".to_string(), json!({"query": "entities with Transform"})),
+            ("observe".to_string(), json!({"query": "entities with (Transform and Mesh)"})),
+            ("observe".to_string(), json!({"query": "entities with (Transform and Mesh and Health)"})),
         ],
         
         // Cache invalidation sequence
         vec![
-            ("observe", json!({"query": "all entities"})), // Cache initial state
+            ("observe".to_string(), json!({"query": "all entities"})), // Cache initial state
             ("stress", json!({"type": "entity_spawn", "count": 10})), // Modify world
-            ("observe", json!({"query": "all entities"})), // Should invalidate cache
+            ("observe".to_string(), json!({"query": "all entities"})), // Should invalidate cache
         ],
         
         // Performance regression sequence
         vec![
             ("checkpoint", json!({"name": "performance_baseline"})),
-            ("experiment", json!({"type": "performance", "duration": 1000})),
+            ("experiment".to_string(), json!({"type": "performance", "duration": 1000})),
             ("stress", json!({"type": "continuous_spawn", "intensity": 1})),
-            ("experiment", json!({"type": "performance", "duration": 1000})),
+            ("experiment".to_string(), json!({"type": "performance", "duration": 1000})),
             ("diagnostic_report", json!({"action": "compare_checkpoints"})),
         ],
     ]
@@ -397,30 +397,30 @@ pub fn generate_time_based_queries(duration_seconds: u64) -> Vec<(u64, String, V
 pub fn generate_workload_pattern(pattern_type: &str) -> Vec<(String, Value)> {
     match pattern_type {
         "debugging_session" => vec![
-            ("health_check", json!({})),
-            ("observe", json!({"query": "all entities", "limit": 10})),
-            ("observe", json!({"query": "entities with Health < 30"})),
-            ("experiment", json!({"type": "performance", "duration": 3000})),
-            ("observe", json!({"query": "entities in combat"})),
+            ("health_check".to_string(), json!({})),
+            ("observe".to_string(), json!({"query": "all entities", "limit": 10})),
+            ("observe".to_string(), json!({"query": "entities with Health < 30"})),
+            ("experiment".to_string(), json!({"type": "performance", "duration": 3000})),
+            ("observe".to_string(), json!({"query": "entities in combat"})),
             ("diagnostic_report", json!({"action": "generate"})),
             ("checkpoint", json!({"name": "debug_checkpoint"})),
         ],
         
         "performance_analysis" => vec![
-            ("resource_metrics", json!({})),
-            ("experiment", json!({"type": "performance", "systems": ["movement", "physics"]})),
-            ("observe", json!({"query": "entities with high CPU impact"})),
-            ("experiment", json!({"type": "memory", "duration": 5000})),
-            ("observe", json!({"query": "entities with large memory footprint"})),
+            ("resource_metrics".to_string(), json!({})),
+            ("experiment".to_string(), json!({"type": "performance", "systems": ["movement", "physics"]})),
+            ("observe".to_string(), json!({"query": "entities with high CPU impact"})),
+            ("experiment".to_string(), json!({"type": "memory", "duration": 5000})),
+            ("observe".to_string(), json!({"query": "entities with large memory footprint"})),
             ("diagnostic_report", json!({"action": "performance_summary"})),
         ],
         
         "stress_testing" => vec![
-            ("health_check", json!({})),
+            ("health_check".to_string(), json!({})),
             ("stress", json!({"type": "entity_spawn", "count": 100})),
-            ("observe", json!({"query": "entity count"})),
+            ("observe".to_string(), json!({"query": "entity count"})),
             ("stress", json!({"type": "continuous_spawn", "intensity": 3})),
-            ("experiment", json!({"type": "performance", "duration": 10000})),
+            ("experiment".to_string(), json!({"type": "performance", "duration": 10000})),
             ("stress", json!({"type": "entity_despawn", "count": 50})),
             ("diagnostic_report", json!({"action": "stress_test_report"})),
         ],
@@ -429,8 +429,8 @@ pub fn generate_workload_pattern(pattern_type: &str) -> Vec<(String, Value)> {
             let mut queries = Vec::new();
             // Warm up common queries
             for query in ["entities with Transform", "entities with Health", "entities with Inventory"] {
-                queries.push(("observe", json!({"query": query})));
-                queries.push(("observe", json!({"query": query}))); // Immediate repeat for cache hit
+                queries.push(("observe".to_string(), json!({"query": query})));
+                queries.push(("observe".to_string(), json!({"query": query}))); // Immediate repeat for cache hit
             }
             queries
         },

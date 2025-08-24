@@ -24,11 +24,9 @@ async fn test_basic_screenshot_functionality() {
     let screenshot_path = validator.test_screenshot_path("basic_screenshot");
     
     // Setup MCP server
-    let config = Config {
-        bevy_brp_host: "localhost".to_string(),
-        bevy_brp_port: 15703,
-        mcp_port: 3003,
-    };
+    let mut config = Config::default();
+    config.bevy_brp_port = 15703;
+    config.mcp_port = 3003;
 
     let brp_client = std::sync::Arc::new(tokio::sync::RwLock::new(
         BrpClient::new(&config)

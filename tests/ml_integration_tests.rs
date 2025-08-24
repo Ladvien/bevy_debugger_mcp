@@ -241,7 +241,10 @@ async fn test_pattern_learning_integration() -> Result<()> {
 
     // Record various command types
     let commands = vec![
-        (DebugCommand::GetSystemInfo, Duration::from_millis(25)),
+        (DebugCommand::GetSystemInfo { 
+            system_name: None, 
+            include_scheduling: Some(true) 
+        }, Duration::from_millis(25)),
         (DebugCommand::InspectEntity { 
             entity_id: 456, 
             include_metadata: Some(true), 
@@ -380,7 +383,10 @@ async fn test_ml_pipeline_performance() -> Result<()> {
 
         for cmd_idx in 0..commands_per_session {
             let command = match cmd_idx % 4 {
-                0 => DebugCommand::GetSystemInfo,
+                0 => DebugCommand::GetSystemInfo { 
+                    system_name: None, 
+                    include_scheduling: Some(true) 
+                },
                 1 => DebugCommand::InspectEntity { 
                     entity_id: (cmd_idx % 1000) as u32, 
                     include_metadata: Some(true), 
