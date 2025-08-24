@@ -234,7 +234,7 @@ pub fn generate_complexity_queries() -> Vec<(String, Value)> {
     }
     
     // Complex queries (O(n²) or higher)
-    queries.push(("observe", json!({
+    queries.push(("observe".to_string(), json!({
         "query": "entities with relationships to entities with relationships",
         "recursive": true,
         "max_depth": 3,
@@ -330,17 +330,17 @@ pub fn generate_sequential_queries() -> Vec<Vec<(String, Value)>> {
         // Cache invalidation sequence
         vec![
             ("observe".to_string(), json!({"query": "all entities"})), // Cache initial state
-            ("stress", json!({"type": "entity_spawn", "count": 10})), // Modify world
+            ("stress".to_string(), json!({"type": "entity_spawn", "count": 10})), // Modify world
             ("observe".to_string(), json!({"query": "all entities"})), // Should invalidate cache
         ],
         
         // Performance regression sequence
         vec![
-            ("checkpoint", json!({"name": "performance_baseline"})),
+            ("checkpoint".to_string(), json!({"name": "performance_baseline"})),
             ("experiment".to_string(), json!({"type": "performance", "duration": 1000})),
-            ("stress", json!({"type": "continuous_spawn", "intensity": 1})),
+            ("stress".to_string(), json!({"type": "continuous_spawn", "intensity": 1})),
             ("experiment".to_string(), json!({"type": "performance", "duration": 1000})),
-            ("diagnostic_report", json!({"action": "compare_checkpoints"})),
+            ("diagnostic_report".to_string(), json!({"action": "compare_checkpoints"})),
         ],
     ]
 }
@@ -402,8 +402,8 @@ pub fn generate_workload_pattern(pattern_type: &str) -> Vec<(String, Value)> {
             ("observe".to_string(), json!({"query": "entities with Health < 30"})),
             ("experiment".to_string(), json!({"type": "performance", "duration": 3000})),
             ("observe".to_string(), json!({"query": "entities in combat"})),
-            ("diagnostic_report", json!({"action": "generate"})),
-            ("checkpoint", json!({"name": "debug_checkpoint"})),
+            ("diagnostic_report".to_string(), json!({"action": "generate"})),
+            ("checkpoint".to_string(), json!({"name": "debug_checkpoint"})),
         ],
         
         "performance_analysis" => vec![
@@ -412,17 +412,17 @@ pub fn generate_workload_pattern(pattern_type: &str) -> Vec<(String, Value)> {
             ("observe".to_string(), json!({"query": "entities with high CPU impact"})),
             ("experiment".to_string(), json!({"type": "memory", "duration": 5000})),
             ("observe".to_string(), json!({"query": "entities with large memory footprint"})),
-            ("diagnostic_report", json!({"action": "performance_summary"})),
+            ("diagnostic_report".to_string(), json!({"action": "performance_summary"})),
         ],
         
         "stress_testing" => vec![
             ("health_check".to_string(), json!({})),
-            ("stress", json!({"type": "entity_spawn", "count": 100})),
+            ("stress".to_string(), json!({"type": "entity_spawn", "count": 100})),
             ("observe".to_string(), json!({"query": "entity count"})),
-            ("stress", json!({"type": "continuous_spawn", "intensity": 3})),
+            ("stress".to_string(), json!({"type": "continuous_spawn", "intensity": 3})),
             ("experiment".to_string(), json!({"type": "performance", "duration": 10000})),
-            ("stress", json!({"type": "entity_despawn", "count": 50})),
-            ("diagnostic_report", json!({"action": "stress_test_report"})),
+            ("stress".to_string(), json!({"type": "entity_despawn", "count": 50})),
+            ("diagnostic_report".to_string(), json!({"action": "stress_test_report"})),
         ],
         
         "cache_warming" => {

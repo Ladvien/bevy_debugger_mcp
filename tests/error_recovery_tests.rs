@@ -219,7 +219,7 @@ async fn test_checkpoint_manager_basic() {
     let checkpoint_id = manager.create_checkpoint(checkpoint.clone()).await.unwrap();
 
     // Verify checkpoint was created
-    let checkpoints = manager.list_checkpoints().await;
+    let checkpoints = manager.list_checkpoints().await.unwrap();
     assert_eq!(checkpoints.len(), 1);
     assert_eq!(checkpoints[0].name, "test_checkpoint");
     assert_eq!(checkpoints[0].operation_type, "manual");
@@ -230,7 +230,7 @@ async fn test_checkpoint_manager_basic() {
     assert_eq!(restored.state_data, checkpoint.state_data);
 
     // Test statistics
-    let stats = manager.get_statistics().await;
+    let stats = manager.get_statistics().await.unwrap();
     assert_eq!(stats.total_count, 1);
     assert_eq!(stats.by_operation_type.get("manual").unwrap(), &1);
     assert_eq!(stats.by_component.get("test_component").unwrap(), &1);
@@ -275,7 +275,7 @@ async fn test_checkpoint_manager_capacity() {
     }
 
     // Should only keep the most recent 2
-    let checkpoints = manager.list_checkpoints().await;
+    let checkpoints = manager.list_checkpoints().await.unwrap();
     assert_eq!(checkpoints.len(), 2);
 
     // Oldest should be removed (checkpoint_0)

@@ -8,7 +8,7 @@ use bevy_debugger_mcp::{
     mcp_server::McpServer,
     brp_client::BrpClient,
     config::Config,
-    brp_messages::{BrpRequest, BrpResponse, BrpResult, BrpError, DebugCommand, DebugResponse},
+    brp_messages::{BrpRequest, BrpResponse, BrpResult, BrpError, DebugCommand, DebugResponse, EntityData, EntityId},
     debug_command_processor::{DebugCommandRouter, DebugCommandRequest},
     error::{Error, Result},
 };
@@ -388,14 +388,14 @@ impl MockBrpClient {
         
         // Set up default mock responses
         mock_responses.insert("list_entities".to_string(), BrpResponse::Success(Box::new(
-            BrpResult::ListEntities { entities: vec![] }
+            BrpResult::Entities(vec![])
         )));
         
         mock_responses.insert("get_entity".to_string(), BrpResponse::Success(Box::new(
-            BrpResult::GetEntity { 
-                entity: None,
+            BrpResult::Entity(EntityData {
+                entity: EntityId { index: 0, generation: 0 },
                 components: vec![]
-            }
+            })
         )));
 
         Self {

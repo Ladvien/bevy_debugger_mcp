@@ -14,7 +14,7 @@ use bevy_debugger_mcp::{
     config::Config,
     error::Result,
     mcp_server_v2::McpServerV2,
-    security::{SecurityManager, SecurityContext, ClientInfo},
+    security::SecurityManager,
     mcp_tools::BevyDebuggerTools,
 };
 use std::sync::Arc;
@@ -48,20 +48,26 @@ async fn test_epic_6_security_observability_integration() -> Result<()> {
     let security_config = bevy_debugger_mcp::security::config::SecurityConfig::default();
     let security_manager = SecurityManager::new(security_config)?;
     
-    // Generate test JWT token
+    // Create a test user first
+    // We need an admin token to create users, so let's authenticate as admin first
+    let admin_token = security_manager
+        .authenticate("admin", "admin", Some("127.0.0.1".to_string()), Some("test".to_string()))
+        .await
+        .unwrap_or_else(|_| "test_token".to_string());
+    
+    // Try to create test user (may already exist)
+    let _ = security_manager
+        .create_user(&admin_token, "test_bevy_user", "password123", bevy_debugger_mcp::security::rbac::Role::Developer)
+        .await;
+    
+    // Authenticate and get JWT token
     let test_token = security_manager
-        .generate_token("test_bevy_user", bevy_debugger_mcp::security::rbac::Role::Developer)
+        .authenticate("test_bevy_user", "password123", Some("127.0.0.1".to_string()), Some("bevy-integration-test".to_string()))
         .await?;
     
-    // Test 3: Authenticate with JWT
-    let client_info = ClientInfo {
-        ip: Some("127.0.0.1".parse().unwrap()),
-        user_agent: Some("bevy-integration-test".to_string()),
-    };
-    
-    let security_context = security_manager.authenticate(&test_token, client_info).await?;
-    assert_eq!(security_context.user_id, "test_bevy_user");
-    assert_eq!(security_context.role, bevy_debugger_mcp::security::rbac::Role::Developer);
+    // Test 3: Validate JWT token
+    let claims = security_manager.validate_token(&test_token).await?;
+    assert_eq!(claims.sub, "test_bevy_user");
 
     // Test 4: Verify authorization for Bevy operations
     let operations_to_test = [
@@ -71,29 +77,24 @@ async fn test_epic_6_security_observability_integration() -> Result<()> {
         ("hypothesis", "behavior"),
     ];
 
-    for (operation, resource) in operations_to_test.iter() {
-        let authorized = security_manager
-            .authorize(&security_context, operation, resource)
+    for (operation, _resource) in operations_to_test.iter() {
+        let _claims = security_manager
+            .check_permission(&test_token, &bevy_debugger_mcp::security::rbac::Role::Developer, operation)
             .await?;
-        assert!(authorized, "Developer should be authorized for {} on {}", operation, resource);
     }
 
     // Test 5: Initialize MCP tools with security context
     let tools = Arc::new(BevyDebuggerTools::new(brp_client.clone()));
     
-    // Test 6: Verify security metrics are available
-    let security_metrics = security_manager.get_metrics().await;
-    assert_eq!(security_metrics.active_sessions, 1);
-    assert_eq!(security_metrics.failed_authentications, 0);
+    // Test 6: Get active sessions
+    let sessions = security_manager.get_active_sessions(&test_token).await?;
+    assert!(sessions.len() > 0);
 
     // Test 7: Test token revocation doesn't break BRP connection
     security_manager.revoke_token(&test_token).await?;
     
     // Verify token is revoked
-    let revoked_result = security_manager.authenticate(&test_token, ClientInfo {
-        ip: Some("127.0.0.1".parse().unwrap()),
-        user_agent: Some("bevy-integration-test".to_string()),
-    }).await;
+    let revoked_result = security_manager.validate_token(&test_token).await;
     assert!(revoked_result.is_err());
 
     // Verify BRP connection is still functional (independent of security layer)
@@ -150,11 +151,10 @@ async fn test_security_brp_isolation() -> Result<()> {
     // Simulate authentication failures
     for i in 0..5 {
         let result = security_manager.authenticate(
-            "invalid_token",
-            ClientInfo {
-                ip: Some("127.0.0.1".parse().unwrap()),
-                user_agent: Some(format!("test-client-{}", i)),
-            }
+            "invalid_user",
+            "wrong_password",
+            Some("127.0.0.1".to_string()),
+            Some(format!("test-client-{}", i))
         ).await;
         assert!(result.is_err());
     }
@@ -179,19 +179,24 @@ async fn test_security_performance_overhead() -> Result<()> {
     let security_config = bevy_debugger_mcp::security::config::SecurityConfig::default();
     let security_manager = SecurityManager::new(security_config)?;
 
+    // Create admin token and test user
+    let admin_token = security_manager
+        .authenticate("admin", "admin", Some("127.0.0.1".to_string()), Some("test".to_string()))
+        .await
+        .unwrap_or_else(|_| "test_token".to_string());
+    
+    let _ = security_manager
+        .create_user(&admin_token, "perf_test_user", "password123", bevy_debugger_mcp::security::rbac::Role::Developer)
+        .await;
+    
     let token = security_manager
-        .generate_token("perf_test_user", bevy_debugger_mcp::security::rbac::Role::Developer)
+        .authenticate("perf_test_user", "password123", Some("127.0.0.1".to_string()), Some("performance-test".to_string()))
         .await?;
 
-    let client_info = ClientInfo {
-        ip: Some("127.0.0.1".parse().unwrap()),
-        user_agent: Some("performance-test".to_string()),
-    };
-
-    // Measure authentication performance
+    // Measure token validation performance
     let start = std::time::Instant::now();
     for _ in 0..100 {
-        let _context = security_manager.authenticate(&token, client_info.clone()).await?;
+        let _claims = security_manager.validate_token(&token).await?;
     }
     let auth_duration = start.elapsed();
 

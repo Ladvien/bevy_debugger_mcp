@@ -214,11 +214,10 @@ async fn test_establish_performance_baselines() {
         let mut memory_tracker = MemoryUsageTracker::new();
         memory_tracker.record_measurement();
 
-        let config = Config {
-            bevy_brp_host: "localhost".to_string(),
-            bevy_brp_port: 15702,
-            mcp_port: 3001,
-        };
+        let mut config = Config::default();
+        config.bevy_brp_host = "localhost".to_string();
+        config.bevy_brp_port = 15702;
+        config.mcp_port = 3001;
 
         // Initialize optimized system
         let brp_client = Arc::new(tokio::sync::RwLock::new(BrpClient::new(&config)));
@@ -401,11 +400,10 @@ async fn test_performance_with_optimization_configurations() {
             PerformanceTargets::testing_targets()
         );
 
-        let config = Config {
-            bevy_brp_host: "localhost".to_string(),
-            bevy_brp_port: 15702,
-            mcp_port: 3001,
-        };
+        let mut config = Config::default();
+        config.bevy_brp_host = "localhost".to_string();
+        config.bevy_brp_port = 15702;
+        config.mcp_port = 3001;
 
         let brp_client = Arc::new(tokio::sync::RwLock::new(BrpClient::new(&config)));
         let mcp_server = Arc::new(McpServer::new(config, brp_client.clone()));
@@ -490,11 +488,10 @@ async fn test_performance_stability_short_term() {
     
     let mut memory_tracker = MemoryUsageTracker::new();
 
-    let config = Config {
-        bevy_brp_host: "localhost".to_string(),
-        bevy_brp_port: 15702,
-        mcp_port: 3001,
-    };
+    let mut config = Config::default();
+    config.bevy_brp_host = "localhost".to_string();
+    config.bevy_brp_port = 15702;
+    config.mcp_port = 3001;
 
     let brp_client = Arc::new(tokio::sync::RwLock::new(BrpClient::new(&config)));
     let mcp_server = Arc::new(McpServer::new(config, brp_client));
@@ -571,11 +568,10 @@ async fn test_optimization_consistency_across_scenarios() {
             PerformanceTargets::testing_targets()
         );
 
-        let config = Config {
-            bevy_brp_host: "localhost".to_string(),
-            bevy_brp_port: 15702,
-            mcp_port: 3001,
-        };
+        let mut config = Config::default();
+        config.bevy_brp_host = "localhost".to_string();
+        config.bevy_brp_port = 15702;
+        config.mcp_port = 3001;
 
         let brp_client = Arc::new(tokio::sync::RwLock::new(BrpClient::new(&config)));
         let mcp_server = Arc::new(McpServer::new(config, brp_client));
@@ -642,11 +638,10 @@ async fn test_optimization_consistency_across_scenarios() {
 /// Test performance with cached vs non-cached operations
 #[tokio::test]
 async fn test_cache_performance_impact() {
-    let config = Config {
-        bevy_brp_host: "localhost".to_string(),
-        bevy_brp_port: 15702,
-        mcp_port: 3001,
-    };
+    let mut config = Config::default();
+    config.bevy_brp_host = "localhost".to_string();
+    config.bevy_brp_port = 15702;
+    config.mcp_port = 3001;
 
     let brp_client = Arc::new(tokio::sync::RwLock::new(BrpClient::new(&config)));
     let cache = CommandCache::new(CacheConfig::default());
@@ -711,11 +706,10 @@ async fn test_cache_performance_impact() {
 /// Test memory usage regression detection
 #[tokio::test]
 async fn test_memory_regression_detection() {
-    let config = Config {
-        bevy_brp_host: "localhost".to_string(),
-        bevy_brp_port: 15702,
-        mcp_port: 3001,
-    };
+    let mut config = Config::default();
+    config.bevy_brp_host = "localhost".to_string();
+    config.bevy_brp_port = 15702;
+    config.mcp_port = 3001;
 
     // Baseline memory usage
     let mut baseline_tracker = MemoryUsageTracker::new();
