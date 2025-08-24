@@ -160,20 +160,12 @@ async fn test_state_diff_no_panic() {
         components: components2,
     };
     
-    let snapshot1 = StateSnapshot {
-        timestamp: std::time::SystemTime::now(),
-        entities: vec![entity1],
-        metadata: HashMap::new(),
-    };
+    let snapshot1 = StateSnapshot::new(vec![entity1], 1);
     
-    let snapshot2 = StateSnapshot {
-        timestamp: std::time::SystemTime::now(),
-        entities: vec![entity2], 
-        metadata: HashMap::new(),
-    };
+    let snapshot2 = StateSnapshot::new(vec![entity2], 2);
     
     // This should not panic due to our fixes
-    let _ = diff_engine.diff_snapshots(&snapshot1, &snapshot2).await;
+    let _ = diff_engine.diff_snapshots(&snapshot1, &snapshot2);
 }
 
 /// Stress test with random data that might trigger edge cases
@@ -186,8 +178,8 @@ async fn test_random_stress_no_panic() {
     // Test various components with random data
     for _ in 0..100 {
         // Random string that might break parsing
-        let random_str: String = (0..rng.gen_range(1..1000))
-            .map(|_| rng.gen_range(0..127) as u8 as char)
+        let random_str: String = (0..rng.random_range(1..1000))
+            .map(|_| rng.random_range(0..127) as u8 as char)
             .collect();
             
         // Try parsing as query
@@ -201,7 +193,7 @@ async fn test_random_stress_no_panic() {
         }
         
         // Random numbers that might overflow or cause issues
-        let random_num = rng.gen::<u64>();
+        let random_num = rng.random::<u64>();
         let query = format!("show entity {}", random_num);
         if let Ok(parser) = RegexQueryParser::new() {
             let _ = parser.parse(&query);

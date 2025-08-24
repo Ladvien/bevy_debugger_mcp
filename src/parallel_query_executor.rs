@@ -486,7 +486,7 @@ mod tests {
     #[tokio::test]
     async fn test_entity_filter_matching() {
         let entity = EntityData {
-            entity: 1,
+            id: 1,
             components: [
                 ("Transform".to_string(), serde_json::json!({"x": 1.0})),
                 ("Velocity".to_string(), serde_json::json!({"x": 2.0}))
@@ -515,9 +515,9 @@ mod tests {
         let executor = ParallelQueryExecutor::new(ParallelExecutionConfig::default()).unwrap();
         
         let entities = vec![
-            EntityData { entity: 1, components: Default::default() },
-            EntityData { entity: 2, components: Default::default() },
-            EntityData { entity: 3, components: Default::default() },
+            EntityData { id: 1, components: Default::default() },
+            EntityData { id: 2, components: Default::default() },
+            EntityData { id: 3, components: Default::default() },
         ];
 
         let batches = executor.create_entity_batches(&entities, 2);

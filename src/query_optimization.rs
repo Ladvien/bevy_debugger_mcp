@@ -684,6 +684,7 @@ mod tests {
                 where_clause: None,
             }),
             limit: None,
+            strict: Some(false),
         };
         
         let optimized = optimizer.optimize_request(&request).await.unwrap();

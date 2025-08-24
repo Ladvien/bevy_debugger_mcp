@@ -37,7 +37,7 @@ fn install_control_script() {
             Ok(content) => {
                 // Write the script to the bin directory
                 if let Err(e) = fs::write(&script_dest, content) {
-                    eprintln!("Warning: Failed to install control script: {}", e);
+                    eprintln!("Warning: Failed to install control script: {e}");
                     return;
                 }
                 
@@ -52,10 +52,10 @@ fn install_control_script() {
                     }
                 }
                 
-                println!("cargo:warning=Installed bevy-debugger-control script to {:?}", script_dest);
+                println!("cargo:warning=Installed bevy-debugger-control script to {script_dest:?}");
             }
             Err(e) => {
-                eprintln!("Warning: Failed to read control script: {}", e);
+                eprintln!("Warning: Failed to read control script: {e}");
             }
         }
     }
