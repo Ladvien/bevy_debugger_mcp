@@ -140,11 +140,10 @@ impl IntegrationTestHarness {
 
     /// Create test harness with custom configuration
     pub async fn with_config(test_config: TestConfig) -> Result<Self> {
-        let config = Config {
-            bevy_brp_host: test_config.bevy_brp_host.clone(),
-            bevy_brp_port: test_config.bevy_brp_port,
-            mcp_port: test_config.mcp_port,
-        };
+        let mut config = Config::default();
+        config.bevy_brp_host = test_config.bevy_brp_host.clone();
+        config.bevy_brp_port = test_config.bevy_brp_port;
+        config.mcp_port = test_config.mcp_port;
 
         let brp_client = if test_config.enable_mock_brp {
             Arc::new(RwLock::new(MockBrpClient::new(&config)))
@@ -414,8 +413,9 @@ impl MockBrpClient {
             .get("list_entities")
             .cloned()
             .unwrap_or(BrpResponse::Error(BrpError {
-                code: 500,
+                code: BrpErrorCode::InternalError,
                 message: "Mock response not configured".to_string(),
+                details: None,
             }));
             
         Ok(response)

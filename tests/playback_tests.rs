@@ -205,11 +205,8 @@ async fn test_step_operations() {
     controller.load_recording(recording).await.unwrap();
 
     // Create a mock BRP client
-    let config = Config {
-        bevy_brp_host: "localhost".to_string(),
-        bevy_brp_port: 15702,
-        mcp_port: 3000,
-    };
+    let mut config = Config::default();
+    config.mcp_port = 3000;
     let mut brp_client = BrpClient::new(&config);
 
     // Test stepping forward
@@ -268,11 +265,8 @@ async fn test_seek_to_marker() {
 async fn test_interpolated_sync_strategy() {
     let sync = InterpolatedSync::new(0.5);
 
-    let config = Config {
-        bevy_brp_host: "localhost".to_string(),
-        bevy_brp_port: 15702,
-        mcp_port: 3000,
-    };
+    let mut config = Config::default();
+    config.mcp_port = 3000;
     let mut brp_client = BrpClient::new(&config);
 
     let frame = Frame {

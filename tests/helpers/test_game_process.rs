@@ -25,11 +25,7 @@ pub struct TestGameProcess {
 impl TestGameProcess {
     /// Create a new test game process manager
     pub async fn new(game_name: &str) -> Self {
-        let config = Config {
-            bevy_brp_host: "localhost".to_string(),
-            bevy_brp_port: 15702,
-            mcp_port: 3001,
-        };
+        let config = Config::default();
 
         Self {
             game_name: game_name.to_string(),

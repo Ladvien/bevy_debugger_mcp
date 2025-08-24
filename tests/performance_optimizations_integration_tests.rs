@@ -30,11 +30,7 @@ use integration::IntegrationTestHarness;
 async fn test_lazy_initialization_startup_performance() {
     // Test without lazy initialization (eager loading all components)
     let start_eager = Instant::now();
-    let config = Config {
-        bevy_brp_host: "localhost".to_string(),
-        bevy_brp_port: 15702,
-        mcp_port: 3001,
-    };
+    let config = Config::default();
     let brp_client_eager = Arc::new(RwLock::new(BrpClient::new(&config)));
     let _server_eager = McpServer::new(config.clone(), brp_client_eager);
     let eager_startup_time = start_eager.elapsed();
@@ -342,11 +338,7 @@ async fn test_profiling_system_performance() {
 #[tokio::test]
 async fn test_optimization_combinations() {
     // Test with all optimizations enabled
-    let config = Config {
-        bevy_brp_host: "localhost".to_string(),
-        bevy_brp_port: 15702,
-        mcp_port: 3001,
-    };
+    let config = Config::default();
     
     let brp_client = Arc::new(RwLock::new(BrpClient::new(&config)));
     let lazy_components = LazyComponents::new(brp_client.clone());

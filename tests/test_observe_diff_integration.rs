@@ -15,7 +15,7 @@ fn create_test_entity(id: u64, components: Vec<(&str, serde_json::Value)>) -> En
 
 #[test]
 fn test_observe_state_creation() {
-    let state = ObserveState::new();
+    let state = ObserveState::new().unwrap().unwrap();
     assert_eq!(state.max_history_size(), 10);
     assert!(!state.has_last_snapshot());
     assert_eq!(state.history_size(), 0);
@@ -29,14 +29,14 @@ fn test_observe_state_custom_config() {
     };
     let game_rules = GameRules::default();
 
-    let state = ObserveState::with_diff_config(fuzzy_config, game_rules);
+    let state = ObserveState::with_diff_config(fuzzy_config, game_rules).unwrap();
     assert!(!state.has_last_snapshot());
     assert_eq!(state.history_size(), 0);
 }
 
 #[test]
 fn test_snapshot_addition_and_history_management() {
-    let mut state = ObserveState::new();
+    let mut state = ObserveState::new().unwrap();
 
     let entities1 = vec![create_test_entity(
         1,
@@ -60,7 +60,7 @@ fn test_snapshot_addition_and_history_management() {
 
 #[test]
 fn test_history_size_limit() {
-    let mut state = ObserveState::new();
+    let mut state = ObserveState::new().unwrap();
 
     // Add more snapshots than the history limit
     for i in 0..15 {
@@ -74,7 +74,7 @@ fn test_history_size_limit() {
 
 #[test]
 fn test_diff_against_last_snapshot() {
-    let mut state = ObserveState::new();
+    let mut state = ObserveState::new().unwrap();
 
     // Add first snapshot
     let entities1 = vec![create_test_entity(
@@ -102,7 +102,7 @@ fn test_diff_against_last_snapshot() {
 
 #[test]
 fn test_diff_against_last_no_previous() {
-    let mut state = ObserveState::new();
+    let mut state = ObserveState::new().unwrap();
 
     let entities = vec![create_test_entity(
         1,
@@ -117,7 +117,7 @@ fn test_diff_against_last_no_previous() {
 
 #[test]
 fn test_diff_against_history_by_index() {
-    let mut state = ObserveState::new();
+    let mut state = ObserveState::new().unwrap();
 
     // Add multiple snapshots
     let entities1 = vec![create_test_entity(1, vec![("Position", json!(0))])];
@@ -148,7 +148,7 @@ fn test_diff_against_history_by_index() {
 
 #[test]
 fn test_diff_against_history_invalid_index() {
-    let mut state = ObserveState::new();
+    let mut state = ObserveState::new().unwrap();
 
     let entities = vec![create_test_entity(1, vec![("Position", json!(0))])];
     let snapshot = state.add_snapshot(entities);
@@ -160,7 +160,7 @@ fn test_diff_against_history_invalid_index() {
 
 #[test]
 fn test_configure_diff_engine() {
-    let mut state = ObserveState::new();
+    let mut state = ObserveState::new().unwrap();
 
     let new_config = FuzzyCompareConfig {
         epsilon: 1e-2,
@@ -189,7 +189,7 @@ fn test_configure_diff_engine() {
 
 #[test]
 fn test_clear_history() {
-    let mut state = ObserveState::new();
+    let mut state = ObserveState::new().unwrap();
 
     // Add some snapshots
     for i in 0..5 {
@@ -208,7 +208,7 @@ fn test_clear_history() {
 
 #[test]
 fn test_complex_entity_changes() {
-    let mut state = ObserveState::new();
+    let mut state = ObserveState::new().unwrap();
 
     // Initial state: 2 entities
     let entities1 = vec![
@@ -256,7 +256,7 @@ fn test_complex_entity_changes() {
 
 #[test]
 fn test_rate_of_change_calculation() {
-    let mut state = ObserveState::new();
+    let mut state = ObserveState::new().unwrap();
 
     // Add first snapshot
     let entities1 = vec![create_test_entity(1, vec![("Position", json!(0.0))])];
@@ -286,7 +286,7 @@ fn test_rate_of_change_calculation() {
 
 #[test]
 fn test_unexpected_change_detection() {
-    let mut state = ObserveState::new();
+    let mut state = ObserveState::new().unwrap();
 
     // Configure game rules with position change limit
     let fuzzy_config = FuzzyCompareConfig::default();
@@ -321,7 +321,7 @@ fn test_unexpected_change_detection() {
 
 #[test]
 fn test_empty_snapshot_handling() {
-    let mut state = ObserveState::new();
+    let mut state = ObserveState::new().unwrap();
 
     // Add empty snapshot
     let snapshot1 = state.add_snapshot(vec![]);
@@ -338,7 +338,7 @@ fn test_empty_snapshot_handling() {
 
 #[test]
 fn test_entity_id_consistency() {
-    let mut state = ObserveState::new();
+    let mut state = ObserveState::new().unwrap();
 
     // Add snapshot with entity
     let entities1 = vec![create_test_entity(42, vec![("Name", json!("TestEntity"))])];
@@ -362,7 +362,7 @@ fn test_entity_id_consistency() {
 
 #[test]
 fn test_multiple_history_diffs() {
-    let mut state = ObserveState::new();
+    let mut state = ObserveState::new().unwrap();
 
     // Add sequence of snapshots
     for i in 0..5 {

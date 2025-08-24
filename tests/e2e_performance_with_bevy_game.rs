@@ -39,11 +39,7 @@ async fn test_optimizations_with_performance_game() {
             PerformanceTargets::bevdbg_012_targets()
         );
 
-        let config = Config {
-            bevy_brp_host: "localhost".to_string(),
-            bevy_brp_port: 15702,
-            mcp_port: 3001,
-        };
+        let config = Config::default();
 
         // Initialize all optimization systems
         let brp_client = Arc::new(tokio::sync::RwLock::new(BrpClient::new(&config)));
@@ -143,11 +139,7 @@ async fn test_memory_optimization_with_complex_game() {
         let mut memory_tracker = MemoryUsageTracker::new();
         let baseline_memory = memory_tracker.baseline();
 
-        let config = Config {
-            bevy_brp_host: "localhost".to_string(),
-            bevy_brp_port: 15702,
-            mcp_port: 3001,
-        };
+        let config = Config::default();
 
         // Initialize systems with memory tracking
         let brp_client = Arc::new(tokio::sync::RwLock::new(BrpClient::new(&config)));
@@ -228,11 +220,7 @@ async fn test_full_optimization_stack_integration() {
     
     let mut memory_tracker = MemoryUsageTracker::new();
 
-    let config = Config {
-        bevy_brp_host: "localhost".to_string(),
-        bevy_brp_port: 15702,
-        mcp_port: 3001,
-    };
+    let config = Config::default();
 
     // Initialize full optimization stack
     let brp_client = Arc::new(tokio::sync::RwLock::new(BrpClient::new(&config)));
@@ -441,11 +429,7 @@ async fn test_optimization_effectiveness_under_load() {
             PerformanceTargets::testing_targets() // Use relaxed targets for load testing
         );
 
-        let config = Config {
-            bevy_brp_host: "localhost".to_string(),
-            bevy_brp_port: 15702,
-            mcp_port: 3001,
-        };
+        let config = Config::default();
 
         let brp_client = Arc::new(tokio::sync::RwLock::new(BrpClient::new(&config)));
         let mcp_server = Arc::new(McpServer::new(config, brp_client));
@@ -521,11 +505,7 @@ async fn test_optimization_stability_long_term() {
             PerformanceTargets::testing_targets()
         );
 
-        let config = Config {
-            bevy_brp_host: "localhost".to_string(),
-            bevy_brp_port: 15702,
-            mcp_port: 3001,
-        };
+        let config = Config::default();
 
         let brp_client = Arc::new(tokio::sync::RwLock::new(BrpClient::new(&config)));
         let mcp_server = Arc::new(McpServer::new(config, brp_client));
