@@ -75,9 +75,23 @@ async fn main() -> Result<()> {
         return Ok(());
     }
     
-    tracing_subscriber::fmt()
-        .with_env_filter(tracing_subscriber::EnvFilter::from_default_env())
-        .init();
+    // Determine if we're in stdio mode (for MCP protocol)
+    let is_stdio_mode = args.iter().any(|arg| arg == "--stdio") || 
+                        (!args.iter().any(|arg| arg == "--tcp" || arg == "--server") && !std::io::stdout().is_terminal());
+    
+    // Initialize tracing to stderr when in stdio mode (stdout is reserved for MCP protocol)
+    // This prevents log output from contaminating the JSON-RPC stream
+    if is_stdio_mode {
+        tracing_subscriber::fmt()
+            .with_env_filter(tracing_subscriber::EnvFilter::from_default_env())
+            .with_writer(std::io::stderr)
+            .with_ansi(false)  // Disable ANSI color codes in stdio mode
+            .init();
+    } else {
+        tracing_subscriber::fmt()
+            .with_env_filter(tracing_subscriber::EnvFilter::from_default_env())
+            .init();
+    }
 
     let config = Config::from_env()?;
 
