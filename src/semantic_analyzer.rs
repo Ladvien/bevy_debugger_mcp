@@ -184,6 +184,7 @@ impl SemanticQueryBuilder {
                 },
             }),
             limit: Some(100), // Reasonable default for semantic queries
+            strict: Some(false), // Non-strict mode for semantic queries
         };
 
         let suggestions = self.generate_suggestions();

@@ -433,6 +433,403 @@ This guide helps you diagnose and resolve common issues when using the Bevy Debu
 
 ---
 
+## Bevy Game Development Issues
+
+### Issue 16: "Component Not Found" During Observations
+
+**Symptoms**: Queries for specific components return empty results despite components existing
+
+**Causes**:
+- Component not registered with Bevy reflection system
+- Custom component types not implementing required traits
+- Component names changed but queries still use old names
+
+**Solutions**:
+1. **Ensure components implement required traits**:
+   ```rust
+   use bevy::prelude::*;
+   
+   #[derive(Component, Reflect)] // Reflect is essential for MCP tools
+   #[reflect(Component)] // Register with component registry
+   struct Player {
+       health: f32,
+       score: i32,
+   }
+   
+   fn main() {
+       App::new()
+           .add_plugins(DefaultPlugins)
+           .register_type::<Player>() // Must register custom types
+           .run();
+   }
+   ```
+
+2. **Check component registration**:
+   ```javascript
+   // List all registered component types
+   await mcpClient.callTool("observe", {
+     query: "list all registered component types"
+   });
+   ```
+
+3. **Use generic queries to verify entities exist**:
+   ```javascript
+   // Start broad, then narrow down
+   await mcpClient.callTool("observe", { query: "all entities" });
+   await mcpClient.callTool("observe", { query: "entities with Transform" });
+   ```
+
+---
+
+### Issue 17: Bevy ECS Query Performance Issues
+
+**Symptoms**: Simple queries take longer than expected, frame drops during observation
+
+**Causes**:
+- Querying too many entities without filters
+- Complex component combinations
+- World fragmentation from frequent spawning/despawning
+
+**Solutions**:
+1. **Use specific filters in queries**:
+   ```javascript
+   // Instead of this (slow with 10k+ entities)
+   await mcpClient.callTool("observe", { 
+     query: "all entities with components" 
+   });
+   
+   // Use this (much faster)
+   await mcpClient.callTool("observe", { 
+     query: "entities with Player and Transform limit 50" 
+   });
+   ```
+
+2. **Query by archetype when possible**:
+   ```javascript
+   // More efficient for Bevy's ECS
+   await mcpClient.callTool("observe", { 
+     query: "entities in PlayerArchetype" 
+   });
+   ```
+
+3. **Monitor entity fragmentation**:
+   ```javascript
+   const metrics = await mcpClient.callTool("observe", {
+     query: "archetype statistics and entity distribution"
+   });
+   ```
+
+---
+
+### Issue 18: Physics Debug Visualization Problems
+
+**Symptoms**: Physics colliders not visible in screenshots, collision detection issues
+
+**Causes**:
+- Physics debug rendering not enabled
+- Collision shapes don't match visual sprites
+- Physics world out of sync with transform world
+
+**Solutions**:
+1. **Enable physics debug rendering**:
+   ```rust
+   use bevy::prelude::*;
+   use bevy_rapier2d::prelude::*;
+   
+   fn main() {
+       App::new()
+           .add_plugins(DefaultPlugins)
+           .add_plugins(RapierPhysicsPlugin::<NoUserData>::pixels_per_meter(100.0))
+           .add_plugins(RapierDebugRenderPlugin::default()) // Enable debug rendering
+           .run();
+   }
+   ```
+
+2. **Check physics-visual alignment**:
+   ```javascript
+   // Compare physics colliders with visual transforms
+   await mcpClient.callTool("observe", {
+     query: "entities with both Collider and Transform components",
+     reflection: true  // Deep inspection to compare values
+   });
+   ```
+
+3. **Monitor physics world state**:
+   ```javascript
+   await mcpClient.callTool("experiment", {
+     experiment_type: "physics_debug",
+     params: {
+       visualize_colliders: true,
+       check_transform_sync: true,
+       duration_seconds: 10
+     }
+   });
+   ```
+
+---
+
+### Issue 19: Animation State Debugging Issues
+
+**Symptoms**: Animations not playing correctly, state machines stuck
+
+**Causes**:
+- Animation graph not properly configured
+- State transitions not triggering
+- Animation clips missing or corrupted
+
+**Solutions**:
+1. **Inspect animation state**:
+   ```javascript
+   await mcpClient.callTool("observe", {
+     query: "entities with AnimationPlayer and animation state",
+     reflection: true
+   });
+   ```
+
+2. **Monitor animation transitions**:
+   ```javascript
+   await mcpClient.callTool("experiment", {
+     experiment_type: "animation_debug",
+     params: {
+       track_state_changes: true,
+       duration_seconds: 30
+     }
+   });
+   ```
+
+3. **Verify animation clips are loaded**:
+   ```rust
+   // In your game code, ensure assets are properly loaded
+   fn debug_animation_assets(
+       animation_players: Query<&AnimationPlayer>,
+       assets: Res<Assets<AnimationClip>>,
+   ) {
+       for player in animation_players.iter() {
+           // Check if animation clips are loaded
+           for (handle, _) in player.animations() {
+               if assets.get(handle).is_none() {
+                   println!("Animation clip not loaded: {:?}", handle);
+               }
+           }
+       }
+   }
+   ```
+
+---
+
+### Issue 20: Bevy Remote Plugin (BRP) Version Compatibility
+
+**Symptoms**: MCP tools work locally but fail in different Bevy versions
+
+**Causes**:
+- BRP protocol changes between Bevy versions
+- Component serialization format changes
+- New/removed built-in components
+
+**Solutions**:
+1. **Check Bevy version compatibility**:
+   ```javascript
+   await mcpClient.callTool("observe", {
+     query: "bevy version and protocol info"
+   });
+   ```
+
+2. **Use version-specific configurations**:
+   ```rust
+   // Bevy 0.12+
+   use bevy::remote::RemotePlugin;
+   
+   fn main() {
+       App::new()
+           .add_plugins(DefaultPlugins)
+           .add_plugins(RemotePlugin::default())
+           .run();
+   }
+   
+   // Older versions might need different setup
+   ```
+
+3. **Test with minimal reproduction**:
+   ```rust
+   // Create minimal test case
+   use bevy::prelude::*;
+   use bevy::remote::RemotePlugin;
+   
+   #[derive(Component, Reflect)]
+   #[reflect(Component)]
+   struct TestComponent(f32);
+   
+   fn main() {
+       App::new()
+           .add_plugins(DefaultPlugins)
+           .add_plugins(RemotePlugin::default())
+           .register_type::<TestComponent>()
+           .add_systems(Startup, setup)
+           .run();
+   }
+   
+   fn setup(mut commands: Commands) {
+       commands.spawn(TestComponent(42.0));
+   }
+   ```
+
+---
+
+### Issue 21: Asset Loading and Debug Monitoring
+
+**Symptoms**: Assets not loading, missing textures/sounds in debug screenshots
+
+**Causes**:
+- Asset loading not complete when debugging starts
+- Asset paths incorrect in different environments
+- Asset hot reloading interfering with debugging
+
+**Solutions**:
+1. **Monitor asset loading state**:
+   ```javascript
+   await mcpClient.callTool("observe", {
+     query: "asset loading progress and failed assets"
+   });
+   ```
+
+2. **Add warmup period for asset loading**:
+   ```javascript
+   // Wait for assets to load before debugging
+   await mcpClient.callTool("experiment", {
+     experiment_type: "asset_loading_wait",
+     params: {
+       wait_for_completion: true,
+       timeout_seconds: 30
+     }
+   });
+   ```
+
+3. **Check asset paths and loading**:
+   ```rust
+   // In your game, add asset loading diagnostics
+   fn monitor_asset_loading(
+       server: Res<AssetServer>,
+       images: Res<Assets<Image>>,
+   ) {
+       // Check loading status of critical assets
+       let texture_handle = server.load("player.png");
+       match server.get_load_state(&texture_handle) {
+           Some(bevy::asset::LoadState::Loaded) => {
+               println!("Player texture loaded successfully");
+           }
+           Some(bevy::asset::LoadState::Failed) => {
+               println!("Player texture failed to load");
+           }
+           _ => {
+               println!("Player texture still loading...");
+           }
+       }
+   }
+   ```
+
+---
+
+### Issue 22: Bevy System Ordering and Debug Timing
+
+**Symptoms**: Debug observations show inconsistent state, race conditions in debugging
+
+**Causes**:
+- Debug tools running at wrong time in frame cycle
+- System dependencies not properly defined
+- Debugging affecting game system timing
+
+**Solutions**:
+1. **Check system execution order**:
+   ```javascript
+   await mcpClient.callTool("observe", {
+     query: "system execution order and dependencies"
+   });
+   ```
+
+2. **Use proper system sets for debugging**:
+   ```rust
+   use bevy::prelude::*;
+   
+   // Define debug system set that runs after game logic
+   #[derive(SystemSet, Debug, Clone, PartialEq, Eq, Hash)]
+   struct DebugSystemSet;
+   
+   fn main() {
+       App::new()
+           .add_plugins(DefaultPlugins)
+           .add_systems(Update, (
+               game_logic_system,
+               debug_monitoring_system.in_set(DebugSystemSet)
+           ))
+           .configure_sets(Update, DebugSystemSet.after(game_logic_system))
+           .run();
+   }
+   ```
+
+3. **Monitor frame timing consistency**:
+   ```javascript
+   await mcpClient.callTool("experiment", {
+     experiment_type: "frame_timing_analysis",
+     params: {
+       measure_system_order_impact: true,
+       duration_seconds: 60
+     }
+   });
+   ```
+
+---
+
+### Issue 23: Bevy UI Debug Layout Problems
+
+**Symptoms**: UI elements not visible in screenshots, layout issues not apparent in debug
+
+**Causes**:
+- UI rendering happens after screenshot capture
+- Z-index/layer problems with UI elements
+- UI systems disabled or not updating
+
+**Solutions**:
+1. **Enable UI debug visualization**:
+   ```rust
+   use bevy::prelude::*;
+   
+   fn main() {
+       App::new()
+           .add_plugins(DefaultPlugins)
+           .add_systems(Update, debug_ui_layout)
+           .run();
+   }
+   
+   fn debug_ui_layout(
+       mut gizmos: Gizmos,
+       ui_query: Query<&Style, With<Node>>,
+   ) {
+       // Draw UI bounds for debugging
+       for style in ui_query.iter() {
+           // Visualize UI layout boxes
+       }
+   }
+   ```
+
+2. **Check UI element visibility**:
+   ```javascript
+   await mcpClient.callTool("observe", {
+     query: "UI nodes with visibility and layout data",
+     reflection: true
+   });
+   ```
+
+3. **Take screenshots with UI timing consideration**:
+   ```javascript
+   await mcpClient.callTool("screenshot", {
+     path: "ui_debug.png",
+     warmup_duration: 2000, // Extra time for UI rendering
+     wait_for_ui_updates: true
+   });
+   ```
+
+---
+
 ## Advanced Diagnostics
 
 ### Issue 13: Intermittent Connection Drops

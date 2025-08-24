@@ -78,6 +78,7 @@ impl RegexQueryParser {
                             where_clause: None,
                         }),
                         limit: None,
+                        strict: Some(false),
                     })
                 },
                 description: "find entities with component Y - Find all entities that have component Y",
@@ -96,6 +97,7 @@ impl RegexQueryParser {
                             where_clause: None,
                         }),
                         limit: None,
+                        strict: Some(false),
                     })
                 },
                 description: "find entities without component Y - Find all entities that don't have component Y",
@@ -132,6 +134,7 @@ impl RegexQueryParser {
                             where_clause: None,
                         }),
                         limit: None,
+                        strict: Some(false),
                     })
                 },
                 description: "find entities with A, B, C - Find entities that have all specified components",
