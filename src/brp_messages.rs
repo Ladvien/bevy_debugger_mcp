@@ -185,6 +185,16 @@ pub struct QueryFilter {
     pub where_clause: Option<Vec<ComponentFilter>>,
 }
 
+impl Default for QueryFilter {
+    fn default() -> Self {
+        Self {
+            with: None,
+            without: None,
+            where_clause: None,
+        }
+    }
+}
+
 /// Filter for component values
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ComponentFilter {

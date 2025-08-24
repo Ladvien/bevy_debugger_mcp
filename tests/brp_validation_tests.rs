@@ -107,11 +107,11 @@ async fn test_permission_levels() {
     assert!(validator.validate_request(&read_request, session_id, request_size).await.is_ok());
 
     let query_request = BrpRequest::Query {
-        filter: Some(QueryFilter {
-            with: Some(vec!["Transform".to_string()]),
-            without: None,
-            where_clause: None,
-        }),
+        filter: {
+            let mut filter = QueryFilter::default();
+            filter.with = Some(vec!["Transform".to_string()]);
+            Some(filter)
+        },
         limit: Some(10),
         strict: Some(false),
     };
@@ -283,11 +283,11 @@ async fn test_query_limits() {
 
     // Query within limit should pass
     let valid_query = BrpRequest::Query {
-        filter: Some(QueryFilter {
-            with: Some(vec!["Transform".to_string()]),
-            without: None,
-            where_clause: None,
-        }),
+        filter: {
+            let mut filter = QueryFilter::default();
+            filter.with = Some(vec!["Transform".to_string()]);
+            Some(filter)
+        },
         limit: Some(3),
         strict: Some(false),
     };
@@ -297,11 +297,11 @@ async fn test_query_limits() {
 
     // Query exceeding limit should fail
     let invalid_query = BrpRequest::Query {
-        filter: Some(QueryFilter {
-            with: Some(vec!["Transform".to_string()]),
-            without: None,
-            where_clause: None,
-        }),
+        filter: {
+            let mut filter = QueryFilter::default();
+            filter.with = Some(vec!["Transform".to_string()]);
+            Some(filter)
+        },
         limit: Some(10),
         strict: Some(false),
     };

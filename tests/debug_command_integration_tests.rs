@@ -68,6 +68,7 @@ async fn test_debug_command_compatibility() {
     let query_request = BrpRequest::Query {
         filter: None,
         limit: Some(10),
+        strict: Some(false),
     };
     
     let debug_request = BrpRequest::Debug {
@@ -359,10 +360,10 @@ async fn test_debug_command_serialization() {
         DebugCommand::ExecuteQuery {
             query: ValidatedQuery {
                 id: "query-1".to_string(),
-                filter: QueryFilter {
-                    with: Some(vec!["Transform".to_string()]),
-                    without: None,
-                    where_clause: None,
+                filter: {
+                    let mut filter = QueryFilter::default();
+                    filter.with = Some(vec!["Transform".to_string()]);
+                    filter
                 },
                 estimated_cost: QueryCost {
                     estimated_entities: 100,

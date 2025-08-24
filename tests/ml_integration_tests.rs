@@ -43,15 +43,19 @@ async fn test_pattern_learning_to_suggestions_pipeline() -> Result<()> {
 
     // Record a sequence of commands that represents a common pattern
     let commands = vec![
-        DebugCommand::GetSystemInfo,
+        DebugCommand::GetSystemInfo {
+            system_name: None,
+            include_scheduling: Some(true),
+        },
         DebugCommand::InspectEntity { 
             entity_id: 123, 
             include_metadata: Some(true), 
             include_relationships: Some(false) 
         },
         DebugCommand::ProfileSystem { 
-            system_name: Some("movement_system".to_string()),
-            duration: Some(Duration::from_secs(5)),
+            system_name: "movement_system".to_string(),
+            duration_ms: Some(5000),
+            track_allocations: Some(false),
         },
     ];
 

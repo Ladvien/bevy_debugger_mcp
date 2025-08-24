@@ -159,7 +159,7 @@ impl MockBrpClient {
         match request {
             BrpRequest::Get { entity, components: _ } => {
                 if let Some(entity_data) = self.entities.get(entity) {
-                    Ok(BrpResponse::Success(BrpResult::Entity(entity_data.clone())))
+                    Ok(BrpResponse::Success(Box::new(BrpResult::Entity(entity_data.clone()))))
                 } else {
                     Ok(BrpResponse::Error(BrpError {
                         code: BrpErrorCode::EntityNotFound,
@@ -184,11 +184,10 @@ async fn create_test_inspector() -> EntityInspector {
     
     // We need to use a wrapper that implements the actual BrpClient interface
     // For now, we'll create a test-specific setup
-    let config = Config {
-        bevy_brp_host: "localhost".to_string(),
-        bevy_brp_port: 15702,
-        mcp_port: 3000,
-    };
+    let mut config = Config::default();
+    config.bevy_brp_host = "localhost".to_string();
+    config.bevy_brp_port = 15702;
+    config.mcp_port = 3000;
     
     let actual_brp_client = Arc::new(RwLock::new(BrpClient::new(&config)));
     EntityInspector::new(actual_brp_client)
@@ -619,6 +618,7 @@ async fn test_response_serialization() {
             memory_size: 100,
             last_modified: Some(1234567890),
             generation: 1,
+            index: 0,
             component_types: vec![DetailedComponentTypeInfo {
                 type_id: "Test".to_string(),
                 type_name: "Test".to_string(),

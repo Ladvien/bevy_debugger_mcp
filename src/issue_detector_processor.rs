@@ -513,11 +513,10 @@ mod tests {
     use crate::config::Config;
 
     async fn create_test_processor() -> IssueDetectorProcessor {
-        let config = Config {
-            bevy_brp_host: "localhost".to_string(),
-            bevy_brp_port: 15702,
-            mcp_port: 3000,
-        };
+        let mut config = Config::default();
+        config.bevy_brp_host = "localhost".to_string();
+        config.bevy_brp_port = 15702;
+        config.mcp_port = 3000;
         let brp_client = Arc::new(RwLock::new(BrpClient::new(&config)));
         IssueDetectorProcessor::new(brp_client)
     }

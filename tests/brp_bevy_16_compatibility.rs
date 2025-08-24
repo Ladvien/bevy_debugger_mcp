@@ -13,11 +13,11 @@ use std::collections::HashMap;
 async fn test_bevy_16_strict_query_parameter() {
     // Test that strict parameter is properly serialized/deserialized
     let strict_query = BrpRequest::Query {
-        filter: Some(QueryFilter {
-            with: Some(vec!["Transform".to_string()]),
-            without: None,
-            where_clause: None,
-        }),
+        filter: {
+            let mut filter = QueryFilter::default();
+            filter.with = Some(vec!["Transform".to_string()]);
+            Some(filter)
+        },
         limit: Some(100),
         strict: Some(true),
     };
@@ -110,11 +110,11 @@ async fn test_entity_with_generation_compatibility() {
 async fn test_backwards_compatibility_with_legacy_queries() {
     // Test that queries without strict parameter still work (defaults to false)
     let legacy_query = BrpRequest::Query {
-        filter: Some(QueryFilter {
-            with: Some(vec!["Transform".to_string()]),
-            without: None,
-            where_clause: None,
-        }),
+        filter: {
+            let mut filter = QueryFilter::default();
+            filter.with = Some(vec!["Transform".to_string()]);
+            Some(filter)
+        },
         limit: None,
         strict: None, // Not specified - should default to false behavior
     };
@@ -148,11 +148,11 @@ async fn test_component_type_id_format_compatibility() {
     for type_name in qualified_names {
         // Test in a query filter
         let query = BrpRequest::Query {
-            filter: Some(QueryFilter {
-                with: Some(vec![type_name.to_string()]),
-                without: None,
-                where_clause: None,
-            }),
+            filter: {
+                let mut filter = QueryFilter::default();
+                filter.with = Some(vec![type_name.to_string()]);
+                Some(filter)
+            },
             limit: None,
             strict: Some(true),
         };
@@ -179,11 +179,11 @@ async fn test_component_type_id_format_compatibility() {
 async fn test_json_rpc_2_0_format_compatibility() {
     // Test that requests can be formatted as proper JSON-RPC 2.0 messages
     let query = BrpRequest::Query {
-        filter: Some(QueryFilter {
-            with: Some(vec!["Transform".to_string()]),
-            without: None,
-            where_clause: None,
-        }),
+        filter: {
+            let mut filter = QueryFilter::default();
+            filter.with = Some(vec!["Transform".to_string()]);
+            Some(filter)
+        },
         limit: Some(10),
         strict: Some(true),
     };

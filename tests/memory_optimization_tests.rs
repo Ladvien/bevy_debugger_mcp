@@ -15,11 +15,10 @@ use bevy_debugger_mcp::{
 
 /// Benchmark memory usage of lazy initialization patterns
 async fn bench_lazy_initialization() {
-    let config = Config {
-        bevy_brp_host: "localhost".to_string(),
-        bevy_brp_port: 15702,
-        mcp_port: 3001,
-    };
+    let mut config = Config::default();
+    config.bevy_brp_host = "localhost".to_string();
+    config.bevy_brp_port = 15702;
+    config.mcp_port = 3001;
     
     let brp_client = Arc::new(RwLock::new(BrpClient::new(&config)));
     let components = LazyComponents::new(brp_client);
@@ -189,11 +188,10 @@ async fn test_memory_regression() {
 /// Integration test for complete memory optimization pipeline
 #[tokio::test]
 async fn test_memory_optimization_integration() {
-    let config = Config {
-        bevy_brp_host: "localhost".to_string(),
-        bevy_brp_port: 15702,
-        mcp_port: 3001,
-    };
+    let mut config = Config::default();
+    config.bevy_brp_host = "localhost".to_string();
+    config.bevy_brp_port = 15702;
+    config.mcp_port = 3001;
     
     let brp_client = Arc::new(RwLock::new(BrpClient::new(&config)));
     

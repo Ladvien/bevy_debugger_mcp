@@ -34,7 +34,7 @@ async fn create_test_security_manager() -> Arc<SecurityManager> {
     config.jwt_secret = "test_secret_for_testing_only".to_string();
     config.jwt_expiry_hours = 1;
     config.password_min_length = 4;
-    config.rate_limit_requests_per_minute = 1000; // High limit for tests
+    config.rate_limit_per_ip = 1000; // High limit for tests
     
     Arc::new(SecurityManager::new(config).expect("Failed to create security manager"))
 }

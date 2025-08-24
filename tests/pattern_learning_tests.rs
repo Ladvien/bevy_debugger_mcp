@@ -25,9 +25,19 @@ async fn test_pattern_anonymization() {
     
     // Record commands
     let commands = vec![
-        DebugCommand::InspectEntity { entity_id: 123 },
-        DebugCommand::GetHierarchy { entity_id: 456 },
-        DebugCommand::GetSystemInfo,
+        DebugCommand::InspectEntity { 
+            entity_id: 123, 
+            include_metadata: Some(true),
+            include_relationships: Some(false),
+        },
+        DebugCommand::GetHierarchy { 
+            root_entity: Some(456), 
+            max_depth: Some(3),
+        },
+        DebugCommand::GetSystemInfo {
+            system_name: None,
+            include_scheduling: Some(true),
+        },
     ];
     
     for cmd in commands {

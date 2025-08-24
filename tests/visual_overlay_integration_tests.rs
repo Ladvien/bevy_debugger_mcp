@@ -25,11 +25,11 @@ use bevy_debugger_mcp::visual_overlays::entity_highlight::{HighlightMode, Highli
 
 /// Create a test configuration for BRP client
 fn create_test_config() -> Config {
-    Config {
-        bevy_brp_host: "localhost".to_string(),
-        bevy_brp_port: 15702,
-        mcp_port: 3000,
-    }
+    let mut config = Config::default();
+    config.bevy_brp_host = "localhost".to_string();
+    config.bevy_brp_port = 15702;
+    config.mcp_port = 3000;
+    config
 }
 
 /// Create a test visual debug overlay processor
