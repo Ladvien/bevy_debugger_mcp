@@ -152,13 +152,11 @@ async fn test_state_diff_no_panic() {
     
     let entity1 = crate::brp_messages::EntityData {
         id: 1,
-        generation: 1,
         components: components1,
     };
     
     let entity2 = crate::brp_messages::EntityData {
         id: 1,
-        generation: 1,
         components: components2,
     };
     

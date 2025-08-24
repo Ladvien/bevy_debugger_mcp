@@ -31,7 +31,7 @@ async fn test_cache_with_realistic_workload() {
     // Wait for game to have some entities
     tokio::time::sleep(Duration::from_secs(3)).await;
 
-    let cache_config = CacheConfig {
+    let cache_config = Cache{ let mut config = Config::default();
         max_size: 1000,
         ttl: Duration::from_secs(300),
         enable_metrics: true,
@@ -53,7 +53,7 @@ async fn test_cache_with_realistic_workload() {
         cache.set(command, args, mock_result).await;
         
         cache_miss_times.push(start.elapsed());
-    }
+        }
 
     // Second pass - cache hits
     let mut cache_hit_times = Vec::new();
@@ -64,7 +64,7 @@ async fn test_cache_with_realistic_workload() {
         assert!(cached_result.is_some(), "Should get cached result for {}", command);
         
         cache_hit_times.push(start.elapsed());
-    }
+        }
 
     // Analyze performance
     let avg_miss_time: Duration = cache_miss_times.iter().sum::<Duration>() / cache_miss_times.len() as u32;
@@ -89,13 +89,13 @@ async fn test_cache_with_realistic_workload() {
     assert!(stats.hit_rate > 0.5, "Hit rate should be above 50%");
 
     game_process.cleanup().await.expect("Failed to cleanup test game");
-}
+    }
 
 /// Test cache behavior with different TTL settings
 #[tokio::test]
 async fn test_cache_ttl_behavior() {
     // Test with very short TTL
-    let short_ttl_config = CacheConfig {
+    let short_ttl_config = Cache{ let mut config = Config::default();
         max_size: 100,
         ttl: Duration::from_millis(100), // Very short TTL
         enable_metrics: true,
@@ -122,7 +122,7 @@ async fn test_cache_ttl_behavior() {
     assert!(expired_result.is_none(), "Result should be expired after TTL");
 
     // Test with longer TTL
-    let long_ttl_config = CacheConfig {
+    let long_ttl_config = Cache{ let mut config = Config::default();
         max_size: 100,
         ttl: Duration::from_secs(10), // Long TTL
         enable_metrics: true,
@@ -135,12 +135,12 @@ async fn test_cache_ttl_behavior() {
     tokio::time::sleep(Duration::from_millis(100)).await;
     let still_cached = long_cache.get(test_command, &test_args).await;
     assert!(still_cached.is_some(), "Should still be cached with longer TTL");
-}
+    }
 
 /// Test cache invalidation patterns
 #[tokio::test]
 async fn test_cache_invalidation() {
-    let cache = CommandCache::new(CacheConfig {
+    let cache = CommandCache::new(Cache{ let mut config = Config::default();
         max_size: 100,
         ttl: Duration::from_secs(300),
         enable_metrics: true,
@@ -156,13 +156,13 @@ async fn test_cache_invalidation() {
     for (command, args) in &entity_queries {
         let result = json!({"entities": [1, 2, 3], "timestamp": "2024-01-01T00:00:00Z"});
         cache.set(command, args, result).await;
-    }
+        }
 
     // Verify all are cached
     for (command, args) in &entity_queries {
         let cached = cache.get(command, args).await;
         assert!(cached.is_some(), "Query should be cached: {:?}", args);
-    }
+        }
 
     // Invalidate by tag (entity-related queries)
     cache.invalidate_by_tag("entity").await;
@@ -171,7 +171,7 @@ async fn test_cache_invalidation() {
     for (command, args) in &entity_queries {
         let cached = cache.get(command, args).await;
         assert!(cached.is_none(), "Entity query should be invalidated: {:?}", args);
-    }
+        }
 
     // Test command-specific invalidation
     cache.set("system_profile", &json!({"system": "movement"}), json!({"metrics": "data"})).await;
@@ -187,12 +187,12 @@ async fn test_cache_invalidation() {
     // Both should now be invalidated
     assert!(cache.get("system_profile", &json!({"system": "movement"})).await.is_none());
     assert!(cache.get("system_profile", &json!({"system": "physics"})).await.is_none());
-}
+    }
 
 /// Test cache size limits and eviction policies
 #[tokio::test]
 async fn test_cache_size_limits_and_eviction() {
-    let cache = CommandCache::new(CacheConfig {
+    let cache = CommandCache::new(Cache{ let mut config = Config::default();
         max_size: 10, // Small cache for testing eviction
         ttl: Duration::from_secs(300),
         enable_metrics: true,
@@ -203,7 +203,7 @@ async fn test_cache_size_limits_and_eviction() {
         let args = json!({"query": format!("unique_query_{}", i)});
         let result = json!({"result": i, "data": "test"});
         cache.set("test_command", &args, result).await;
-    }
+        }
 
     let stats = cache.get_cache_stats().await;
     println!("Cache stats after overfill: {:?}", stats);
@@ -216,14 +216,14 @@ async fn test_cache_size_limits_and_eviction() {
     for i in 15..20 {
         let args = json!({"query": format!("unique_query_{}", i)});
         let _ = cache.get("test_command", &args).await;
-    }
+        }
 
     // Add more entries to trigger eviction
     for i in 20..25 {
         let args = json!({"query": format!("unique_query_{}", i)});
         let result = json!({"result": i, "data": "test"});
         cache.set("test_command", &args, result).await;
-    }
+        }
 
     // Recently accessed entries should still be present
     for i in 15..20 {
@@ -233,18 +233,18 @@ async fn test_cache_size_limits_and_eviction() {
         // but it's a good indication that LRU is working
         if cached.is_none() {
             println!("Recently accessed entry {} was evicted (acceptable)", i);
+            }
         }
-    }
 
     let final_stats = cache.get_cache_stats().await;
     assert!(final_stats.size <= final_stats.max_size, 
             "Cache should maintain size limits after evictions");
-}
+    }
 
 /// Test cache performance under concurrent access
 #[tokio::test]
 async fn test_cache_concurrent_access() {
-    let cache = Arc::new(CommandCache::new(CacheConfig {
+    let cache = Arc::new(CommandCache::new(Cache{ let mut config = Config::default();
         max_size: 1000,
         ttl: Duration::from_secs(300),
         enable_metrics: true,
@@ -263,10 +263,10 @@ async fn test_cache_concurrent_access() {
                 let args = json!({"query": key});
                 let result = json!({"writer": writer_id, "iteration": i});
                 cache_clone.set("concurrent_test", &args, result).await;
-            }
+                }
         });
         handles.push(handle);
-    }
+        }
 
     // Reader tasks
     for reader_id in 0..5 {
@@ -285,14 +285,14 @@ async fn test_cache_concurrent_access() {
                         hits += 1;
                     } else {
                         misses += 1;
+                        }
                     }
                 }
-            }
             
             (reader_id, hits, misses)
         });
         handles.push(handle);
-    }
+        }
 
     // Wait for all tasks to complete
     let mut reader_results = vec![];
@@ -301,9 +301,9 @@ async fn test_cache_concurrent_access() {
             if let (reader_id, hits, misses) = result {
                 reader_results.push((reader_id, hits, misses));
                 println!("Reader {}: {} hits, {} misses", reader_id, hits, misses);
+                }
             }
         }
-    }
 
     let total_time = start_time.elapsed();
     println!("Concurrent access test completed in: {:?}", total_time);
@@ -316,7 +316,7 @@ async fn test_cache_concurrent_access() {
             "Cache should maintain size limits under concurrent access");
     assert!(total_time < Duration::from_secs(10), 
             "Concurrent access test should complete within 10 seconds");
-}
+    }
 
 /// Test cache with complex query patterns
 #[tokio::test]
@@ -351,7 +351,7 @@ async fn test_cache_with_complex_queries() {
                 "correlations": true,
                 "regression": true,
                 "anomaly_detection": true
-            }
+                }
         }))
     ];
 
@@ -378,7 +378,7 @@ async fn test_cache_with_complex_queries() {
                 "Complex query caching should be fast");
         assert!(get_time < Duration::from_millis(1), 
                 "Complex query retrieval should be very fast");
-    }
+        }
 
     // Test cache key uniqueness for similar but different queries
     let similar_queries = vec![
@@ -390,20 +390,20 @@ async fn test_cache_with_complex_queries() {
     for (i, args) in similar_queries.iter().enumerate() {
         let result = json!({"query_id": i, "entities": [i]});
         cache.set("observe", args, result).await;
-    }
+        }
 
     // Each should have its own cache entry
     for (i, args) in similar_queries.iter().enumerate() {
         let cached = cache.get("observe", args).await;
         assert!(cached.is_some(), "Similar query {} should be cached separately", i);
         assert_eq!(cached.unwrap()["query_id"], i, "Should get correct result for query {}", i);
+        }
     }
-}
 
 /// Test cache cleanup and maintenance
 #[tokio::test]
 async fn test_cache_cleanup_and_maintenance() {
-    let cache = CommandCache::new(CacheConfig {
+    let cache = CommandCache::new(Cache{ let mut config = Config::default();
         max_size: 100,
         ttl: Duration::from_millis(200), // Short TTL for testing
         enable_metrics: true,
@@ -414,7 +414,7 @@ async fn test_cache_cleanup_and_maintenance() {
         let args = json!({"query": format!("expiring_query_{}", i)});
         let result = json!({"data": i});
         cache.set("test", &args, result).await;
-    }
+        }
 
     let stats_before = cache.get_cache_stats().await;
     println!("Stats before expiration: {:?}", stats_before);
@@ -437,7 +437,7 @@ async fn test_cache_cleanup_and_maintenance() {
     // New entry should still be accessible
     let new_entry = cache.get("test", &json!({"query": "trigger_cleanup"})).await;
     assert!(new_entry.is_some(), "New entry should still be accessible");
-}
+    }
 
 /// Helper function to simulate expensive query results
 async fn simulate_expensive_query_result(command: &str, args: &Value) -> Value {
@@ -454,7 +454,7 @@ async fn simulate_expensive_query_result(command: &str, args: &Value) -> Value {
                 "execution_time_ms": 10,
                 "timestamp": "2024-01-01T00:00:00Z"
             })
-        }
+            }
         "system_profile" => {
             json!({
                 "systems": ["movement", "physics", "rendering"],
@@ -466,7 +466,7 @@ async fn simulate_expensive_query_result(command: &str, args: &Value) -> Value {
                 "total_time_ms": 21.0,
                 "timestamp": "2024-01-01T00:00:00Z"
             })
-        }
+            }
         _ => {
             json!({
                 "command": command,
@@ -474,9 +474,9 @@ async fn simulate_expensive_query_result(command: &str, args: &Value) -> Value {
                 "result": "simulated",
                 "timestamp": "2024-01-01T00:00:00Z"
             })
+            }
         }
     }
-}
 
 /// Helper function to simulate complex query results
 async fn simulate_complex_query_result(command: &str, _args: &Value) -> Value {
@@ -488,7 +488,7 @@ async fn simulate_complex_query_result(command: &str, _args: &Value) -> Value {
             "entities": (0..1000).map(|i| json!({
                 "id": i,
                 "components": ["Transform", "Mesh", "Material"],
-                "position": {"x": i as f32 * 0.1, "y": 0.0, "z": 0.0}
+                "position": {"x": i as f32 * 0.1, "y": 0.0, "z": 0.0    }
             })).collect::<Vec<_>>(),
             "total_count": 1000,
             "filtered_count": 856,
@@ -500,13 +500,13 @@ async fn simulate_complex_query_result(command: &str, _args: &Value) -> Value {
                 "name": format!("system_{}", i),
                 "cpu_time": i as f64 * 0.5,
                 "memory_usage": i * 1024,
-                "dependencies": if i > 0 { vec![i - 1] } else { vec![] }
+                "dependencies": if i > 0 { vec![i - 1] } else { vec![]     }
             })).collect::<Vec<_>>(),
             "total_execution_time": 125.5,
             "analysis": {
                 "bottlenecks": ["system_19", "system_15"],
                 "optimization_suggestions": ["parallelize system_5", "cache system_8 results"]
-            }
+                }
         }),
         _ => json!({
             "complex_result": true,
@@ -516,7 +516,7 @@ async fn simulate_complex_query_result(command: &str, _args: &Value) -> Value {
                 "version": "1.0",
                 "algorithm": "advanced",
                 "confidence": 0.95
-            }
+                }
         })
+        }
     }
-}

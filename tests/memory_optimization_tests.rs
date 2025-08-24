@@ -53,7 +53,7 @@ fn bench_semantic_analyzer_clones(c: &mut Criterion) {
         ..Default::default()
     };
     
-    let analyzer = SemanticAnalyzer::with_thresholds(custom_thresholds);
+    let analyzer = SemanticAnalyzer::with_thresholds(custom_thresholds).unwrap();
     
     let mut group = c.benchmark_group("semantic_analyzer");
     
@@ -202,7 +202,7 @@ async fn test_memory_optimization_integration() {
     let _server_clone = server.clone();
     
     // Test semantic analyzer with optimization
-    let analyzer = SemanticAnalyzer::new();
+    let analyzer = SemanticAnalyzer::new().unwrap();
     let result = analyzer.analyze("find stuck entities").unwrap();
     
     assert!(!result.explanations.is_empty());
@@ -222,7 +222,7 @@ fn bench_memory_performance(c: &mut Criterion) {
     
     // Benchmark semantic analyzer performance after optimization
     let thresholds = SemanticThresholds::default();
-    let analyzer = SemanticAnalyzer::with_thresholds(thresholds);
+    let analyzer = SemanticAnalyzer::with_thresholds(thresholds).unwrap();
     
     group.bench_function("semantic_analysis_optimized", |b| {
         b.iter(|| {

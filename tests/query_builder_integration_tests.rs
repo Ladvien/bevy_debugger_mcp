@@ -28,10 +28,12 @@ use uuid::Uuid;
 
 /// Helper to create test configuration
 fn create_test_config() -> Config {
-    Config {
-        bevy_brp_host: "localhost".to_string(),
-        bevy_brp_port: 15702,
-        mcp_port: 3000,
+    {
+        let mut config = Config::default();
+        config.bevy_brp_host = "localhost".to_string();
+        config.bevy_brp_port = 15702;
+        config.mcp_port = 3000;
+        config
     }
 }
 

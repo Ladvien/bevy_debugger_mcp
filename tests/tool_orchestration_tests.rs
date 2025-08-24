@@ -14,7 +14,7 @@ struct MockToolExecutor {
     success: bool,
     output: Value,
     delay: Duration,
-}
+    }
 
 impl MockToolExecutor {
     fn new(name: &str, success: bool, output: Value, delay: Duration) -> Self {
@@ -23,9 +23,9 @@ impl MockToolExecutor {
             success,
             output,
             delay,
+            }
         }
     }
-}
 
 #[async_trait::async_trait]
 impl ToolExecutor for MockToolExecutor {
@@ -44,18 +44,18 @@ impl ToolExecutor for MockToolExecutor {
                 "Mock {} failed",
                 self.name
             )))
+            }
         }
     }
-}
 
 fn create_test_brp_client() -> Arc<RwLock<BrpClient>> {
-    let config = Config {
-        bevy_brp_host: "localhost".to_string(),
-        bevy_brp_port: 15702,
-        mcp_port: 3000,
+    let config = { let mut config = Config::default();
+        config.bevy_brp_host = "localhost".to_string();
+        config.bevy_brp_port = 15702;
+        config.mcp_port = 3000; config
     };
     Arc::new(RwLock::new(BrpClient::new(&config)))
-}
+    }
 
 #[tokio::test]
 async fn test_tool_context_basic_operations() {
@@ -80,7 +80,7 @@ async fn test_tool_context_basic_operations() {
     context.add_result("test_tool".to_string(), result);
     assert!(context.get_result("test_tool").is_some());
     assert_eq!(context.metadata.execution_count, 1);
-}
+    }
 
 #[tokio::test]
 async fn test_orchestrator_tool_execution() {
@@ -110,7 +110,7 @@ async fn test_orchestrator_tool_execution() {
     assert!(tool_result.success);
     assert_eq!(tool_result.tool_name, "mock_observe");
     assert!(context.get_result("mock_observe").is_some());
-}
+    }
 
 #[tokio::test]
 async fn test_orchestrator_caching() {
@@ -156,7 +156,7 @@ async fn test_orchestrator_caching() {
     // Second execution should be faster due to caching
     assert!(second_duration < first_duration);
     assert_eq!(result1.output, result2.output);
-}
+    }
 
 #[tokio::test]
 async fn test_pipeline_execution_sequential() {
@@ -214,7 +214,7 @@ async fn test_pipeline_execution_sequential() {
     assert!(pipeline_result.success);
     assert_eq!(pipeline_result.step_results.len(), 2);
     assert!(pipeline_result.step_results.iter().all(|r| r.success));
-}
+    }
 
 #[tokio::test]
 async fn test_pipeline_execution_with_failure() {
@@ -270,7 +270,7 @@ async fn test_pipeline_execution_with_failure() {
     assert_eq!(pipeline_result.step_results.len(), 2);
     assert!(pipeline_result.step_results[0].success);
     assert!(!pipeline_result.step_results[1].success);
-}
+    }
 
 #[tokio::test]
 async fn test_dependency_graph_ordering() {
@@ -291,7 +291,7 @@ async fn test_dependency_graph_ordering() {
 
     // Should be in dependency order
     assert_eq!(order, vec!["observe", "experiment", "replay", "analysis"]);
-}
+    }
 
 #[tokio::test]
 async fn test_dependency_graph_circular_detection() {
@@ -303,7 +303,7 @@ async fn test_dependency_graph_circular_detection() {
 
     let result = graph.get_execution_order(&["a".to_string(), "b".to_string(), "c".to_string()]);
     assert!(result.is_err());
-}
+    }
 
 #[tokio::test]
 async fn test_workflow_dsl_templates() {
@@ -326,7 +326,7 @@ async fn test_workflow_dsl_templates() {
     assert_eq!(debug_pipeline.steps.len(), 2);
     assert_eq!(debug_pipeline.steps[0].tool, "stress");
     assert_eq!(debug_pipeline.steps[1].tool, "anomaly");
-}
+    }
 
 #[tokio::test]
 async fn test_retry_mechanism() {
@@ -348,7 +348,7 @@ async fn test_retry_mechanism() {
         tool: "retry_tool".to_string(),
         arguments: json!({}),
         condition: None,
-        retry_config: Some(RetryConfig {
+        retry_config: Some(Retry{ let mut config = Config::default();
             max_attempts: 3,
             backoff_type: BackoffType::Fixed,
             initial_delay: Duration::from_millis(10),
@@ -363,7 +363,7 @@ async fn test_retry_mechanism() {
     // Should have attempted multiple times
     assert!(!result.success);
     assert_eq!(result.retry_count, 3);
-}
+    }
 
 #[tokio::test]
 async fn test_pipeline_timeout() {
@@ -402,7 +402,7 @@ async fn test_pipeline_timeout() {
 
     // Should timeout
     assert!(result.is_err() || start_time.elapsed() < Duration::from_secs(1));
-}
+    }
 
 #[tokio::test]
 async fn test_step_conditions() {
@@ -472,7 +472,7 @@ async fn test_step_conditions() {
     };
 
     assert!(orchestrator.should_execute_step(&step_var_equals, &context));
-}
+    }
 
 #[tokio::test]
 async fn test_cache_key_generation() {
@@ -501,7 +501,7 @@ async fn test_cache_key_generation() {
     assert!(key1.is_some());
     assert!(key3.is_some());
     assert!(key4.is_some());
-}
+    }
 
 #[tokio::test]
 async fn test_context_execution_count() {
@@ -524,7 +524,7 @@ async fn test_context_execution_count() {
 
     context.add_result("test2".to_string(), result);
     assert_eq!(context.metadata.execution_count, 2);
-}
+    }
 
 #[tokio::test]
 async fn test_execution_id_uniqueness() {
@@ -541,4 +541,4 @@ async fn test_execution_id_uniqueness() {
     let id2_str = id2.to_string();
     assert_ne!(id1_str, id2_str);
     assert!(!id1_str.is_empty());
-}
+    }

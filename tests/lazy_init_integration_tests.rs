@@ -32,9 +32,9 @@ async fn test_lazy_init_with_bevy_game() {
     // Wait for game to initialize
     tokio::time::sleep(Duration::from_secs(2)).await;
 
-    let config = Config {
-        bevy_brp_host: "localhost".to_string(),
-        bevy_brp_port: 15702,
+    let config = { let mut config = Config::default();
+        config.bevy_brp_host = "localhost".to_string();
+        config.bevy_brp_port = 15702;
         mcp_port: 3001,
     };
     
@@ -88,14 +88,14 @@ async fn test_lazy_init_with_bevy_game() {
             "SystemProfiler should be marked as initialized");
 
     game_process.cleanup().await.expect("Failed to cleanup test game");
-}
+    }
 
 /// Test concurrent lazy initialization (race condition prevention)
 #[tokio::test]
 async fn test_concurrent_lazy_initialization() {
-    let config = Config {
-        bevy_brp_host: "localhost".to_string(),
-        bevy_brp_port: 15702,
+    let config = { let mut config = Config::default();
+        config.bevy_brp_host = "localhost".to_string();
+        config.bevy_brp_port = 15702;
         mcp_port: 3001,
     };
     
@@ -113,13 +113,13 @@ async fn test_concurrent_lazy_initialization() {
             (i, inspector, start.elapsed())
         });
         handles.push(handle);
-    }
+        }
 
     // Wait for all to complete
     let mut results = vec![];
     for handle in handles {
         results.push(handle.await.unwrap());
-    }
+        }
 
     // Verify all got the same instance (no duplicate initialization)
     let first_inspector = &results[0].1;
@@ -131,7 +131,7 @@ async fn test_concurrent_lazy_initialization() {
         // Most should be very fast (cached), only first might be slower
         assert!(duration < &Duration::from_millis(100), 
                 "All requests should complete reasonably quickly");
-    }
+        }
 
     // Check that only one actual initialization occurred
     let initialization_count = results.iter()
@@ -140,14 +140,14 @@ async fn test_concurrent_lazy_initialization() {
     
     assert!(initialization_count <= 1, 
             "Only one actual initialization should occur, found {}", initialization_count);
-}
+    }
 
 /// Test selective preloading of critical components
 #[tokio::test]
 async fn test_critical_component_preloading() {
-    let config = Config {
-        bevy_brp_host: "localhost".to_string(),
-        bevy_brp_port: 15702,
+    let config = { let mut config = Config::default();
+        config.bevy_brp_host = "localhost".to_string();
+        config.bevy_brp_port = 15702;
         mcp_port: 3001,
     };
     
@@ -184,14 +184,14 @@ async fn test_critical_component_preloading() {
     println!("Preloaded component access: {:?}", access_time);
     assert!(access_time < Duration::from_millis(1), 
             "Preloaded component should be immediately available");
-}
+    }
 
 /// Test lazy initialization with processor dependencies
 #[tokio::test]
 async fn test_processor_dependency_initialization() {
-    let config = Config {
-        bevy_brp_host: "localhost".to_string(),
-        bevy_brp_port: 15702,
+    let config = { let mut config = Config::default();
+        config.bevy_brp_host = "localhost".to_string();
+        config.bevy_brp_port = 15702;
         mcp_port: 3001,
     };
     
@@ -219,14 +219,14 @@ async fn test_processor_dependency_initialization() {
     
     assert!(cached_time < Duration::from_millis(1), 
             "Cached processor access should be sub-millisecond");
-}
+    }
 
 /// Test debug command router initialization with all processors
 #[tokio::test]
 async fn test_debug_router_initialization() {
-    let config = Config {
-        bevy_brp_host: "localhost".to_string(),
-        bevy_brp_port: 15702,
+    let config = { let mut config = Config::default();
+        config.bevy_brp_host = "localhost".to_string();
+        config.bevy_brp_port = 15702;
         mcp_port: 3001,
     };
     
@@ -255,7 +255,7 @@ async fn test_debug_router_initialization() {
     
     assert!(initialized_count >= 5, 
             "At least 5 components should be initialized after router creation");
-}
+    }
 
 /// Test memory usage of lazy vs eager initialization
 #[tokio::test]
@@ -272,19 +272,19 @@ async fn test_memory_usage_comparison() {
             let ptr = System.alloc(layout);
             if !ptr.is_null() {
                 ALLOCATED.fetch_add(layout.size(), Ordering::Relaxed);
-            }
+                }
             ptr
-        }
+            }
 
         unsafe fn dealloc(&self, ptr: *mut u8, layout: Layout) {
             System.dealloc(ptr, layout);
             ALLOCATED.fetch_sub(layout.size(), Ordering::Relaxed);
+            }
         }
-    }
 
-    let config = Config {
-        bevy_brp_host: "localhost".to_string(),
-        bevy_brp_port: 15702,
+    let config = { let mut config = Config::default();
+        config.bevy_brp_host = "localhost".to_string();
+        config.bevy_brp_port = 15702;
         mcp_port: 3001,
     };
     
@@ -313,13 +313,13 @@ async fn test_memory_usage_comparison() {
     // Lazy creation overhead should be minimal
     assert!(lazy_creation_overhead < 10_000, 
             "Lazy creation overhead should be less than 10KB");
-}
+    }
 
 /// Test error handling in lazy initialization
 #[tokio::test]
 async fn test_lazy_init_error_handling() {
     // Test with invalid configuration
-    let config = Config {
+    let config = { let mut config = Config::default();
         bevy_brp_host: "invalid.host.does.not.exist".to_string(),
         bevy_brp_port: 99999, // Invalid port
         mcp_port: 3001,
@@ -346,19 +346,19 @@ async fn test_lazy_init_error_handling() {
     match inspector_result {
         Ok(_inspector) => {
             println!("Inspector creation succeeded despite invalid config");
-        }
+            }
         Err(_) => {
             println!("Inspector creation timed out with invalid config (expected)");
+            }
         }
     }
-}
 
 /// Test lazy initialization performance under load
 #[tokio::test]
 async fn test_lazy_init_under_load() {
-    let config = Config {
-        bevy_brp_host: "localhost".to_string(),
-        bevy_brp_port: 15702,
+    let config = { let mut config = Config::default();
+        config.bevy_brp_host = "localhost".to_string();
+        config.bevy_brp_port = 15702;
         mcp_port: 3001,
     };
     
@@ -383,28 +383,28 @@ async fn test_lazy_init_under_load() {
             match component_type {
                 "entity_inspector" => {
                     let _ = components.get_entity_inspector().await;
-                }
+                    }
                 "system_profiler" => {
                     let _ = components.get_system_profiler().await;
-                }
+                    }
                 "entity_processor" => {
                     let _ = components.get_entity_processor().await;
-                }
+                    }
                 _ => {
                     let _ = components.get_profiler_processor().await;
+                    }
                 }
-            }
             start.elapsed()
         });
         handles.push(handle);
-    }
+        }
 
     // Wait for all requests to complete
     let mut completion_times = vec![];
     for handle in handles {
         let duration = handle.await.unwrap();
         completion_times.push(duration);
-    }
+        }
     
     let total_load_time = start_load_test.elapsed();
     println!("Total load test time: {:?}", total_load_time);
@@ -424,4 +424,4 @@ async fn test_lazy_init_under_load() {
             "P95 completion time should be under 200ms under load");
     assert!(total_load_time < Duration::from_secs(10), 
             "Total load test should complete within 10 seconds");
-}
+    }
