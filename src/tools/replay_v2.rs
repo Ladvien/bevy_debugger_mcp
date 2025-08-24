@@ -445,7 +445,7 @@ fn parse_recording_config(arguments: &Value) -> RecordingConfig {
     let sample_rate = arguments
         .get("sample_rate")
         .and_then(|r| r.as_f64())
-        .unwrap_or(60.0);
+        .unwrap_or(60.0) as f32;
 
     let max_buffer_size = arguments
         .get("max_buffer_size")

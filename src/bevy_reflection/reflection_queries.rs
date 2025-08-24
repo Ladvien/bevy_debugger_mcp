@@ -57,7 +57,7 @@ struct CachedQueryResult {
 }
 
 /// Statistics about query operations
-#[derive(Debug, Default, Serialize, Deserialize)]
+#[derive(Debug, Default, Clone, Serialize, Deserialize)]
 pub struct QueryStats {
     pub total_queries: u64,
     pub cache_hits: u64,
@@ -344,10 +344,10 @@ impl ReflectionQueryEngine {
         // This is a simplified implementation
         // In a real system, this would integrate with the existing query parser
         if query.contains("list all") || query.contains("all entities") {
-            Ok(BrpRequest::List { filter: None })
+            Ok(BrpRequest::ListEntities { filter: None })
         } else {
             // Default to listing all entities for now
-            Ok(BrpRequest::List { filter: None })
+            Ok(BrpRequest::ListEntities { filter: None })
         }
     }
 
@@ -551,7 +551,7 @@ impl ReflectionQueryEngine {
             }
         }
 
-        complexity.clamp(0.0, 1.0)
+        complexity.clamp(0.0_f64, 1.0_f64)
     }
 
     /// Discover types from entities
@@ -605,7 +605,7 @@ impl ReflectionQueryEngine {
 
     /// Calculate query complexity score
     async fn calculate_query_complexity(&self, query: &ReflectionQuery) -> f64 {
-        let mut complexity = 0.3; // Base complexity
+        let mut complexity = 0.3_f64; // Base complexity
 
         if query.reflection_params.include_reflection {
             complexity += 0.3;
@@ -617,7 +617,7 @@ impl ReflectionQueryEngine {
             complexity += 0.2;
         }
 
-        complexity.clamp(0.0, 1.0)
+        complexity.clamp(0.0_f64, 1.0_f64)
     }
 
     /// Get cached query result
@@ -670,7 +670,7 @@ impl ReflectionQueryEngine {
     /// Get query statistics
     pub async fn get_stats(&self) -> QueryStats {
         let stats = self.stats.read().await;
-        stats.clone()
+        (*stats).clone()
     }
 
     /// Clear query cache

@@ -14,7 +14,7 @@ use tokio_tungstenite::{connect_async, tungstenite::Message, MaybeTlsStream, Web
 use tracing::{debug, error, info, warn};
 use url::Url;
 
-use crate::brp_messages::{BrpRequest, BrpResponse, DebugCommand};
+use crate::brp_messages::{BrpRequest, BrpResponse, BrpResult, DebugCommand};
 use crate::brp_command_handler::{CommandHandlerRegistry, CoreBrpHandler, BrpCommandHandler};
 use crate::config::Config;
 use crate::debug_command_processor::{DebugCommandRouter, DebugCommandRequest};
@@ -132,7 +132,7 @@ impl BrpClient {
 
     /// Connect to BRP server
     pub async fn connect(&self) -> Result<()> {
-        let url = format!("ws://{}:{}", self.config.brp_host, self.config.brp_port);
+        let url = format!("ws://{}:{}", self.config.bevy_brp_host, self.config.bevy_brp_port);
         let parsed_url = Url::parse(&url).map_err(|e| Error::InvalidInput(format!("Invalid URL {}: {}", url, e)))?;
 
         info!("Connecting to BRP server at {}", url);
@@ -145,9 +145,9 @@ impl BrpClient {
         }
 
         // Attempt connection with retries
-        let max_retries = self.config.max_retries;
+        let max_retries = self.config.resilience.retry.max_attempts;
         for attempt in 0..=max_retries {
-            match connect_async(&parsed_url).await {
+            match connect_async(parsed_url.as_str()).await {
                 Ok((ws_stream, response)) => {
                     info!("Connected to BRP server. Response: {:?}", response);
                     state.ws_stream = Some(ws_stream);
@@ -162,7 +162,7 @@ impl BrpClient {
                     state.retry_count = attempt + 1;
                     if attempt < max_retries {
                         let delay = Duration::from_millis(
-                            self.config.retry_delay_ms * (1 << attempt.min(5)) as u64
+                            self.config.resilience.retry.initial_delay.as_millis() as u64 * (1 << attempt.min(5)) as u64
                         );
                         warn!("Connection attempt {} failed, retrying in {:?}: {}", attempt + 1, delay, e);
                         drop(state); // Release lock before sleeping
@@ -236,7 +236,7 @@ impl BrpClient {
         }
 
         // Wait for response with timeout
-        let timeout_duration = Duration::from_millis(self.config.request_timeout_ms);
+        let timeout_duration = Duration::from_millis(self.config.resilience.request_timeout.as_millis() as u64);
         match tokio::time::timeout(timeout_duration, response_rx.recv()).await {
             Ok(Some(response)) => response,
             Ok(None) => Err(Error::Connection("Response channel closed".to_string())),
@@ -247,19 +247,17 @@ impl BrpClient {
     /// Send debug command
     pub async fn send_debug_command(&self, command: DebugCommand) -> Result<BrpResponse> {
         if let Some(debug_router) = &self.debug_router {
-            let request = DebugCommandRequest::new(command);
-            match debug_router.route_command(request).await {
-                Ok(response) => Ok(response),
-                Err(e) => {
-                    warn!("Debug command routing failed: {}", e);
-                    // Fallback to direct BRP request
-                    let brp_request = BrpRequest::DebugCommand { command };
-                    self.send_request(brp_request).await
-                }
+            let request = DebugCommandRequest::new(command, uuid::Uuid::new_v4().to_string(), None);
+            // Queue the command and process it
+            debug_router.queue_command(request).await?;
+            match debug_router.process_next().await {
+                Some(Ok((_, response))) => Ok(BrpResponse::Success(Box::new(BrpResult::Success))),
+                Some(Err(e)) => Err(e),
+                None => Err(Error::Brp("No response from debug command processor".to_string()))
             }
         } else {
-            let brp_request = BrpRequest::DebugCommand { command };
-            self.send_request(brp_request).await
+            // Debug commands aren't directly supported in BRP, return error
+            Err(Error::Brp("Debug commands not supported in BRP protocol".to_string()))
         }
     }
 
@@ -295,7 +293,7 @@ impl BrpClient {
         
         while let Some(batched_request) = state.request_queue.pop_front() {
             // Check if request has expired
-            if batched_request.is_expired(Duration::from_millis(self.config.request_timeout_ms)) {
+            if batched_request.is_expired(Duration::from_millis(self.config.resilience.request_timeout.as_millis() as u64)) {
                 let _ = batched_request.send_response(
                     Err(Error::Timeout("Request expired in queue".to_string()))
                 ).await;
@@ -313,10 +311,7 @@ impl BrpClient {
     async fn process_single_request(&self, request: &BrpRequest) -> Result<BrpResponse> {
         // Implementation would process the request
         // This is simplified for the example
-        Ok(BrpResponse::Success { 
-            id: "test".to_string(),
-            result: serde_json::Value::Null 
-        })
+        Ok(BrpResponse::Success(Box::new(BrpResult::Success)))
     }
 }
 

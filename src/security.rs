@@ -147,8 +147,10 @@ impl SecurityManager {
         let decoding_key = DecodingKey::from_secret(config.jwt_secret.as_ref());
 
         // Setup global rate limiter (will be supplemented with per-IP limiting)
-        let quota = Quota::per_minute(config.rate_limit_per_ip)
-            .allow_burst(config.rate_limit_burst.try_into().unwrap_or(10));
+        let quota = Quota::per_minute(
+                std::num::NonZeroU32::new(config.rate_limit_per_ip).unwrap_or(std::num::NonZeroU32::new(100).unwrap())
+            )
+            .allow_burst(std::num::NonZeroU32::new(config.rate_limit_burst.try_into().unwrap_or(10)).unwrap_or(std::num::NonZeroU32::new(10).unwrap()));
         let rate_limiter = Arc::new(RateLimiter::direct(quota));
 
         let manager = Self {
@@ -618,6 +620,7 @@ impl Clone for SecurityManager {
 }
 
 /// Security middleware for tool access control
+#[derive(Clone)]
 pub struct SecurityMiddleware {
     security_manager: Arc<SecurityManager>,
 }
@@ -666,6 +669,7 @@ impl SecurityMiddleware {
 }
 
 /// Security audit utilities
+#[derive(Clone)]
 pub struct SecurityAudit {
     security_manager: Arc<SecurityManager>,
 }

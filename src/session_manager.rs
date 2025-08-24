@@ -569,10 +569,12 @@ impl SessionManager {
             serde_json::Value::Number(total_commands.into()),
         );
 
-        stats.insert(
-            "total_checkpoints".to_string(),
-            serde_json::Value::Number(checkpoint_stats.total_count.into()),
-        );
+        if let Ok(checkpoint_stats_data) = checkpoint_stats {
+            stats.insert(
+                "total_checkpoints".to_string(),
+                serde_json::Value::Number(checkpoint_stats_data.total_count.into()),
+            );
+        }
 
         stats
     }

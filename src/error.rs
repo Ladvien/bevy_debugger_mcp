@@ -202,6 +202,12 @@ pub enum Error {
 
     #[error("Debug error: {0}")]
     DebugError(String),
+    
+    #[error("Checkpoint error: {0}")]
+    Checkpoint(String),
+    
+    #[error("Invalid input: {0}")]
+    InvalidInput(String),
 
     #[error("Timeout: {0}")]
     Timeout(String),

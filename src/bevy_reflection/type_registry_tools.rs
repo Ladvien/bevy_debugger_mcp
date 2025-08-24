@@ -70,7 +70,7 @@ pub struct CachedTypeInfo {
 }
 
 /// Statistics about type discovery operations
-#[derive(Debug, Default, Serialize, Deserialize)]
+#[derive(Debug, Default, Clone, Serialize, Deserialize)]
 pub struct TypeDiscoveryStats {
     /// Total types discovered
     pub total_types: usize,
@@ -500,7 +500,7 @@ impl TypeRegistryManager {
     /// Get discovery statistics
     pub async fn get_stats(&self) -> TypeDiscoveryStats {
         let stats = self.stats.read().await;
-        stats.clone()
+        (*stats).clone()
     }
 
     /// Clear all caches

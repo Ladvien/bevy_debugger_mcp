@@ -307,7 +307,7 @@ impl BrpClientV2 {
         let max_delay = self.config.resilience.retry.max_delay;
 
         // Calculate exponential backoff
-        let delay_ms = (base_delay.as_millis() as f64 * multiplier.powi(attempt as i32)) as u64;
+        let delay_ms = (base_delay.as_millis() as f64 * (multiplier as f64).powi(attempt as i32)) as u64;
         let delay = Duration::from_millis(delay_ms.min(max_delay.as_millis() as u64));
 
         // Add jitter if enabled

@@ -354,7 +354,7 @@ where
                 let id = value.get("id")
                     .and_then(|i| i.as_str())
                     .and_then(|s| Uuid::parse_str(s).ok())
-                    .ok_or_else(|| serde_json::Error::custom("Invalid ping ID"))?;
+                    .ok_or_else(|| serde_json::Error::io(std::io::Error::new(std::io::ErrorKind::InvalidData, "Invalid ping ID")))?;
                 
                 let timestamp = value.get("timestamp")
                     .and_then(|t| t.as_u64())
@@ -362,7 +362,7 @@ where
 
                 Ok(HeartbeatMessage::Pong { id, timestamp })
             }
-            _ => Err(serde_json::Error::custom("Not a heartbeat message"))
+            _ => Err(serde_json::Error::io(std::io::Error::new(std::io::ErrorKind::InvalidData, "Not a heartbeat message")))
         }
     }
 }

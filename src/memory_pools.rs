@@ -5,7 +5,7 @@ use std::collections::HashMap;
 use tracing::{debug, info, warn};
 
 use crate::resource_manager::ObjectPool;
-use crate::brp_messages::{BrpRequest, BrpResponse, ComponentFilter, QueryFilter};
+use crate::brp_messages::{BrpRequest, BrpResponse, BrpResult, ComponentFilter, QueryFilter};
 use crate::error::Result;
 
 /// Specialized memory pools for frequently allocated game debugging objects
@@ -31,55 +31,49 @@ impl GameDebugPools {
     pub fn new() -> Self {
         Self {
             brp_request_pool: ObjectPool::new(
-                50, // Max 50 concurrent requests
-                Box::new(|| Box::new(BrpRequest::GetEntities { 
-                    with: None, 
-                    without: None, 
-                    filter: None 
-                }))
+                Box::new(|| Box::new(BrpRequest::Query { 
+                    filter: None,
+                    limit: None,
+                    strict: Some(false)
+                })),
+                50 // Max 50 concurrent requests
             ),
             brp_response_pool: ObjectPool::new(
-                50, // Max 50 concurrent responses
-                Box::new(|| Box::new(BrpResponse::Entities(Vec::new())))
+                Box::new(|| Box::new(BrpResponse::Success(Box::new(BrpResult::Entities(Vec::new()))))),
+                50 // Max 50 concurrent responses
             ),
             component_filter_pool: ObjectPool::new(
-                100, // Filter vectors are commonly reused
-                Box::new(|| Vec::with_capacity(8))
+                Box::new(|| Vec::with_capacity(8)),
+                100 // Filter vectors are commonly reused
             ),
             string_vec_pool: ObjectPool::new(
-                200, // String vectors for component names, etc.
-                Box::new(|| Vec::with_capacity(16))
+                Box::new(|| Vec::with_capacity(16)),
+                200 // String vectors for component names, etc.
             ),
             json_value_pool: ObjectPool::new(
-                500, // JSON values are very common
-                Box::new(|| Value::Null)
+                Box::new(|| Value::Null),
+                500 // JSON values are very common
             ),
             hashmap_pool: ObjectPool::new(
-                100, // Component data hashmaps
-                Box::new(|| HashMap::with_capacity(32))
+                Box::new(|| HashMap::with_capacity(32)),
+                100 // Component data hashmaps
             ),
             query_result_pool: ObjectPool::new(
-                50, // Query result vectors
-                Box::new(|| Vec::with_capacity(64))
+                Box::new(|| Vec::with_capacity(64)),
+                50 // Query result vectors
             ),
         }
     }
 
     /// Get a pooled BRP request, resetting it for reuse
     pub async fn get_brp_request(&self) -> Box<BrpRequest> {
-        let mut request = self.brp_request_pool.get().await.unwrap_or_else(|| {
-            Box::new(BrpRequest::GetEntities { 
-                with: None, 
-                without: None, 
-                filter: None 
-            })
-        });
+        let mut request = self.brp_request_pool.acquire().await;
         
         // Reset the request to default state
-        *request = BrpRequest::GetEntities { 
-            with: None, 
-            without: None, 
-            filter: None 
+        *request = BrpRequest::Query { 
+            filter: None,
+            limit: None,
+            strict: Some(false) 
         };
         
         request
@@ -87,35 +81,27 @@ impl GameDebugPools {
 
     /// Return a BRP request to the pool
     pub async fn return_brp_request(&self, request: Box<BrpRequest>) {
-        if let Err(e) = self.brp_request_pool.put(request).await {
-            warn!("Failed to return BRP request to pool: {}", e);
-        }
+        self.brp_request_pool.release(request).await;
     }
 
     /// Get a pooled BRP response, resetting it for reuse
     pub async fn get_brp_response(&self) -> Box<BrpResponse> {
-        let mut response = self.brp_response_pool.get().await.unwrap_or_else(|| {
-            Box::new(BrpResponse::Entities(Vec::new()))
-        });
+        let mut response = self.brp_response_pool.acquire().await;
         
         // Reset the response to default state
-        *response = BrpResponse::Entities(Vec::new());
+        *response = BrpResponse::Success(Box::new(BrpResult::Entities(Vec::new())));
         
         response
     }
 
     /// Return a BRP response to the pool
     pub async fn return_brp_response(&self, response: Box<BrpResponse>) {
-        if let Err(e) = self.brp_response_pool.put(response).await {
-            warn!("Failed to return BRP response to pool: {}", e);
-        }
+        self.brp_response_pool.release(response).await;
     }
 
     /// Get a pooled component filter vector, cleared for reuse
     pub async fn get_component_filters(&self) -> Vec<ComponentFilter> {
-        let mut filters = self.component_filter_pool.get().await.unwrap_or_else(|| {
-            Vec::with_capacity(8)
-        });
+        let mut filters = self.component_filter_pool.acquire().await;
         
         filters.clear();
         filters
@@ -123,16 +109,12 @@ impl GameDebugPools {
 
     /// Return a component filter vector to the pool
     pub async fn return_component_filters(&self, filters: Vec<ComponentFilter>) {
-        if let Err(e) = self.component_filter_pool.put(filters).await {
-            warn!("Failed to return component filters to pool: {}", e);
-        }
+        self.component_filter_pool.release(filters).await;
     }
 
     /// Get a pooled string vector, cleared for reuse
     pub async fn get_string_vec(&self) -> Vec<String> {
-        let mut strings = self.string_vec_pool.get().await.unwrap_or_else(|| {
-            Vec::with_capacity(16)
-        });
+        let mut strings = self.string_vec_pool.acquire().await;
         
         strings.clear();
         strings
@@ -140,29 +122,23 @@ impl GameDebugPools {
 
     /// Return a string vector to the pool
     pub async fn return_string_vec(&self, strings: Vec<String>) {
-        if let Err(e) = self.string_vec_pool.put(strings).await {
-            warn!("Failed to return string vector to pool: {}", e);
-        }
+        self.string_vec_pool.release(strings).await;
     }
 
     /// Get a pooled JSON Value, reset to Null
     pub async fn get_json_value(&self) -> Value {
-        let value = self.json_value_pool.get().await.unwrap_or(Value::Null);
+        let value = self.json_value_pool.acquire().await;
         Value::Null
     }
 
     /// Return a JSON Value to the pool
     pub async fn return_json_value(&self, value: Value) {
-        if let Err(e) = self.json_value_pool.put(value).await {
-            warn!("Failed to return JSON value to pool: {}", e);
-        }
+        self.json_value_pool.release(value).await;
     }
 
     /// Get a pooled HashMap, cleared for reuse  
     pub async fn get_hashmap(&self) -> HashMap<String, Value> {
-        let mut map = self.hashmap_pool.get().await.unwrap_or_else(|| {
-            HashMap::with_capacity(32)
-        });
+        let mut map = self.hashmap_pool.acquire().await;
         
         map.clear();
         map
@@ -170,16 +146,12 @@ impl GameDebugPools {
 
     /// Return a HashMap to the pool
     pub async fn return_hashmap(&self, map: HashMap<String, Value>) {
-        if let Err(e) = self.hashmap_pool.put(map).await {
-            warn!("Failed to return HashMap to pool: {}", e);
-        }
+        self.hashmap_pool.release(map).await;
     }
 
     /// Get a pooled query result vector, cleared for reuse
     pub async fn get_query_results(&self) -> Vec<Value> {
-        let mut results = self.query_result_pool.get().await.unwrap_or_else(|| {
-            Vec::with_capacity(64)
-        });
+        let mut results = self.query_result_pool.acquire().await;
         
         results.clear();
         results
@@ -187,21 +159,19 @@ impl GameDebugPools {
 
     /// Return a query result vector to the pool
     pub async fn return_query_results(&self, results: Vec<Value>) {
-        if let Err(e) = self.query_result_pool.put(results).await {
-            warn!("Failed to return query results to pool: {}", e);
-        }
+        self.query_result_pool.release(results).await;
     }
 
     /// Get comprehensive pool statistics for monitoring
     pub async fn get_pool_stats(&self) -> PoolStats {
         PoolStats {
-            brp_request_pool_size: self.brp_request_pool.size().await,
-            brp_response_pool_size: self.brp_response_pool.size().await,
-            component_filter_pool_size: self.component_filter_pool.size().await,
-            string_vec_pool_size: self.string_vec_pool.size().await,
-            json_value_pool_size: self.json_value_pool.size().await,
-            hashmap_pool_size: self.hashmap_pool.size().await,
-            query_result_pool_size: self.query_result_pool.size().await,
+            brp_request_pool_size: self.brp_request_pool.size(),
+            brp_response_pool_size: self.brp_response_pool.size(),
+            component_filter_pool_size: self.component_filter_pool.size(),
+            string_vec_pool_size: self.string_vec_pool.size(),
+            json_value_pool_size: self.json_value_pool.size(),
+            hashmap_pool_size: self.hashmap_pool.size(),
+            query_result_pool_size: self.query_result_pool.size(),
         }
     }
 

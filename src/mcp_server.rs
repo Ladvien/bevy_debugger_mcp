@@ -258,7 +258,7 @@ impl McpServer {
             if let (Ok(ref response), Some(cache_key)) = (&result, cache_key) {
                 profile_async_block!("cache_store", async {
                     let tags = self.get_cache_tags_for_tool(tool_name);
-                    if let Err(e) = self.command_cache.put(&cache_key, &response, tags).await {
+                    if let Err(e) = self.command_cache.put(&cache_key, response.clone(), tags).await {
                         warn!("Failed to cache result for {}: {}", tool_name, e);
                     }
                 });
@@ -312,9 +312,11 @@ impl McpServer {
         }
 
         let mut orchestrator = self.orchestrator.write().await;
-        let result = orchestrator
-            .execute_tool(tool.to_string(), tool_args, &mut context)
+        let tool_result = orchestrator
+            .execute_tool(tool.to_string(), tool_args.clone(), &mut context)
             .await?;
+        
+        let result = tool_result.output;
 
         // Sanitize context before returning - remove sensitive data
         let sanitized_context = json!({
@@ -736,10 +738,13 @@ impl McpServer {
                 let cm = self.checkpoint_manager.read().await;
                 let checkpoints = cm.list_checkpoints().await;
 
-                Ok(json!({
-                    "checkpoints": checkpoints,
-                    "total_count": checkpoints.len()
-                }))
+                match checkpoints {
+                    Ok(checkpoint_list) => Ok(json!({
+                        "checkpoints": checkpoint_list,
+                        "total_count": checkpoint_list.len()
+                    })),
+                    Err(e) => Err(Error::Checkpoint(e.to_string()))
+                }
             }
             "delete" => {
                 let checkpoint_id = arguments
@@ -761,7 +766,10 @@ impl McpServer {
                 let cm = self.checkpoint_manager.read().await;
                 let stats = cm.get_statistics().await;
 
-                Ok(serde_json::to_value(stats)?)
+                match stats {
+                    Ok(stats_data) => Ok(serde_json::to_value(stats_data)?),
+                    Err(e) => Err(Error::Checkpoint(e.to_string()))
+                }
             }
             _ => Err(Error::Validation(format!(
                 "Unknown checkpoint action: {action}"
@@ -839,7 +847,7 @@ impl McpServer {
             .map(|p| p as u8);
         
         // Create debug command request
-        let request = DebugCommandRequest::new(command, correlation_id, priority);
+        let request = DebugCommandRequest::new(command, correlation_id.clone(), priority);
         
         // Get the debug command router (lazy initialization)
         let debug_command_router = self.lazy_components.get_debug_command_router().await;

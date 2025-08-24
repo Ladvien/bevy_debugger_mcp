@@ -287,7 +287,7 @@ impl ProductionSecurityConfig {
 
         for var in &required_env_vars {
             if env::var(var).is_err() {
-                missing_vars.push(var);
+                missing_vars.push(*var);
             }
         }
 

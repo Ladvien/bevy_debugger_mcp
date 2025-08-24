@@ -44,6 +44,10 @@ use tokio::sync::RwLock;
 use tracing::{debug, info, warn, error};
 
 use crate::error::{Error, Result};
+
+fn default_type_id() -> TypeId {
+    TypeId::of::<()>()
+}
 use crate::brp_messages::ComponentValue;
 
 /// Reflection-based component inspector for Bevy components
@@ -61,6 +65,7 @@ pub struct ReflectionMetadata {
     /// Type name as registered in TypeRegistry
     pub type_name: String,
     /// Type ID for efficient lookup
+    #[serde(skip, default = "default_type_id")]
     pub type_id: TypeId,
     /// Whether this type supports reflection
     pub is_reflected: bool,
@@ -228,9 +233,10 @@ impl BevyReflectionInspector {
 
     /// Register a custom inspector for specific types
     pub async fn register_custom_inspector(&self, inspector: Box<dyn CustomInspector + Send + Sync>) {
+        let inspector_name = inspector.name().to_string();
         let mut inspectors = self.custom_inspectors.write().await;
-        inspectors.insert(inspector.name().to_string(), inspector);
-        info!("Registered custom inspector: {}", inspector.name());
+        inspectors.insert(inspector_name.clone(), inspector);
+        info!("Registered custom inspector: {}", inspector_name);
     }
 
     /// Discover component types using TypeRegistry (when Bevy feature is enabled)
@@ -350,7 +356,7 @@ impl BevyReflectionInspector {
         // Try custom inspector first
         if let Some(inspector_name) = &metadata.fields.get(0).and_then(|f| f.inspector_name.as_ref()) {
             let inspectors = self.custom_inspectors.read().await;
-            if let Some(inspector) = inspectors.get(inspector_name) {
+            if let Some(inspector) = inspectors.get(inspector_name.as_str()) {
                 match inspector.inspect(component_value, component_type) {
                     Ok(inspected_value) => {
                         field_values.insert("root".to_string(), inspected_value);

@@ -135,7 +135,7 @@ impl SecureMcpTools {
 impl SecureMcpTools {
     /// Authenticate user and return JWT token
     #[tool(description = "Authenticate with username and password to get a JWT token for accessing debugging tools. Returns a token that must be included in subsequent requests.")]
-    pub async fn authenticate(&self, Parameters(req): Parameters<AuthRequest>) -> Result<CallToolResult, McpError> {
+    pub async fn authenticate(&self, Parameters(req): Parameters<AuthRequest>) -> std::result::Result<CallToolResult, McpError> {
         info!("Authentication attempt for user: {}", req.username);
         
         match self.security_manager.authenticate(
@@ -148,7 +148,7 @@ impl SecureMcpTools {
                 let response = AuthResponse {
                     token: token.clone(),
                     role: "authenticated".to_string(), // Could decode role from token
-                    expires_in: self.security_manager.config.jwt_expiry_hours * 3600,
+                    expires_in: 24 * 3600, // Default 24 hours
                 };
                 
                 Ok(CallToolResult::success(vec![
@@ -164,7 +164,7 @@ impl SecureMcpTools {
 
     /// Revoke JWT token (logout)
     #[tool(description = "Revoke your JWT token to log out. This will invalidate the token and end your session.")]
-    pub async fn logout(&self, Parameters(params): Parameters<Value>) -> Result<CallToolResult, McpError> {
+    pub async fn logout(&self, Parameters(params): Parameters<Value>) -> std::result::Result<CallToolResult, McpError> {
         let token = Self::extract_token_from_request(&params)
             .ok_or_else(|| McpError::invalid_params("Authentication token required".to_string(), None))?;
         
@@ -182,7 +182,7 @@ impl SecureMcpTools {
 
     /// Observe and query Bevy game state (requires Viewer role or higher)
     #[tool(description = "Observe and query Bevy game state in real-time with optional reflection-based component inspection. Requires authentication token and Viewer role or higher.")]
-    pub async fn observe(&self, Parameters(mut req): Parameters<Value>) -> Result<CallToolResult, McpError> {
+    pub async fn observe(&self, Parameters(mut req): Parameters<Value>) -> std::result::Result<CallToolResult, McpError> {
         let claims = match self.authorize_tool_call("observe", &req).await {
             Ok(claims) => claims,
             Err(e) => {
@@ -224,7 +224,7 @@ impl SecureMcpTools {
 
     /// Run controlled experiments on game state (requires Developer role or higher)
     #[tool(description = "Run controlled experiments on your Bevy game to test behavior and performance. Requires authentication token and Developer role or higher.")]
-    pub async fn experiment(&self, Parameters(mut req): Parameters<Value>) -> Result<CallToolResult, McpError> {
+    pub async fn experiment(&self, Parameters(mut req): Parameters<Value>) -> std::result::Result<CallToolResult, McpError> {
         let claims = match self.authorize_tool_call("experiment", &req).await {
             Ok(claims) => claims,
             Err(e) => {
@@ -265,7 +265,7 @@ impl SecureMcpTools {
 
     /// Test hypotheses about game behavior (requires Viewer role or higher)
     #[tool(description = "Test hypotheses about game behavior and state. Requires authentication token and Viewer role or higher.")]
-    pub async fn hypothesis(&self, Parameters(mut req): Parameters<Value>) -> Result<CallToolResult, McpError> {
+    pub async fn hypothesis(&self, Parameters(mut req): Parameters<Value>) -> std::result::Result<CallToolResult, McpError> {
         let claims = match self.authorize_tool_call("hypothesis", &req).await {
             Ok(claims) => claims,
             Err(e) => {
@@ -305,7 +305,7 @@ impl SecureMcpTools {
 
     /// Detect anomalies in game behavior (requires Viewer role or higher)
     #[tool(description = "Detect anomalies in game behavior, performance, and state. Requires authentication token and Viewer role or higher.")]
-    pub async fn detect_anomaly(&self, Parameters(mut req): Parameters<Value>) -> Result<CallToolResult, McpError> {
+    pub async fn detect_anomaly(&self, Parameters(mut req): Parameters<Value>) -> std::result::Result<CallToolResult, McpError> {
         let claims = match self.authorize_tool_call("detect_anomaly", &req).await {
             Ok(claims) => claims,
             Err(e) => {
@@ -345,7 +345,7 @@ impl SecureMcpTools {
 
     /// Run stress tests (requires Developer role or higher)
     #[tool(description = "Run stress tests to find performance limits and bottlenecks. Requires authentication token and Developer role or higher.")]
-    pub async fn stress_test(&self, Parameters(mut req): Parameters<Value>) -> Result<CallToolResult, McpError> {
+    pub async fn stress_test(&self, Parameters(mut req): Parameters<Value>) -> std::result::Result<CallToolResult, McpError> {
         let claims = match self.authorize_tool_call("stress_test", &req).await {
             Ok(claims) => claims,
             Err(e) => {
@@ -386,7 +386,7 @@ impl SecureMcpTools {
 
     /// Replay and time travel (requires Developer role or higher)
     #[tool(description = "Replay game states and perform time travel debugging. Requires authentication token and Developer role or higher.")]
-    pub async fn time_travel_replay(&self, Parameters(mut req): Parameters<Value>) -> Result<CallToolResult, McpError> {
+    pub async fn time_travel_replay(&self, Parameters(mut req): Parameters<Value>) -> std::result::Result<CallToolResult, McpError> {
         let claims = match self.authorize_tool_call("time_travel_replay", &req).await {
             Ok(claims) => claims,
             Err(e) => {
@@ -426,7 +426,7 @@ impl SecureMcpTools {
 
     /// Create a new user (requires Admin role)
     #[tool(description = "Create a new user with specified role. Requires Admin role. Roles: viewer (read-only), developer (full debugging), admin (user management).")]
-    pub async fn create_user(&self, Parameters(mut req): Parameters<Value>) -> Result<CallToolResult, McpError> {
+    pub async fn create_user(&self, Parameters(mut req): Parameters<Value>) -> std::result::Result<CallToolResult, McpError> {
         let claims = match self.authorize_tool_call("user_management", &req).await {
             Ok(claims) => claims,
             Err(e) => {
@@ -473,7 +473,7 @@ impl SecureMcpTools {
 
     /// Delete a user (requires Admin role)
     #[tool(description = "Delete an existing user. Requires Admin role. Cannot delete your own account.")]
-    pub async fn delete_user(&self, Parameters(mut req): Parameters<Value>) -> Result<CallToolResult, McpError> {
+    pub async fn delete_user(&self, Parameters(mut req): Parameters<Value>) -> std::result::Result<CallToolResult, McpError> {
         let claims = match self.authorize_tool_call("user_management", &req).await {
             Ok(claims) => claims,
             Err(e) => {
@@ -511,7 +511,7 @@ impl SecureMcpTools {
 
     /// List all users (requires Admin role)
     #[tool(description = "List all users in the system. Requires Admin role.")]
-    pub async fn list_users(&self, Parameters(req): Parameters<Value>) -> Result<CallToolResult, McpError> {
+    pub async fn list_users(&self, Parameters(req): Parameters<Value>) -> std::result::Result<CallToolResult, McpError> {
         let claims = match self.authorize_tool_call("user_management", &req).await {
             Ok(claims) => claims,
             Err(e) => {
@@ -552,7 +552,7 @@ impl SecureMcpTools {
 
     /// Get audit log (requires Admin role)
     #[tool(description = "Get security audit log entries. Requires Admin role. Supports pagination with limit and offset.")]
-    pub async fn get_audit_log(&self, Parameters(mut req): Parameters<Value>) -> Result<CallToolResult, McpError> {
+    pub async fn get_audit_log(&self, Parameters(mut req): Parameters<Value>) -> std::result::Result<CallToolResult, McpError> {
         let claims = match self.authorize_tool_call("audit_log_access", &req).await {
             Ok(claims) => claims,
             Err(e) => {
@@ -592,7 +592,7 @@ impl SecureMcpTools {
 
     /// Run security vulnerability scan (requires Admin role)
     #[tool(description = "Run a comprehensive security vulnerability scan. Requires Admin role. Identifies security issues and provides remediation recommendations.")]
-    pub async fn security_scan(&self, Parameters(req): Parameters<Value>) -> Result<CallToolResult, McpError> {
+    pub async fn security_scan(&self, Parameters(req): Parameters<Value>) -> std::result::Result<CallToolResult, McpError> {
         let claims = match self.authorize_tool_call("security_scan", &req).await {
             Ok(claims) => claims,
             Err(e) => {
@@ -635,3 +635,4 @@ impl ServerHandler for SecureMcpTools {
         }
     }
 }
+

@@ -370,7 +370,7 @@ impl ReplayActor {
         }
 
         self.state.current_recording_config = Some(config.clone());
-        self.state.recording_state = RecordingState::new(config);
+        self.state.recording_state = RecordingState::new(config.clone());
         
         info!("Recording started with config: {:?}", config);
         Ok(self.get_status())
@@ -391,7 +391,7 @@ impl ReplayActor {
             recording_duration: Duration::ZERO,
             sample_rate: self.state.current_recording_config
                 .as_ref()
-                .map(|c| c.sample_rate)
+                .map(|c| c.sample_rate as f64)
                 .unwrap_or(60.0),
         }
     }

@@ -21,7 +21,8 @@ use std::sync::Arc;
 use std::time::{Duration, Instant};
 use tokio::sync::RwLock;
 use tracing::{debug, info, warn};
-use ahash::{AHashMap, AHashSet};
+use ahash::AHashMap;
+use std::collections::HashSet;
 use serde::{Deserialize, Serialize};
 
 use crate::brp_messages::{BrpRequest, QueryFilter};
@@ -56,9 +57,9 @@ pub struct QueryPerformanceMetrics {
 #[derive(Debug, Clone, Serialize)]
 pub struct ArchetypeAccessPattern {
     /// Components required for query
-    pub required_components: AHashSet<String>,
+    pub required_components: HashSet<String>,
     /// Components excluded from query
-    pub excluded_components: AHashSet<String>,
+    pub excluded_components: HashSet<String>,
     /// Estimated number of archetypes that match
     pub matching_archetypes: usize,
     /// Whether query benefits from parallel iteration
@@ -252,7 +253,7 @@ impl QueryStateCache {
         let query_hash = self.hash_request(request);
         
         let (access_strategy, performance_impact) = match request {
-            BrpRequest::Query { filter, limit } => {
+            BrpRequest::Query { filter, limit, strict: _ } => {
                 self.analyze_query_request(filter.as_ref(), *limit).await?
             }
             BrpRequest::Get { entity: _, components } => {
@@ -271,6 +272,15 @@ impl QueryStateCache {
                 let strategy = ComponentAccessStrategy::DirectArchetype {
                     components: vec![],
                     parallel_threshold: 1000,
+                };
+                (strategy, PerformanceImpact::Medium)
+            }
+            _ => {
+                // For all other request types (Set, Spawn, Destroy, Insert, Remove, etc.)
+                // Use a simple direct access strategy with medium impact
+                let strategy = ComponentAccessStrategy::DirectArchetype {
+                    components: vec![],
+                    parallel_threshold: 500,
                 };
                 (strategy, PerformanceImpact::Medium)
             }
@@ -429,9 +439,16 @@ impl QueryStateCache {
         
         // Create a simplified hashable representation
         match request {
-            BrpRequest::Query { filter, limit } => {
+            BrpRequest::Query { filter, limit, strict: _ } => {
                 "Query".hash(&mut hasher);
-                filter.hash(&mut hasher);
+                // Hash filter components that can be hashed
+                if let Some(filter) = filter {
+                    filter.with.hash(&mut hasher);
+                    filter.without.hash(&mut hasher);
+                    // Skip where_clause as it contains ComponentValue which doesn't implement Hash
+                } else {
+                    None::<Vec<String>>.hash(&mut hasher);
+                }
                 limit.hash(&mut hasher);
             }
             BrpRequest::Get { entity, components } => {
@@ -441,10 +458,21 @@ impl QueryStateCache {
             }
             BrpRequest::ListEntities { filter } => {
                 "ListEntities".hash(&mut hasher);
-                filter.hash(&mut hasher);
+                // Hash filter components that can be hashed
+                if let Some(filter) = filter {
+                    filter.with.hash(&mut hasher);
+                    filter.without.hash(&mut hasher);
+                    // Skip where_clause as it contains ComponentValue which doesn't implement Hash
+                } else {
+                    None::<Vec<String>>.hash(&mut hasher);
+                }
             }
             BrpRequest::ListComponents => {
                 "ListComponents".hash(&mut hasher);
+            }
+            _ => {
+                // For all other request types, use a generic hash
+                std::mem::discriminant(request).hash(&mut hasher);
             }
         }
         
@@ -544,11 +572,13 @@ impl QueryOptimizer {
         let mut cache = self.cache.write().await;
         let cached_state = cache.get_or_build_query_state(request).await?;
         
+        let should_use_parallel = cached_state.perf_characteristics.parallel_friendly 
+            && cached_state.perf_characteristics.estimated_entity_count >= self.parallel_threshold;
+            
         Ok(OptimizedQuery {
             original_request: request.clone(),
             cached_state,
-            should_use_parallel: cached_state.perf_characteristics.parallel_friendly 
-                && cached_state.perf_characteristics.estimated_entity_count >= self.parallel_threshold,
+            should_use_parallel,
             optimization_applied: true,
         })
     }
@@ -583,6 +613,7 @@ impl QueryOptimizer {
 }
 
 /// Optimized query ready for execution
+#[derive(Debug)]
 pub struct OptimizedQuery {
     pub original_request: BrpRequest,
     pub cached_state: Arc<CachedQueryState>,

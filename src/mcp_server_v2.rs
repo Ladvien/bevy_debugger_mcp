@@ -135,7 +135,7 @@ impl McpServerV2 {
 
         // Run the server using the secure tools handler with proper error handling
         tokio::select! {
-            result = serve_server(self.secure_tools.as_ref().clone(), (stdin, stdout)) => {
+            result = serve_server(Arc::try_unwrap(self.secure_tools).unwrap_or_else(|arc| (*arc).clone()), (stdin, stdout)) => {
                 match result {
                     Ok(_) => {
                         info!("MCP stdio server completed successfully");

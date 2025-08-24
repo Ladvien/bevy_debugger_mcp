@@ -59,7 +59,7 @@ impl Default for ParallelExecutionConfig {
 }
 
 /// Statistics for parallel execution
-#[derive(Debug, Clone, Default)]
+#[derive(Debug, Default)]
 pub struct ParallelExecutionStats {
     /// Total queries executed
     pub total_queries: AtomicUsize,
@@ -137,7 +137,7 @@ impl ParallelQueryExecutor {
             .unwrap_or(self.config.batch_size);
 
         match &optimized_query.original_request {
-            BrpRequest::Query { filter, limit } => {
+            BrpRequest::Query { filter, limit, strict: _ } => {
                 self.execute_parallel_filtered_query(
                     filter, 
                     *limit, 
@@ -178,8 +178,10 @@ impl ParallelQueryExecutor {
         let entities = {
             let mut client = brp_client.write().await;
             match client.send_request(&entity_count_request).await? {
-                BrpResponse::Success(BrpResult::Entities(entities)) => entities,
-                BrpResponse::Success(_) => return Err(Error::Brp("Unexpected response type".to_string())),
+                BrpResponse::Success(result) => match *result {
+                    BrpResult::Entities(entities) => entities,
+                    _ => return Err(Error::Brp("Unexpected response type".to_string())),
+                },
                 BrpResponse::Error(e) => return Err(Error::Brp(format!("BRP error: {}", e.message))),
             }
         };
@@ -322,7 +324,7 @@ impl ParallelQueryExecutor {
 
         match response {
             BrpResponse::Success(result) => {
-                let (entities, entity_count) = match result {
+                let (entities, entity_count) = match *result {
                     BrpResult::Entities(entities) => {
                         let count = entities.len();
                         (entities, count)
