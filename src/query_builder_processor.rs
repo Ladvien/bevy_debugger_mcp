@@ -348,6 +348,7 @@ impl QueryBuilderProcessor {
                 crate::brp_messages::BrpRequest::Query {
                     filter: Some(query.filter),
                     limit,
+                    strict: Some(false),
                 }
             }
             _ => return Err(Error::DebugError("Invalid command type".to_string())),

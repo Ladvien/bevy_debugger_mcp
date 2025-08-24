@@ -177,6 +177,7 @@ impl RegexQueryParser {
                             where_clause: None,
                         }),
                         limit: Some(limit),
+                        strict: Some(false),
                     })
                 },
                 description: "find N entities with component Y - Find up to N entities with component Y",

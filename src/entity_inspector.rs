@@ -345,7 +345,7 @@ impl EntityInspector {
                 memory_size: 0,
                 last_modified: None,
                 generation: 0,
-                index: entity_data.entity as u32, // Extract index from entity ID
+                index: entity_data.id as u32, // Extract index from entity ID
                 component_types: Vec::new(),
                 modified_components: Vec::new(),
                 archetype_id: None,

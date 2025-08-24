@@ -456,7 +456,8 @@ impl QueryStateCache {
         // Update cached query state with new metrics
         if let Some(cached_state) = self.cache.get_mut(&self.hash_request(&BrpRequest::Query { 
             filter: None, 
-            limit: None 
+            limit: None,
+            strict: Some(false),
         })) {
             cached_state.avg_execution_time_ms = 
                 (cached_state.avg_execution_time_ms * (cached_state.usage_count - 1) as f64 + 
