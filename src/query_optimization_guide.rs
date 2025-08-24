@@ -373,7 +373,7 @@ for parent in parents {
             QueryComplexity::Complex => 256,
         };
 
-        let recommended_techniques = match (entity_count, query_complexity) {
+        let recommended_techniques = match (entity_count, query_complexity.clone()) {
             (count, QueryComplexity::Simple) if count > 10000 => vec![
                 "Use parallel iteration with small batch sizes".to_string(),
                 "Enable QueryState caching".to_string(),

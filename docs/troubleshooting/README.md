@@ -11,7 +11,8 @@ This guide helps you diagnose and resolve common issues when using the Bevy Debu
 5. [Integration Test Failures](#integration-test-failures)
 6. [Configuration Problems](#configuration-problems)
 7. [Platform-Specific Issues](#platform-specific-issues)
-8. [Advanced Diagnostics](#advanced-diagnostics)
+8. [Bevy Game Development Issues](#bevy-game-development-issues)
+9. [Advanced Diagnostics](#advanced-diagnostics)
 
 ---
 

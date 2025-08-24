@@ -98,7 +98,7 @@ impl McpServer {
         // Optionally preload critical components based on feature flags
         let lazy_components_for_preload = Arc::clone(&lazy_components);
         tokio::spawn(async move {
-            if let Err(e) = preload_critical_components(&lazy_components).await {
+            if let Err(e) = preload_critical_components(&lazy_components_for_preload).await {
                 error!("Failed to preload critical components: {}", e);
             }
         });

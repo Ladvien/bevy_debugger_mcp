@@ -279,6 +279,7 @@ impl EntityInspector {
             memory_size: total_memory_size,
             last_modified: Some(chrono::Utc::now().timestamp_micros() as u64),
             generation,
+            index: entity_id as u32, // Extract index from entity_id
             component_types,
             modified_components,
             archetype_id,
@@ -344,6 +345,7 @@ impl EntityInspector {
                 memory_size: 0,
                 last_modified: None,
                 generation: 0,
+                index: entity_data.entity as u32, // Extract index from entity ID
                 component_types: Vec::new(),
                 modified_components: Vec::new(),
                 archetype_id: None,

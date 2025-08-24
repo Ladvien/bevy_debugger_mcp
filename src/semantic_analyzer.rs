@@ -217,7 +217,7 @@ impl SemanticQueryBuilder {
                     },
                 ];
                 let explanation = MatchExplanation {
-                    concept: *concept,
+                    concept: concept.clone(),
                     reason: format!(
                         "Entities with velocity magnitude below {} units/second",
                         self.thresholds.stuck_velocity_threshold
@@ -236,7 +236,7 @@ impl SemanticQueryBuilder {
                     value: serde_json::json!(self.thresholds.fast_velocity_threshold),
                 }];
                 let explanation = MatchExplanation {
-                    concept: *concept,
+                    concept: concept.clone(),
                     reason: format!(
                         "Entities with velocity above {} units/second",
                         self.thresholds.fast_velocity_threshold
@@ -250,7 +250,7 @@ impl SemanticQueryBuilder {
                 let components = vec!["Transform".to_string(), "Collider".to_string()];
                 let filters = Vec::new(); // Complex spatial analysis would require post-processing
                 let explanation = MatchExplanation {
-                    concept: *concept,
+                    concept: concept.clone(),
                     reason: "Entities with colliders that may be overlapping (requires spatial analysis)".to_string(),
                     confidence: 0.7,
                     relevant_components: components.clone(),
@@ -261,7 +261,7 @@ impl SemanticQueryBuilder {
                 let components = vec!["Transform".to_string()];
                 let filters = Vec::new(); // Would require analysis of entity lifecycle
                 let explanation = MatchExplanation {
-                    concept: *concept,
+                    concept: concept.clone(),
                     reason: "Entities that may be consuming resources without active purpose"
                         .to_string(),
                     confidence: 0.6,
@@ -282,11 +282,11 @@ impl SemanticQueryBuilder {
                         component: "Alive".to_string(),
                         field: None,
                         op: FilterOp::Equal,
-                        value: ComponentValue::Bool(true),
+                        value: serde_json::json!(true),
                     },
                 ];
                 let explanation = MatchExplanation {
-                    concept: *concept,
+                    concept: concept.clone(),
                     reason: "Entities marked as alive but with zero or negative health".to_string(),
                     confidence: 0.95,
                     relevant_components: components.clone(),
@@ -297,7 +297,7 @@ impl SemanticQueryBuilder {
                 let components = vec!["Transform".to_string(), "RigidBody".to_string()];
                 let filters = Vec::new(); // Would require physics constraint validation
                 let explanation = MatchExplanation {
-                    concept: *concept,
+                    concept: concept.clone(),
                     reason: "Entities potentially violating physics constraints".to_string(),
                     confidence: 0.75,
                     relevant_components: components.clone(),
