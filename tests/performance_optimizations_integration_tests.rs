@@ -14,7 +14,7 @@ use bevy_debugger_mcp::{
     mcp_server::McpServer,
     brp_client::BrpClient,
     lazy_init::LazyComponents,
-    command_cache::{CommandCache, CacheConfig},
+    command_cache::{CommandCache, CacheConfig, CacheKey},
     response_pool::{ResponsePool, ResponsePoolConfig},
     profiling::{init_profiler, get_profiler},
 };
@@ -84,16 +84,17 @@ async fn test_command_caching_performance() {
     // Test cache miss performance
     let test_command = "observe";
     let test_args = json!({"query": "entities with Transform"});
+    let cache_key = CacheKey::new(test_command, &test_args).unwrap();
     
     let start_miss = Instant::now();
     // Simulate expensive operation
     let expensive_result = json!({"entities": [1, 2, 3, 4, 5], "timestamp": "2024-01-01T00:00:00Z"});
-    cache.set(test_command, &test_args, expensive_result.clone()).await;
+    cache.put(&cache_key, expensive_result.clone(), vec![]).await.unwrap();
     let cache_miss_time = start_miss.elapsed();
 
     // Test cache hit performance
     let start_hit = Instant::now();
-    let cached_result = cache.get(test_command, &test_args).await;
+    let cached_result = cache.get(&cache_key).await;
     let cache_hit_time = start_hit.elapsed();
 
     println!("Cache miss time: {:?}", cache_miss_time);
@@ -116,13 +117,14 @@ async fn test_command_caching_performance() {
         total_requests += 1;
         let args = json!({"query": format!("entities with Component{}", i % 10)});
         
-        let result = cache.get("observe", &args).await;
+        let cache_key = CacheKey::new("observe", &args).unwrap();
+        let result = cache.get(&cache_key).await;
         if result.is_some() {
             total_hits += 1;
         } else {
             // Simulate cache miss - store result
             let mock_result = json!({"entities": [i], "query": args});
-            cache.set("observe", &args, mock_result).await;
+            cache.put(&cache_key, mock_result, vec![]).await.unwrap();
         }
     }
 
@@ -261,8 +263,9 @@ mod feature_flag_tests {
     #[cfg(feature = "caching")]
     async fn test_caching_feature_enabled() {
         let cache = CommandCache::new(CacheConfig::default());
-        cache.set("test", &json!({}), json!({"result": "cached"})).await;
-        let result = cache.get("test", &json!({})).await;
+        cache.put(&cache_key, json!({"result": "cached"}), vec![]).await.unwrap();
+        let cache_key = CacheKey::new("test", &json!({})).unwrap();
+        let result = cache.get(&cache_key).await;
         assert!(result.is_some(), "Caching should work when feature is enabled");
     }
 
@@ -360,7 +363,7 @@ async fn test_optimization_combinations() {
     let _inspector = lazy_components.get_entity_inspector().await;
     
     // Cache the result
-    cache.set(test_command, &test_args, test_result.clone()).await;
+    cache.put(&cache_key, test_result.clone(), vec![]).await.unwrap();
     
     // Use pooling for serialization
     let _serialized = pool.serialize_json(&test_result).await.unwrap();
@@ -375,7 +378,8 @@ async fn test_optimization_combinations() {
 
     // Test cache hit with pooling
     let start_optimized = Instant::now();
-    let cached_result = cache.get(test_command, &test_args).await;
+    let cache_key = CacheKey::new(test_command, &test_args).unwrap();
+    let cached_result = cache.get(&cache_key).await;
     assert!(cached_result.is_some(), "Should get cached result");
     
     let _serialized = pool.serialize_json(&cached_result.unwrap()).await.unwrap();
@@ -402,11 +406,12 @@ async fn test_error_handling_with_optimizations() {
     // Test cache eviction under pressure
     for i in 0..1000 {
         let args = json!({"query": format!("unique_query_{}", i)});
-        cache.set("test", &args, json!({"result": i})).await;
+        let cache_key = CacheKey::new("test", &args).unwrap();
+        cache.put(&cache_key, json!({"result": i}), vec![]).await.unwrap();
     }
 
     // Cache should handle pressure gracefully
-    let cache_stats = cache.get_cache_stats().await;
+    let cache_stats = cache.get_statistics().await;
     assert!(cache_stats.size <= cache_stats.max_size, 
             "Cache should respect size limits");
 }

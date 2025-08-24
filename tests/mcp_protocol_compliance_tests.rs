@@ -38,13 +38,13 @@ mod test_fixtures {
     
     pub fn create_test_tools() -> BevyDebuggerTools {
         let config = create_test_config();
-        let brp_client = Arc::new(RwLock::new(BrpClient::new(config.bevy_remote_port)));
+        let brp_client = Arc::new(RwLock::new(BrpClient::new(&config)));
         BevyDebuggerTools::new(brp_client)
     }
     
     pub async fn create_test_server() -> Result<McpServerV2, BevyDebuggerError> {
         let config = create_test_config();
-        let brp_client = Arc::new(RwLock::new(BrpClient::new(config.bevy_remote_port)));
+        let brp_client = Arc::new(RwLock::new(BrpClient::new(&config)));
         McpServerV2::new(config, brp_client)
     }
 }
@@ -335,10 +335,10 @@ mod error_handling {
     async fn test_connection_error_handling() {
         // Create tools with invalid port to simulate connection failure
         let config = Config {
-            bevy_remote_port: 0, // Invalid port
+            bevy_brp_port: 0, // Invalid port
             ..Config::default()
         };
-        let brp_client = Arc::new(RwLock::new(BrpClient::new(config.bevy_remote_port)));
+        let brp_client = Arc::new(RwLock::new(BrpClient::new(&config)));
         let tools = BevyDebuggerTools::new(brp_client);
         
         let request = bevy_debugger_mcp::mcp_tools::ObserveRequest {

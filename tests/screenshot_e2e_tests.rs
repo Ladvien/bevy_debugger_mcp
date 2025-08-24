@@ -68,11 +68,9 @@ async fn test_screenshot_with_static_game() {
     let screenshot_path = validator.test_screenshot_path("static_game_screenshot");
     
     // Setup MCP server to connect to test game
-    let config = Config {
-        bevy_brp_host: "localhost".to_string(),
-        bevy_brp_port: test_config.brp_port,
-        mcp_port: 3004,
-    };
+    let mut config = Config::default();
+    config.bevy_brp_port = test_config.brp_port;
+    config.mcp_port = 3004;
 
     let brp_client = std::sync::Arc::new(tokio::sync::RwLock::new(
         BrpClient::new(&config)
@@ -102,11 +100,9 @@ async fn test_screenshot_timing_parameters() {
     let validator = ScreenshotValidator::new(temp_dir.path());
     validator.initialize().expect("Failed to initialize validator");
 
-    let config = Config {
-        bevy_brp_host: "localhost".to_string(),
-        bevy_brp_port: 15705,
-        mcp_port: 3005,
-    };
+    let mut config = Config::default();
+    config.bevy_brp_port = 15705;
+    config.mcp_port = 3005;
 
     let brp_client = std::sync::Arc::new(tokio::sync::RwLock::new(
         BrpClient::new(&config)
@@ -170,11 +166,9 @@ async fn test_screenshot_timing_parameters() {
 
 #[tokio::test]
 async fn test_screenshot_parameter_validation() {
-    let config = Config {
-        bevy_brp_host: "localhost".to_string(),
-        bevy_brp_port: 15706,
-        mcp_port: 3006,
-    };
+    let mut config = Config::default();
+    config.bevy_brp_port = 15706;
+    config.mcp_port = 3006;
 
     let brp_client = std::sync::Arc::new(tokio::sync::RwLock::new(
         BrpClient::new(&config)
@@ -311,11 +305,9 @@ async fn test_screenshot_directory_structure() {
 #[tokio::test]
 async fn test_screenshot_tool_schema_validation() {
     // Test that all documented parameters are handled correctly
-    let config = Config {
-        bevy_brp_host: "localhost".to_string(),
-        bevy_brp_port: 15707,
-        mcp_port: 3007,
-    };
+    let mut config = Config::default();
+    config.bevy_brp_port = 15707;
+    config.mcp_port = 3007;
 
     let brp_client = std::sync::Arc::new(tokio::sync::RwLock::new(
         BrpClient::new(&config)
@@ -356,11 +348,9 @@ async fn test_screenshot_tool_in_mcp_schema() {
     // This would be tested by checking the MCP tool list response
     // but since we're testing the server directly, we verify the handler exists
     
-    let config = Config {
-        bevy_brp_host: "localhost".to_string(),  
-        bevy_brp_port: 15708,
-        mcp_port: 3008,
-    };
+    let mut config = Config::default();
+    config.bevy_brp_port = 15708;
+    config.mcp_port = 3008;
 
     let brp_client = std::sync::Arc::new(tokio::sync::RwLock::new(
         BrpClient::new(&config)

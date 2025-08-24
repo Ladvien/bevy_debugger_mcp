@@ -1054,11 +1054,7 @@ mod tests {
     #[test]
     fn test_retry_delay_calculation() {
         let orchestrator = ToolOrchestrator::new(Arc::new(RwLock::new(
-            crate::brp_client::BrpClient::new(&crate::config::Config {
-                bevy_brp_host: "localhost".to_string(),
-                bevy_brp_port: 15702,
-                mcp_port: 3000,
-            }),
+            crate::brp_client::BrpClient::new(&crate::config::Config::default()),
         )));
 
         let retry_config = RetryConfig {

@@ -226,11 +226,8 @@ mod tests {
 
     #[tokio::test]
     async fn test_handle_without_connection() {
-        let config = Config {
-            bevy_brp_host: "localhost".to_string(),
-            bevy_brp_port: 15702,
-            mcp_port: 3000,
-        };
+        let mut config = Config::default();
+        config.mcp_port = 3000;
         let brp_client = Arc::new(RwLock::new(crate::brp_client::BrpClient::new(&config)));
 
         let args = json!({
@@ -244,11 +241,8 @@ mod tests {
 
     #[tokio::test]
     async fn test_handle_unknown_action() {
-        let config = Config {
-            bevy_brp_host: "localhost".to_string(),
-            bevy_brp_port: 15702,
-            mcp_port: 3000,
-        };
+        let mut config = Config::default();
+        config.mcp_port = 3000;
         let brp_client = Arc::new(RwLock::new(crate::brp_client::BrpClient::new(&config)));
 
         let args = json!({
@@ -261,11 +255,8 @@ mod tests {
 
     #[tokio::test]
     async fn test_handle_archetypes() {
-        let config = Config {
-            bevy_brp_host: "localhost".to_string(),
-            bevy_brp_port: 15702,
-            mcp_port: 3000,
-        };
+        let mut config = Config::default();
+        config.mcp_port = 3000;
         let brp_client = Arc::new(RwLock::new(crate::brp_client::BrpClient::new(&config)));
 
         let args = json!({
@@ -280,11 +271,8 @@ mod tests {
 
     #[tokio::test]
     async fn test_handle_history() {
-        let config = Config {
-            bevy_brp_host: "localhost".to_string(),
-            bevy_brp_port: 15702,
-            mcp_port: 3000,
-        };
+        let mut config = Config::default();
+        config.mcp_port = 3000;
         let brp_client = Arc::new(RwLock::new(crate::brp_client::BrpClient::new(&config)));
 
         let args = json!({
@@ -298,11 +286,8 @@ mod tests {
 
     #[tokio::test]
     async fn test_handle_clear_history() {
-        let config = Config {
-            bevy_brp_host: "localhost".to_string(),
-            bevy_brp_port: 15702,
-            mcp_port: 3000,
-        };
+        let mut config = Config::default();
+        config.mcp_port = 3000;
         let brp_client = Arc::new(RwLock::new(crate::brp_client::BrpClient::new(&config)));
 
         let args = json!({

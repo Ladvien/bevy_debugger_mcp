@@ -18,7 +18,7 @@ use tokio_test;
 #[tokio::test]
 async fn test_server_handler_implementation() {
     let config = Config::default();
-    let brp_client = Arc::new(RwLock::new(BrpClient::new(config.bevy_remote_port)));
+    let brp_client = Arc::new(RwLock::new(BrpClient::new(&config)));
     let tools = BevyDebuggerTools::new(brp_client);
 
     // Test get_info method returns correct ServerInfo structure
@@ -36,7 +36,7 @@ async fn test_server_handler_implementation() {
 #[tokio::test]
 async fn test_tool_routing() {
     let config = Config::default();
-    let brp_client = Arc::new(RwLock::new(BrpClient::new(config.bevy_remote_port)));
+    let brp_client = Arc::new(RwLock::new(BrpClient::new(&config)));
     let tools = BevyDebuggerTools::new(brp_client);
     
     // Test list_tools functionality
@@ -49,7 +49,7 @@ async fn test_tool_routing() {
 #[tokio::test]
 async fn test_error_handling() {
     let config = Config::default();
-    let brp_client = Arc::new(RwLock::new(BrpClient::new(config.bevy_remote_port)));
+    let brp_client = Arc::new(RwLock::new(BrpClient::new(&config)));
     let tools = BevyDebuggerTools::new(brp_client);
     
     // Test that tools can be created without compilation errors
@@ -64,7 +64,7 @@ async fn test_error_handling() {
 #[tokio::test] 
 async fn test_server_handler_traits() {
     let config = Config::default();
-    let brp_client = Arc::new(RwLock::new(BrpClient::new(config.bevy_remote_port)));
+    let brp_client = Arc::new(RwLock::new(BrpClient::new(&config)));
     let tools = BevyDebuggerTools::new(brp_client);
     
     // Test that we can call ServerHandler methods

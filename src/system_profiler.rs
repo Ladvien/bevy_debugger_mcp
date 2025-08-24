@@ -691,11 +691,8 @@ mod tests {
 
     #[tokio::test]
     async fn test_profiler_creation() {
-        let config = Config {
-            bevy_brp_host: "localhost".to_string(),
-            bevy_brp_port: 15702,
-            mcp_port: 3000,
-        };
+        let mut config = Config::default();
+        config.mcp_port = 3000;
         let brp_client = Arc::new(RwLock::new(BrpClient::new(&config)));
         let profiler = SystemProfiler::new(brp_client);
         
@@ -704,11 +701,8 @@ mod tests {
 
     #[tokio::test]
     async fn test_start_stop_profiling() {
-        let config = Config {
-            bevy_brp_host: "localhost".to_string(),
-            bevy_brp_port: 15702,
-            mcp_port: 3000,
-        };
+        let mut config = Config::default();
+        config.mcp_port = 3000;
         let brp_client = Arc::new(RwLock::new(BrpClient::new(&config)));
         let profiler = SystemProfiler::new(brp_client);
         
@@ -735,11 +729,8 @@ mod tests {
 
     #[tokio::test]
     async fn test_metrics_calculation() {
-        let config = Config {
-            bevy_brp_host: "localhost".to_string(),
-            bevy_brp_port: 15702,
-            mcp_port: 3000,
-        };
+        let mut config = Config::default();
+        config.mcp_port = 3000;
         let brp_client = Arc::new(RwLock::new(BrpClient::new(&config)));
         let profiler = SystemProfiler::new(brp_client);
         

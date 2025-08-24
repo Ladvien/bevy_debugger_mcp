@@ -34,7 +34,7 @@ fn setup_tracing() {
 // Test fixture for creating BevyDebuggerTools instance
 async fn create_test_tools() -> BevyDebuggerTools {
     let config = Config::default();
-    let brp_client = Arc::new(RwLock::new(BrpClient::new(config.bevy_remote_port)));
+    let brp_client = Arc::new(RwLock::new(BrpClient::new(&config)));
     BevyDebuggerTools::new(brp_client)
 }
 

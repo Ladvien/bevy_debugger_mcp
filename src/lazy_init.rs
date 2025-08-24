@@ -539,11 +539,7 @@ mod tests {
     
     #[tokio::test]
     async fn test_lazy_initialization() {
-        let config = Config {
-            bevy_brp_host: "localhost".to_string(),
-            bevy_brp_port: 15702,
-            mcp_port: 3001,
-        };
+        let config = Config::default();
         let brp_client = Arc::new(RwLock::new(BrpClient::new(&config)));
         let components = LazyComponents::new(brp_client);
         
@@ -564,11 +560,7 @@ mod tests {
     
     #[tokio::test]
     async fn test_double_initialization() {
-        let config = Config {
-            bevy_brp_host: "localhost".to_string(),
-            bevy_brp_port: 15702,
-            mcp_port: 3001,
-        };
+        let config = Config::default();
         let brp_client = Arc::new(RwLock::new(BrpClient::new(&config)));
         let components = LazyComponents::new(brp_client);
         
