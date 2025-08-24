@@ -461,11 +461,10 @@ mod tests {
     use super::*;
     
     async fn create_test_processor() -> PerformanceBudgetProcessor {
-        let config = crate::config::Config {
-            bevy_brp_host: "localhost".to_string(),
-            bevy_brp_port: 15702,
-            mcp_port: 3000,
-        };
+        let mut config = crate::config::Config::default();
+        config.bevy_brp_host = "localhost".to_string();
+        config.bevy_brp_port = 15702;
+        config.mcp_port = 3000;
         let brp_client = Arc::new(RwLock::new(BrpClient::new(&config)));
         PerformanceBudgetProcessor::new(brp_client)
     }
