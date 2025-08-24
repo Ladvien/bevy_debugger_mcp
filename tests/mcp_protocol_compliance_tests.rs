@@ -225,8 +225,9 @@ mod tool_integration {
         
         let request = StressTestRequest {
             test_type: "memory".to_string(),
-            intensity: Some(1), // Low intensity for test
-            duration: Some(1.0),
+            intensity: 1, // Low intensity for test
+            duration: 1.0,
+            detailed_metrics: false,
         };
         
         let result = tools.stress_test(Parameters(request)).await;
@@ -298,8 +299,9 @@ mod error_handling {
         // Test with extreme parameters that should be handled gracefully
         let stress_request = bevy_debugger_mcp::mcp_tools::StressTestRequest {
             test_type: "invalid_test_type".to_string(),
-            intensity: Some(i32::MAX), // Extreme value
-            duration: Some(f32::MAX), // Extreme duration
+            intensity: 255, // Max u8 value
+            duration: f32::MAX, // Extreme duration
+            detailed_metrics: false,
         };
         
         let result = tools.stress_test(rmcp::handler::server::tool::Parameters(stress_request)).await;

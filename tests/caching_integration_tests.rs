@@ -81,7 +81,7 @@ async fn test_cache_with_realistic_workload() {
             "Cache hits should be sub-millisecond, got {:?}", avg_hit_time);
 
     // Check cache statistics
-    let stats = cache.get_cache_stats().await;
+    let stats = cache.get_statistics().await;
     println!("Cache statistics: {:?}", stats);
     
     assert_eq!(stats.total_gets, realistic_queries.len() as u64, "Should track all get operations");
@@ -205,7 +205,7 @@ async fn test_cache_size_limits_and_eviction() {
         cache.set("test_command", &args, result).await;
         }
 
-    let stats = cache.get_cache_stats().await;
+    let stats = cache.get_statistics().await;
     println!("Cache stats after overfill: {:?}", stats);
     
     // Cache should respect size limit
@@ -236,7 +236,7 @@ async fn test_cache_size_limits_and_eviction() {
             }
         }
 
-    let final_stats = cache.get_cache_stats().await;
+    let final_stats = cache.get_statistics().await;
     assert!(final_stats.size <= final_stats.max_size, 
             "Cache should maintain size limits after evictions");
     }
@@ -309,7 +309,7 @@ async fn test_cache_concurrent_access() {
     println!("Concurrent access test completed in: {:?}", total_time);
 
     // Verify cache remained consistent
-    let final_stats = cache.get_cache_stats().await;
+    let final_stats = cache.get_statistics().await;
     println!("Final cache stats: {:?}", final_stats);
     
     assert!(final_stats.size <= final_stats.max_size, 
@@ -416,7 +416,7 @@ async fn test_cache_cleanup_and_maintenance() {
         cache.set("test", &args, result).await;
         }
 
-    let stats_before = cache.get_cache_stats().await;
+    let stats_before = cache.get_statistics().await;
     println!("Stats before expiration: {:?}", stats_before);
     assert_eq!(stats_before.size, 50, "Should have 50 entries initially");
 
@@ -427,7 +427,7 @@ async fn test_cache_cleanup_and_maintenance() {
     cache.set("test", &json!({"query": "trigger_cleanup"}), json!({"data": "new"})).await;
 
     // Check that expired entries are cleaned up
-    let stats_after = cache.get_cache_stats().await;
+    let stats_after = cache.get_statistics().await;
     println!("Stats after cleanup: {:?}", stats_after);
     
     // Size should be significantly reduced (expired entries cleaned up)
