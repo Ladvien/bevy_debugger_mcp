@@ -85,21 +85,36 @@ The Bevy Debugger MCP creates a bridge between Claude Code and your Bevy game:
 
 ### Installation
 
-```bash
-# Install from crates.io (recommended)
-cargo install bevy_debugger_mcp
+#### Quick Install (Recommended)
 
-# Or clone and build from source
+```bash
+# Clone and install with the provided script
 git clone https://github.com/ladvien/bevy_debugger_mcp.git
 cd bevy_debugger_mcp
-cargo build --release
-
-# Install (macOS/Linux)
-./scripts/install.sh
-
-# Setup Claude Code integration
-./scripts/setup-claude.sh
+./install.sh
 ```
+
+The install script will:
+- Build the binary in release mode
+- Install to `~/.cargo/bin/`
+- Create a symlink in `~/.local/bin/` for Claude Code compatibility
+- Display configuration instructions
+
+#### Manual Installation
+
+```bash
+# Build from source
+cargo build --release --bin bevy-debugger-mcp
+
+# Install to cargo bin
+cp target/release/bevy-debugger-mcp ~/.cargo/bin/
+
+# Create symlink for Claude Code (important!)
+mkdir -p ~/.local/bin
+ln -sf ~/.cargo/bin/bevy-debugger-mcp ~/.local/bin/bevy-debugger-mcp
+```
+
+**Note:** The symlink in `~/.local/bin` is required for Claude Code to find the binary.
 
 ### Server Management with `bevy-debugger-control`
 
