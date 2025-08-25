@@ -85,36 +85,58 @@ The Bevy Debugger MCP creates a bridge between Claude Code and your Bevy game:
 
 ### Installation
 
-#### Quick Install (Recommended)
-
+#### Method 1: Homebrew (macOS) - Recommended
 ```bash
-# Clone and install with the provided script
+brew tap ladvien/bevy-debugger-mcp
+brew install bevy-debugger-mcp
+
+# Run setup for Claude integration
+bevy-debugger-setup
+```
+
+#### Method 2: Cargo Install
+```bash
+cargo install bevy_debugger_mcp
+
+# Run setup script for Claude integration
+curl -sSL https://raw.githubusercontent.com/ladvien/bevy_debugger_mcp/main/setup-claude.sh | bash
+```
+
+#### Method 3: From Source
+```bash
 git clone https://github.com/ladvien/bevy_debugger_mcp.git
 cd bevy_debugger_mcp
-./install.sh
+./install.sh  # Handles everything automatically
 ```
 
-The install script will:
-- Build the binary in release mode
-- Install to `~/.cargo/bin/`
-- Create a symlink in `~/.local/bin/` for Claude Code compatibility
-- Display configuration instructions
+#### Method 4: Claude Desktop Extension
+Coming soon - Will be available in the Claude Desktop extension marketplace.
 
-#### Manual Installation
+### Post-Installation Setup
 
+**Important:** After installation via ANY method, run the setup script:
 ```bash
-# Build from source
-cargo build --release --bin bevy-debugger-mcp
+# If installed via Homebrew
+bevy-debugger-setup
 
-# Install to cargo bin
-cp target/release/bevy-debugger-mcp ~/.cargo/bin/
-
-# Create symlink for Claude Code (important!)
-mkdir -p ~/.local/bin
-ln -sf ~/.cargo/bin/bevy-debugger-mcp ~/.local/bin/bevy-debugger-mcp
+# If installed via other methods
+~/.cargo/bin/bevy-debugger-mcp-setup || ./setup-claude.sh
 ```
 
-**Note:** The symlink in `~/.local/bin` is required for Claude Code to find the binary.
+This setup script will:
+1. Find your bevy-debugger-mcp installation
+2. Create necessary symlinks for Claude Code compatibility
+3. Generate the configuration you need to add to Claude
+
+### Why the Setup Script?
+
+Claude Code may look for binaries in different locations depending on your system:
+- `~/.local/bin/` (Claude Code default)
+- `~/.cargo/bin/` (Cargo installation)
+- `/usr/local/bin/` (System-wide)
+- `/opt/homebrew/bin/` (Homebrew on Apple Silicon)
+
+The setup script ensures Claude can find the binary regardless of installation method.
 
 ### Server Management with `bevy-debugger-control`
 
