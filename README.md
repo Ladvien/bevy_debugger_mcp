@@ -5,29 +5,57 @@
 [![Rust](https://img.shields.io/badge/rust-1.70+-orange.svg)](https://www.rust-lang.org)
 [![Bevy](https://img.shields.io/badge/bevy-0.14+-purple.svg)](https://bevyengine.org)
 
+> [!WARNING]
+> ## ⚠️ 100% VIBE CODED ⚠️
+> 
+> **This entire project was developed through "vibe coding" with AI assistance.**
+> 
+> This means:
+> - The code was written iteratively through natural language descriptions
+> - No traditional software design process was followed
+> - Testing may be incomplete or absent in some areas
+> - There might be unconventional patterns or unexpected behaviors
+> - **USE AT YOUR OWN RISK**
+> 
+> While functional, this codebase should be treated as experimental. We recommend:
+> - Thoroughly testing in a development environment first
+> - Not using in production without extensive review
+> - Being prepared for potential edge cases or unusual behavior
+> - Contributing fixes if you find issues!
+> 
+> *That said, it's pretty cool and mostly works!* 🚀
+
 A powerful Model Context Protocol (MCP) server that enables AI-assisted debugging of Bevy games through Claude Code. Debug your game state, analyze performance, and test hypotheses with natural language commands.
 
-## 🎯 Quick Start (5 minutes)
+## 📚 Table of Contents
+
+- [Quick Start](#-quick-start)
+- [Features](#-features)
+- [Installation](#installation)
+  - [Method 1: Homebrew](#method-1-homebrew-macos---recommended)
+  - [Method 2: Cargo](#method-2-cargo-install)
+  - [Method 3: From Source](#method-3-from-source)
+  - [Post-Installation Setup](#post-installation-setup)
+- [Configuration](#configuration)
+- [Usage Examples](#-usage-examples)
+- [Architecture](#-architecture)
+- [Troubleshooting](#-troubleshooting)
+- [Contributing](#-contributing)
+
+## 🎯 Quick Start
 
 ```bash
-# 1. Install the debugger
+# 1. Install the debugger (pick your preferred method)
 cargo install bevy_debugger_mcp
 
-# 2. Add RemotePlugin to your Bevy game
+# 2. Run the setup script (IMPORTANT!)
+curl -sSL https://raw.githubusercontent.com/ladvien/bevy_debugger_mcp/main/setup-claude.sh | bash
+
+# 3. Add RemotePlugin to your Bevy game
 # In your game's main.rs:
 # .add_plugins(RemotePlugin::default())
 
-# 3. Configure Claude Code (add to ~/.config/claude/claude_code_config.json)
-echo '{
-  "mcpServers": {
-    "bevy-debugger": {
-      "command": "bevy-debugger-mcp",
-      "args": []
-    }
-  }
-}' >> ~/.config/claude/claude_code_config.json
-
-# 4. Run your game and start debugging!
+# 4. Restart Claude Code and start debugging!
 cargo run  # In your game directory
 # Then open Claude Code and say: "Help me debug my Bevy game"
 ```
