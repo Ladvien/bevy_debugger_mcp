@@ -16,20 +16,17 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
 
-use crate::brp_messages::{BrpRequest, BrpResponse};
+use crate::brp::{BrpRequest, BrpResponse};
 use crate::circuit_breaker::{CircuitBreaker, CircuitState};
 use crate::config::Config;
-use crate::connection_pool::{ConnectionPool, PooledConnection};
+use crate::connection_pool::ConnectionPool;
 use crate::error::{Error, Result};
-use crate::heartbeat::{HeartbeatService};
-use futures_util::{SinkExt, StreamExt};
 use rand::Rng;
 use std::sync::atomic::{AtomicBool, AtomicU32, Ordering};
 use std::sync::Arc;
 use std::time::{Duration, Instant};
-use tokio::sync::{mpsc, Mutex, RwLock};
+use tokio::sync::{Mutex, RwLock};
 use tokio::time::{sleep, timeout};
-use tokio_tungstenite::{tungstenite::Message, WebSocketStream};
 use tracing::{debug, error, info, warn};
 use uuid::Uuid;
 
@@ -83,7 +80,6 @@ impl BrpClientMetrics {
 struct RequestWrapper {
     id: Uuid,
     request: BrpRequest,
-    response_tx: mpsc::Sender<Result<BrpResponse>>,
     created_at: Instant,
     retry_count: u32,
 }
@@ -235,8 +231,8 @@ impl BrpClientV2 {
 
     /// Single request attempt
     async fn send_request_attempt(&self, request_id: Uuid, request: &BrpRequest) -> Result<BrpResponse> {
-        // Get connection from pool
-        let mut connection = {
+        // Get connection lease from pool
+        let connection = {
             let pool = self.connection_pool.lock().await;
             timeout(
                 self.config.resilience.connection_pool.connection_timeout,
@@ -252,43 +248,21 @@ impl BrpClientV2 {
 
         debug!("Sending request {} using connection {}", request_id, connection.info.id);
 
-        // Send request
-        let request_json = serde_json::to_string(request)
-            .map_err(Error::Json)?;
-            
-        connection.websocket
-            .send(Message::Text(request_json))
-            .await
-            .map_err(|e| Error::WebSocket(Box::new(e)))?;
+        // Stamp a JSON-RPC id if the caller did not set one
+        let mut request = request.clone();
+        if request.id.is_none() {
+            request.id = Some(serde_json::Value::from(
+                self.request_id_counter.fetch_add(1, Ordering::Relaxed),
+            ));
+        }
 
-        // Wait for response with timeout
-        let response = timeout(
+        // Single JSON-RPC POST with timeout
+        let brp_response = timeout(
             self.config.resilience.request_timeout,
-            connection.websocket.next()
+            connection.send_request(&request),
         )
         .await
-        .map_err(|_| Error::Connection("Request timeout".to_string()))?;
-
-        // Process response
-        let response_text = match response {
-            Some(Ok(Message::Text(text))) => text,
-            Some(Ok(Message::Close(_))) => {
-                return Err(Error::Connection("Connection closed during request".to_string()));
-            }
-            Some(Err(e)) => {
-                return Err(Error::WebSocket(Box::new(e)));
-            }
-            None => {
-                return Err(Error::Connection("No response received".to_string()));
-            }
-            _ => {
-                return Err(Error::Connection("Unexpected message type".to_string()));
-            }
-        };
-
-        // Parse response
-        let brp_response: BrpResponse = serde_json::from_str(&response_text)
-            .map_err(Error::Json)?;
+        .map_err(|_| Error::Connection("Request timeout".to_string()))??;
 
         // Return connection to pool
         {

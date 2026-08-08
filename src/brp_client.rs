@@ -1,62 +1,41 @@
-use futures_util::{SinkExt, StreamExt};
-use std::collections::VecDeque;
+//! HTTP JSON-RPC client for the Bevy Remote Protocol.
+//!
+//! Since Bevy 0.16 the Bevy Remote Protocol is JSON-RPC 2.0 over HTTP POST
+//! (see `bevy_remote::http`). This client speaks that protocol directly:
+//! every request is a POST of `{"jsonrpc":"2.0","id":N,"method":..., "params":...}`
+//! to the BRP root URL, and the response is the JSON-RPC response object.
+
+use reqwest::Client;
+use serde_json::Value;
+use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 use std::sync::Arc;
 use std::time::Duration;
-use tokio::net::TcpStream;
-use tokio::sync::{mpsc, RwLock};
-use tokio::time::{interval, Instant};
-use tokio_tungstenite::{connect_async, tungstenite::Message, MaybeTlsStream, WebSocketStream};
-use tracing::{debug, error, info, warn};
-use url::Url;
+use tokio::sync::RwLock;
+use tokio::time::Instant;
+use tracing::{debug, info, warn};
 
-use crate::brp_messages::{BrpRequest, BrpResponse, DebugCommand};
+use crate::brp::{builtin_methods, BrpRequest, BrpResponse};
 use crate::brp_command_handler::{CommandHandlerRegistry, CoreBrpHandler, BrpCommandHandler};
 use crate::config::Config;
-use crate::debug_command_processor::{DebugCommandRouter, DebugCommandRequest};
+use crate::debug_command_processor::DebugCommandRouter;
 use crate::error::{Error, Result};
 use crate::resource_manager::ResourceManager;
 
-/// Batched request for efficient processing with proper cleanup
-#[derive(Debug)]
-struct BatchedRequest {
-    request: BrpRequest,
-    timestamp: Instant,
-    response_tx: mpsc::Sender<Result<BrpResponse>>,
-}
+/// Request timeout for a single BRP call.
+const REQUEST_TIMEOUT: Duration = Duration::from_secs(5);
 
-impl BatchedRequest {
-    /// Send response and handle channel cleanup
-    async fn send_response(self, response: Result<BrpResponse>) {
-        // Attempt to send response, ignoring receiver disconnect errors
-        // as this is normal when the receiver is dropped
-        let _ = self.response_tx.send(response).await;
-    }
-
-    /// Check if request has expired based on timeout
-    fn is_expired(&self, timeout: Duration) -> bool {
-        self.timestamp.elapsed() > timeout
-    }
-}
-
-impl Clone for BatchedRequest {
-    fn clone(&self) -> Self {
-        Self {
-            request: self.request.clone(),
-            timestamp: self.timestamp,
-            response_tx: self.response_tx.clone(),
-        }
-    }
-}
-
-/// BRP client with extensible command handler support
+/// BRP client with extensible command handler support.
+///
+/// Stateless over HTTP: "connected" means the last `rpc.discover` health
+/// check returned a 2xx response.
 pub struct BrpClient {
     config: Config,
-    ws_stream: Option<WebSocketStream<MaybeTlsStream<TcpStream>>>,
-    connected: bool,
+    http: Client,
+    url: String,
+    connected: Arc<AtomicBool>,
     retry_count: u32,
     resource_manager: Option<Arc<RwLock<ResourceManager>>>,
-    request_queue: Arc<RwLock<VecDeque<BatchedRequest>>>,
-    batch_processor_handle: Option<tokio::task::JoinHandle<()>>,
+    request_id: Arc<AtomicU64>,
     command_registry: Arc<CommandHandlerRegistry>,
     debug_router: Option<Arc<DebugCommandRouter>>,
 }
@@ -65,7 +44,8 @@ impl std::fmt::Debug for BrpClient {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("BrpClient")
             .field("config", &self.config)
-            .field("connected", &self.connected)
+            .field("url", &self.url)
+            .field("connected", &self.is_connected())
             .field("retry_count", &self.retry_count)
             .field("has_resource_manager", &self.resource_manager.is_some())
             .field("has_debug_router", &self.debug_router.is_some())
@@ -73,18 +53,41 @@ impl std::fmt::Debug for BrpClient {
     }
 }
 
+impl Clone for BrpClient {
+    fn clone(&self) -> Self {
+        Self {
+            config: self.config.clone(),
+            http: self.http.clone(),
+            url: self.url.clone(),
+            connected: self.connected.clone(),
+            retry_count: self.retry_count,
+            resource_manager: self.resource_manager.clone(),
+            request_id: self.request_id.clone(),
+            command_registry: self.command_registry.clone(),
+            debug_router: self.debug_router.clone(),
+        }
+    }
+}
+
 impl BrpClient {
     pub fn new(config: &Config) -> Self {
         let command_registry = Arc::new(CommandHandlerRegistry::new());
-        
+        let http = Client::builder()
+            .timeout(REQUEST_TIMEOUT)
+            .build()
+            .expect("reqwest client builder with rustls must succeed");
+
         BrpClient {
             config: config.clone(),
-            ws_stream: None,
-            connected: false,
+            http,
+            url: format!(
+                "http://{}:{}",
+                config.bevy_brp_host, config.bevy_brp_port
+            ),
+            connected: Arc::new(AtomicBool::new(false)),
             retry_count: 0,
             resource_manager: None,
-            request_queue: Arc::new(RwLock::new(VecDeque::new())),
-            batch_processor_handle: None,
+            request_id: Arc::new(AtomicU64::new(1)),
             command_registry,
             debug_router: None,
         }
@@ -102,18 +105,18 @@ impl BrpClient {
         self.resource_manager = Some(resource_manager);
         self
     }
-    
+
     /// Set the debug command router for handling debug commands
     pub fn with_debug_router(mut self, router: Arc<DebugCommandRouter>) -> Self {
         self.debug_router = Some(router);
         self
     }
-    
+
     /// Register a custom command handler
     pub async fn register_handler(&self, handler: Arc<dyn BrpCommandHandler>) {
         self.command_registry.register(handler).await;
     }
-    
+
     /// Get the command registry for external access
     pub fn command_registry(&self) -> Arc<CommandHandlerRegistry> {
         self.command_registry.clone()
@@ -126,7 +129,7 @@ impl BrpClient {
         while self.retry_count < MAX_RETRIES {
             match self.connect().await {
                 Ok(()) => {
-                    info!("Successfully connected to BRP at {}", self.config.brp_url());
+                    info!("Successfully connected to BRP at {}", self.url);
                     self.retry_count = 0;
                     return Ok(());
                 }
@@ -147,24 +150,39 @@ impl BrpClient {
         )))
     }
 
+    /// HTTP "connect": probe the server with an `rpc.discover` request and
+    /// accept any 2xx response as a healthy BRP endpoint.
     async fn connect(&mut self) -> Result<()> {
-        let url_str = self.config.brp_url();
-        let url =
-            Url::parse(&url_str).map_err(|e| Error::Connection(format!("Invalid BRP URL: {e}")))?;
+        debug!("Attempting BRP health check (rpc.discover) at {}", self.url);
 
-        debug!("Attempting to connect to {}", url);
-        let (ws_stream, _) = connect_async(&url_str)
+        let discover = BrpRequest {
+            method: builtin_methods::RPC_DISCOVER_METHOD.to_string(),
+            id: Some(Value::from(self.request_id.fetch_add(1, Ordering::Relaxed))),
+            params: None,
+        };
+
+        let response = self
+            .http
+            .post(&self.url)
+            .json(&discover)
+            .send()
             .await
-            .map_err(|e| Error::WebSocket(Box::new(e)))?;
+            .map_err(|e| Error::Connection(format!("BRP health check failed: {e}")))?;
 
-        self.ws_stream = Some(ws_stream);
-        self.connected = true;
-
-        Ok(())
+        if response.status().is_success() {
+            self.connected.store(true, Ordering::Relaxed);
+            Ok(())
+        } else {
+            self.connected.store(false, Ordering::Relaxed);
+            Err(Error::Connection(format!(
+                "BRP health check returned HTTP {}",
+                response.status()
+            )))
+        }
     }
 
     pub fn is_connected(&self) -> bool {
-        self.connected
+        self.connected.load(Ordering::Relaxed)
     }
 
     /// Send a BRP request and return the response (with resource management)
@@ -184,7 +202,6 @@ impl BrpClient {
             // Check if we should sample this request
             if !resource_manager.should_sample().await {
                 debug!("Skipping BRP request due to adaptive sampling");
-                // Return a mock response or cached result here if needed
                 return Err(Error::Validation(
                     "Request skipped due to adaptive sampling".to_string(),
                 ));
@@ -213,178 +230,57 @@ impl BrpClient {
         result
     }
 
-    /// Internal send request without resource management
+    /// Internal send request without resource management.
+    ///
+    /// POSTs the JSON-RPC envelope and parses the `bevy_remote::BrpResponse`
+    /// from the JSON-RPC response body.
     async fn send_request_internal(&mut self, request: &BrpRequest) -> Result<BrpResponse> {
-        let request_json = serde_json::to_string(request)?;
-        self.send_message(&request_json).await?;
-
-        // Wait for response with timeout
-        let response = tokio::time::timeout(Duration::from_secs(5), self.receive_message())
-            .await
-            .map_err(|_| Error::Connection("Request timeout".to_string()))?;
-
-        match response? {
-            Some(response_text) => serde_json::from_str(&response_text).map_err(Error::Json),
-            None => Err(Error::Connection(
-                "Connection closed during request".to_string(),
-            )),
+        // Stamp a fresh JSON-RPC id unless the caller set one.
+        let mut request = request.clone();
+        if request.id.is_none() {
+            request.id = Some(Value::from(self.request_id.fetch_add(1, Ordering::Relaxed)));
         }
+
+        let response = self
+            .http
+            .post(&self.url)
+            .json(&request)
+            .send()
+            .await
+            .map_err(|e| {
+                self.connected.store(false, Ordering::Relaxed);
+                if e.is_timeout() {
+                    Error::Connection("Request timeout".to_string())
+                } else {
+                    Error::Connection(format!("BRP HTTP request failed: {e}"))
+                }
+            })?;
+
+        let status = response.status();
+        if !status.is_success() {
+            self.connected.store(false, Ordering::Relaxed);
+            return Err(Error::Connection(format!(
+                "BRP server returned HTTP {status}"
+            )));
+        }
+
+        self.connected.store(true, Ordering::Relaxed);
+
+        response.json::<BrpResponse>().await.map_err(Error::from)
     }
 
-    /// Send a batched request (queued for batch processing)
+    /// Send a batched request: executes immediately like `send_request`.
+    ///
+    /// BRP is request/response over HTTP, so batching has no transport to
+    /// amortize; this preserves the interface for existing callers.
     pub async fn send_batched_request(&mut self, request: BrpRequest) -> Result<BrpResponse> {
-        let (response_tx, mut response_rx) = mpsc::channel(1);
-
-        let batched_request = BatchedRequest {
-            request,
-            timestamp: Instant::now(),
-            response_tx,
-        };
-
-        // Add to queue
-        {
-            let mut queue = self.request_queue.write().await;
-            queue.push_back(batched_request);
-        }
-
-        // Wait for response
-        response_rx
-            .recv()
-            .await
-            .ok_or_else(|| Error::Connection("Batch response channel closed".to_string()))?
+        self.send_request(&request).await
     }
 
-    /// Start batch processing
-    pub async fn start_batch_processing(&mut self) -> Result<()> {
-        if self.batch_processor_handle.is_some() {
-            return Ok(()); // Already running
-        }
-
-        let queue = self.request_queue.clone();
-        let resource_manager = self.resource_manager.clone();
-
-        let handle = tokio::spawn(async move {
-            let mut batch_interval = interval(Duration::from_millis(50)); // Batch every 50ms
-
-            loop {
-                batch_interval.tick().await;
-
-                // Process batched requests
-                let requests = {
-                    let mut queue_guard = queue.write().await;
-                    let batch_size = std::cmp::min(queue_guard.len(), 10); // Max 10 per batch
-                    queue_guard.drain(..batch_size).collect::<Vec<_>>()
-                };
-
-                if requests.is_empty() {
-                    continue;
-                }
-
-                // Check resource limits before processing batch
-                if let Some(ref rm) = resource_manager {
-                    let rm_guard = rm.read().await;
-                    if !rm_guard.check_brp_rate_limit().await {
-                        // Return rate limit errors to all requests
-                        for req in requests {
-                            let _ = req
-                                .response_tx
-                                .send(Err(Error::Validation(
-                                    "BRP rate limit exceeded".to_string(),
-                                )))
-                                .await;
-                        }
-                        continue;
-                    }
-                }
-
-                info!("Processing batch of {} BRP requests", requests.len());
-
-                // Process each request in the batch
-                // For better efficiency, we process them individually but with shared resources
-                for batched_request in requests {
-                    // Simulate batch processing by adding a small delay and processing
-                    let result = if let Some(ref rm) = resource_manager {
-                        let rm_guard = rm.read().await;
-                        if rm_guard.should_sample().await {
-                            // Process the request (simplified simulation)
-                            Ok(crate::brp_messages::BrpResponse::Success(
-                                Box::new(crate::brp_messages::BrpResult::Success),
-                            ))
-                        } else {
-                            Err(Error::Validation(
-                                "Request skipped due to adaptive sampling".to_string(),
-                            ))
-                        }
-                    } else {
-                        // Fallback processing without resource management
-                        Ok(crate::brp_messages::BrpResponse::Success(
-                            Box::new(crate::brp_messages::BrpResult::Success),
-                        ))
-                    };
-
-                    let _ = batched_request.response_tx.send(result).await;
-                }
-            }
-        });
-
-        self.batch_processor_handle = Some(handle);
-        info!("Batch processing started");
-        Ok(())
-    }
-
-    /// Stop batch processing
-    pub async fn stop_batch_processing(&mut self) {
-        if let Some(handle) = self.batch_processor_handle.take() {
-            handle.abort();
-            info!("Batch processing stopped");
-        }
-    }
-
-    pub async fn send_message(&mut self, message: &str) -> Result<()> {
-        if let Some(ws_stream) = &mut self.ws_stream {
-            ws_stream
-                .send(Message::Text(message.to_string()))
-                .await
-                .map_err(|e| Error::WebSocket(Box::new(e)))?;
-            debug!("Sent BRP message: {}", message);
-            Ok(())
-        } else {
-            Err(Error::Connection("Not connected to BRP".to_string()))
-        }
-    }
-
-    pub async fn receive_message(&mut self) -> Result<Option<String>> {
-        if let Some(ws_stream) = &mut self.ws_stream {
-            match ws_stream.next().await {
-                Some(Ok(Message::Text(text))) => {
-                    debug!("Received BRP message: {}", text);
-                    Ok(Some(text))
-                }
-                Some(Ok(Message::Close(_))) => {
-                    warn!("BRP connection closed");
-                    self.connected = false;
-                    self.ws_stream = None;
-                    Ok(None)
-                }
-                Some(Err(e)) => {
-                    error!("BRP WebSocket error: {}", e);
-                    self.connected = false;
-                    self.ws_stream = None;
-                    Err(Error::WebSocket(Box::new(e)))
-                }
-                None => Ok(None),
-                _ => Ok(None),
-            }
-        } else {
-            Err(Error::Connection("Not connected to BRP".to_string()))
-        }
-    }
-
+    /// Disconnect: with HTTP there is no persistent connection to drop, so
+    /// this simply marks the client disconnected.
     pub async fn disconnect(&mut self) {
-        if let Some(mut ws_stream) = self.ws_stream.take() {
-            let _ = ws_stream.close(None).await;
-        }
-        self.connected = false;
+        self.connected.store(false, Ordering::Relaxed);
         info!("Disconnected from BRP");
     }
 }

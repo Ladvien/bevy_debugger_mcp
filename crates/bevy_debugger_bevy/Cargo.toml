@@ -1,0 +1,21 @@
+[package]
+name = "bevy_debugger_bevy"
+version = "0.1.0"
+edition = "2021"
+rust-version = "1.95"
+description = "Companion Bevy plugin for bevy_debugger_mcp — registers custom BRP methods for screenshot, inspection, and headless input injection"
+license = "GPL-3.0"
+keywords = ["bevy", "debugging", "mcp", "brp", "gamedev"]
+categories = ["game-development", "development-tools"]
+
+[dependencies]
+bevy = { version = "0.19", features = ["default", "bevy_remote"] }
+bevy_remote = "0.19"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+image = { version = "0.25", default-features = false, features = ["png"] }
+
+[features]
+default = []
+input = []
+screenshot = []

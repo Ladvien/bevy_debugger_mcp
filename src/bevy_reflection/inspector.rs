@@ -35,6 +35,9 @@
 use bevy::prelude::*;
 #[cfg(feature = "bevy-reflection")]
 use bevy::reflect::*;
+#[cfg(feature = "bevy-reflection")]
+use ::serde::{Deserialize, Serialize};
+#[cfg(not(feature = "bevy-reflection"))]
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
 use std::any::{Any, TypeId};
@@ -293,7 +296,9 @@ impl BevyReflectionInspector {
             TypeInfo::Array(_) => (TypeCategory::Array, Vec::new()),
             TypeInfo::List(_) => (TypeCategory::List, Vec::new()),
             TypeInfo::Map(_) => (TypeCategory::Map, Vec::new()),
-            TypeInfo::Value(_) => (TypeCategory::Value, Vec::new()),
+            TypeInfo::Set(_) => (TypeCategory::Map, Vec::new()),
+            TypeInfo::Tuple(_) => (TypeCategory::TupleStruct, Vec::new()),
+            TypeInfo::Opaque(_) => (TypeCategory::Value, Vec::new()),
         };
 
         Ok(ReflectionMetadata {

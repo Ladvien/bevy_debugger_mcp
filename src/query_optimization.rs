@@ -26,6 +26,9 @@ use std::collections::HashSet;
 use serde::{Deserialize, Serialize};
 
 use crate::brp_messages::{BrpRequest, QueryFilter};
+use bevy_remote::builtin_methods::{
+    BRP_QUERY_METHOD, BRP_GET_COMPONENTS_METHOD, BRP_LIST_COMPONENTS_METHOD,
+};
 use crate::error::{Error, Result};
 
 /// Performance metrics for query execution
@@ -252,23 +255,29 @@ impl QueryStateCache {
     async fn analyze_query_pattern(&self, request: &BrpRequest) -> Result<QueryPattern> {
         let query_hash = self.hash_request(request);
         
-        let (access_strategy, performance_impact) = match request {
-            BrpRequest::Query { filter, limit, strict: _ } => {
-                self.analyze_query_request(filter.as_ref(), *limit).await?
+        let (access_strategy, performance_impact) = match request.method.as_str() {
+            BRP_QUERY_METHOD => {
+                let filter = request.params.as_ref()
+                    .and_then(|p| p.get("filter"))
+                    .and_then(|f| serde_json::from_value::<QueryFilter>(f.clone()).ok());
+                let limit = request.params.as_ref()
+                    .and_then(|p| p.get("limit"))
+                    .and_then(|l| l.as_u64())
+                    .map(|l| l as usize);
+                self.analyze_query_request(filter.as_ref(), limit).await?
             }
-            BrpRequest::Get { entity: _, components } => {
-                // Single entity access - always fast
+            BRP_GET_COMPONENTS_METHOD => {
+                let components: Vec<String> = request.params.as_ref()
+                    .and_then(|p| p.get("components"))
+                    .and_then(|c| serde_json::from_value(c.clone()).ok())
+                    .unwrap_or_default();
                 let strategy = ComponentAccessStrategy::DirectArchetype {
-                    components: components.clone().unwrap_or_default(),
-                    parallel_threshold: usize::MAX, // Never parallel for single entity
+                    components,
+                    parallel_threshold: usize::MAX,
                 };
                 (strategy, PerformanceImpact::Low)
             }
-            BrpRequest::ListEntities { filter } => {
-                self.analyze_list_entities_request(filter.as_ref()).await?
-            }
-            BrpRequest::ListComponents => {
-                // Component list access - medium cost
+            BRP_LIST_COMPONENTS_METHOD => {
                 let strategy = ComponentAccessStrategy::DirectArchetype {
                     components: vec![],
                     parallel_threshold: 1000,
@@ -276,8 +285,6 @@ impl QueryStateCache {
                 (strategy, PerformanceImpact::Medium)
             }
             _ => {
-                // For all other request types (Set, Spawn, Destroy, Insert, Remove, etc.)
-                // Use a simple direct access strategy with medium impact
                 let strategy = ComponentAccessStrategy::DirectArchetype {
                     components: vec![],
                     parallel_threshold: 500,
@@ -438,41 +445,39 @@ impl QueryStateCache {
         let mut hasher = DefaultHasher::new();
         
         // Create a simplified hashable representation
-        match request {
-            BrpRequest::Query { filter, limit, strict: _ } => {
+        match request.method.as_str() {
+            BRP_QUERY_METHOD => {
                 "Query".hash(&mut hasher);
-                // Hash filter components that can be hashed
-                if let Some(filter) = filter {
-                    filter.with.hash(&mut hasher);
-                    filter.without.hash(&mut hasher);
-                    // Skip where_clause as it contains ComponentValue which doesn't implement Hash
+                if let Some(params) = &request.params {
+                    if let Some(filter_val) = params.get("filter") {
+                        if let Ok(filter) = serde_json::from_value::<QueryFilter>(filter_val.clone()) {
+                            filter.with.hash(&mut hasher);
+                            filter.without.hash(&mut hasher);
+                        } else {
+                            None::<Vec<String>>.hash(&mut hasher);
+                        }
+                    } else {
+                        None::<Vec<String>>.hash(&mut hasher);
+                    }
+                    params.get("limit").hash(&mut hasher);
                 } else {
                     None::<Vec<String>>.hash(&mut hasher);
+                    None::<u64>.hash(&mut hasher);
                 }
-                limit.hash(&mut hasher);
             }
-            BrpRequest::Get { entity, components } => {
+            BRP_GET_COMPONENTS_METHOD => {
                 "Get".hash(&mut hasher);
-                entity.hash(&mut hasher);
-                components.hash(&mut hasher);
-            }
-            BrpRequest::ListEntities { filter } => {
-                "ListEntities".hash(&mut hasher);
-                // Hash filter components that can be hashed
-                if let Some(filter) = filter {
-                    filter.with.hash(&mut hasher);
-                    filter.without.hash(&mut hasher);
-                    // Skip where_clause as it contains ComponentValue which doesn't implement Hash
-                } else {
-                    None::<Vec<String>>.hash(&mut hasher);
+                if let Some(params) = &request.params {
+                    params.get("entity").hash(&mut hasher);
+                    params.get("components").hash(&mut hasher);
                 }
             }
-            BrpRequest::ListComponents => {
+            BRP_LIST_COMPONENTS_METHOD => {
                 "ListComponents".hash(&mut hasher);
             }
             _ => {
-                // For all other request types, use a generic hash
-                std::mem::discriminant(request).hash(&mut hasher);
+                request.method.hash(&mut hasher);
+                request.params.hash(&mut hasher);
             }
         }
         
@@ -482,10 +487,10 @@ impl QueryStateCache {
     /// Record query execution metrics
     pub fn record_metrics(&mut self, metrics: QueryPerformanceMetrics) {
         // Update cached query state with new metrics
-        if let Some(cached_state) = self.cache.get_mut(&self.hash_request(&BrpRequest::Query { 
-            filter: None, 
-            limit: None,
-            strict: Some(false),
+        if let Some(cached_state) = self.cache.get_mut(&self.hash_request(&BrpRequest {
+            method: BRP_QUERY_METHOD.to_string(),
+            id: None,
+            params: Some(serde_json::json!({})),
         })) {
             cached_state.avg_execution_time_ms = 
                 (cached_state.avg_execution_time_ms * (cached_state.usage_count - 1) as f64 + 
@@ -662,7 +667,11 @@ mod tests {
     async fn test_query_state_cache_basic() {
         let mut cache = QueryStateCache::new(10, 100);
         
-        let request = BrpRequest::ListComponents;
+        let request = BrpRequest {
+            method: BRP_LIST_COMPONENTS_METHOD.to_string(),
+            id: None,
+            params: None,
+        };
         let state = cache.get_or_build_query_state(&request).await.unwrap();
         
         assert_eq!(state.usage_count, 1);
@@ -677,14 +686,17 @@ mod tests {
     async fn test_query_optimizer() {
         let optimizer = QueryOptimizer::new(10, 100, 500);
         
-        let request = BrpRequest::Query {
-            filter: Some(QueryFilter {
-                with: Some(vec!["Transform".to_string()]),
-                without: None,
-                where_clause: None,
-            }),
-            limit: None,
-            strict: Some(false),
+        let request = BrpRequest {
+            method: BRP_QUERY_METHOD.to_string(),
+            id: None,
+            params: Some(serde_json::json!({
+                "filter": {
+                    "with": ["Transform"],
+                    "without": [],
+                },
+                "limit": null,
+                "strict": false,
+            })),
         };
         
         let optimized = optimizer.optimize_request(&request).await.unwrap();

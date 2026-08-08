@@ -339,6 +339,7 @@ mod error_handling {
         let config = Config {
             bevy_brp_port: 0, // Invalid port
             ..Config::default()
+        ..Default::default()
         };
         let brp_client = Arc::new(RwLock::new(BrpClient::new(&config)));
         let tools = BevyDebuggerTools::new(brp_client);

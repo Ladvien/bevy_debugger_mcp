@@ -5,8 +5,32 @@ use std::collections::HashMap;
 use tracing::{debug, info, warn};
 
 use crate::resource_manager::ObjectPool;
-use crate::brp_messages::{BrpRequest, BrpResponse, BrpResult, ComponentFilter, QueryFilter};
+use crate::brp_messages::{builtin_methods, BrpRequest, BrpResponse, ComponentFilter};
 use crate::error::Result;
+
+/// Construct the default `BrpRequest` held by the pool (`world.query`).
+fn default_brp_request() -> Box<BrpRequest> {
+    Box::new(BrpRequest {
+        method: builtin_methods::BRP_QUERY_METHOD.to_string(),
+        id: None,
+        params: Some(crate::brp_messages::query_params(None, true)),
+    })
+}
+
+/// Construct the default `BrpResponse` held by the pool (empty `world.query` result).
+fn default_brp_response() -> Box<BrpResponse> {
+    Box::new(BrpResponse::new(None, Ok(Value::Array(Vec::new()))))
+}
+
+/// Reset an acquired request box to the default.
+fn default_brp_request_from(_existing: Box<BrpRequest>) -> Box<BrpRequest> {
+    default_brp_request()
+}
+
+/// Reset an acquired response box to the default.
+fn default_brp_response_from(_existing: Box<BrpResponse>) -> Box<BrpResponse> {
+    default_brp_response()
+}
 
 /// Specialized memory pools for frequently allocated game debugging objects
 pub struct GameDebugPools {
@@ -31,15 +55,11 @@ impl GameDebugPools {
     pub fn new() -> Self {
         Self {
             brp_request_pool: ObjectPool::new(
-                Box::new(|| Box::new(BrpRequest::Query { 
-                    filter: None,
-                    limit: None,
-                    strict: Some(false)
-                })),
+                Box::new(default_brp_request),
                 50 // Max 50 concurrent requests
             ),
             brp_response_pool: ObjectPool::new(
-                Box::new(|| Box::new(BrpResponse::Success(Box::new(BrpResult::Entities(Vec::new()))))),
+                Box::new(default_brp_response),
                 50 // Max 50 concurrent responses
             ),
             component_filter_pool: ObjectPool::new(
@@ -67,16 +87,10 @@ impl GameDebugPools {
 
     /// Get a pooled BRP request, resetting it for reuse
     pub async fn get_brp_request(&self) -> Box<BrpRequest> {
-        let mut request = self.brp_request_pool.acquire().await;
-        
+        let request = self.brp_request_pool.acquire().await;
+
         // Reset the request to default state
-        *request = BrpRequest::Query { 
-            filter: None,
-            limit: None,
-            strict: Some(false) 
-        };
-        
-        request
+        default_brp_request_from(request)
     }
 
     /// Return a BRP request to the pool
@@ -86,12 +100,10 @@ impl GameDebugPools {
 
     /// Get a pooled BRP response, resetting it for reuse
     pub async fn get_brp_response(&self) -> Box<BrpResponse> {
-        let mut response = self.brp_response_pool.acquire().await;
-        
+        let response = self.brp_response_pool.acquire().await;
+
         // Reset the response to default state
-        *response = BrpResponse::Success(Box::new(BrpResult::Entities(Vec::new())));
-        
-        response
+        default_brp_response_from(response)
     }
 
     /// Return a BRP response to the pool

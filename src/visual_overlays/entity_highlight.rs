@@ -11,7 +11,7 @@ use bevy::prelude::*;
 #[cfg(feature = "visual_overlays")]
 use bevy::gizmos::*;
 #[cfg(feature = "visual_overlays")]
-use bevy::render::camera::CameraProjection;
+use bevy::math::Isometry3d;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::time::Instant;
@@ -398,7 +398,7 @@ fn render_highlighted_entities(
             // Render debug label if enabled and high detail
             if gizmo_config.show_labels && detail_factor > 0.7 {
                 let label_pos = transform.translation + Vec3::Y * 2.0;
-                gizmos.sphere(label_pos, Quat::IDENTITY, 0.1 * detail_factor, color);
+                gizmos.sphere(Isometry3d::new(label_pos, Quat::IDENTITY), 0.1 * detail_factor, color);
             }
             
             viewport_rendered += 1;
@@ -461,7 +461,7 @@ fn render_outline_gizmo(gizmos: &mut Gizmos, transform: &Transform, color: Color
     let rotation = transform.rotation;
     
     // Draw wireframe box as outline
-    gizmos.cuboid(
+    gizmos.cube(
         Transform {
             translation: position,
             rotation,
@@ -498,7 +498,7 @@ fn render_wireframe_gizmo_lod(gizmos: &mut Gizmos, transform: &Transform, color:
     let scale = transform.scale;
     
     // Always draw basic wireframe
-    gizmos.cuboid(
+    gizmos.cube(
         Transform {
             translation: position,
             rotation,
@@ -538,7 +538,7 @@ fn render_glow_gizmo(gizmos: &mut Gizmos, transform: &Transform, color: Color, i
         let alpha = color.alpha() / (i as f32 * 2.0);
         let glow_color = color.with_alpha(alpha);
         
-        gizmos.sphere(position, Quat::IDENTITY, radius, glow_color);
+        gizmos.sphere(Isometry3d::new(position, Quat::IDENTITY), radius, glow_color);
     }
 }
 
@@ -546,13 +546,13 @@ fn render_glow_gizmo(gizmos: &mut Gizmos, transform: &Transform, color: Color, i
 fn render_tint_gizmo(gizmos: &mut Gizmos, transform: &Transform, color: Color) {
     // For tint mode, draw a semi-transparent cube
     let alpha_color = color.with_alpha(color.alpha() * 0.3);
-    gizmos.cuboid(*transform, alpha_color);
+    gizmos.cube(*transform, alpha_color);
 }
 
 /// Render solid color replacement
 fn render_solid_gizmo(gizmos: &mut Gizmos, transform: &Transform, color: Color) {
     // Draw solid-colored cube
-    gizmos.cuboid(*transform, color);
+    gizmos.cube(*transform, color);
 }
 
 /// System to update highlight metrics
@@ -575,6 +575,7 @@ fn update_highlight_metrics(
         memory_usage_bytes: estimated_memory,
         frame_updates: if count > 0 { 1 } else { 0 },
         active_this_frame: count > 0,
+        viewport_stats: HashMap::new(),
     };
     
     // Update the specific overlay metrics
@@ -614,9 +615,9 @@ mod tests {
         let mut overlay = EntityHighlightOverlay::new();
         overlay.config.max_highlighted = 2; // Small limit for testing
         
-        let entity1 = Entity::from_raw(1);
-        let entity2 = Entity::from_raw(2);
-        let entity3 = Entity::from_raw(3);
+        let entity1 = Entity::from_raw_u32(1).unwrap();
+        let entity2 = Entity::from_raw_u32(2).unwrap();
+        let entity3 = Entity::from_raw_u32(3).unwrap();
         
         // Add highlights
         overlay.highlight_entity(entity1, Some(Color::srgb(1.0, 0.0, 0.0)), Some(HighlightMode::Outline), false, 0);

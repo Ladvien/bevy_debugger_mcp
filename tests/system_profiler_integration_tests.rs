@@ -24,6 +24,7 @@ async fn create_test_profiler() -> Arc<SystemProfiler> {
         bevy_brp_host: "localhost".to_string(),
         bevy_brp_port: 15702,
         mcp_port: 3000,
+        ..Default::default()
     };
     let brp_client = Arc::new(RwLock::new(BrpClient::new(&config)));
     Arc::new(SystemProfiler::new(brp_client))
@@ -35,6 +36,7 @@ async fn test_profiler_configuration() {
         bevy_brp_host: "localhost".to_string(),
         bevy_brp_port: 15702,
         mcp_port: 3000,
+        ..Default::default()
     };
     let brp_client = Arc::new(RwLock::new(BrpClient::new(&config)));
     

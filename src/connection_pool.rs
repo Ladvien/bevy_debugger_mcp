@@ -16,21 +16,25 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
 
+//! Connection pooling over the BRP HTTP transport.
+//!
+//! HTTP is stateless (reqwest pools TCP connections internally), so this pool
+//! manages *logical endpoint leases*: acquisition is rate-limited by a
+//! semaphore, and health is probed with an `rpc.discover` JSON-RPC call.
+
 use crate::config::{Config, ConnectionPoolConfig};
 use crate::error::{Error, Result};
-use futures_util::{SinkExt, StreamExt};
+use serde_json::Value;
 use std::collections::VecDeque;
+use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::Arc;
 use std::time::{Duration, Instant};
-use tokio::net::TcpStream;
-use tokio::sync::{mpsc, Mutex, Semaphore};
+use tokio::sync::{Mutex, Semaphore};
 use tokio::time::timeout;
-use tokio_tungstenite::{connect_async, tungstenite::Message, MaybeTlsStream, WebSocketStream};
-use tracing::{debug, error, info, warn};
-use url::Url;
+use tracing::{debug, info, warn};
 use uuid::Uuid;
 
-pub type WebSocket = WebSocketStream<MaybeTlsStream<TcpStream>>;
+use crate::brp::{builtin_methods, BrpRequest, BrpResponse};
 
 /// Connection metadata for pool management
 #[derive(Debug, Clone)]
@@ -73,28 +77,72 @@ impl ConnectionInfo {
     }
 }
 
-/// Pooled connection wrapper
-#[derive(Debug)]
+/// Pooled connection: a logical lease over one logical BRP endpoint.
+///
+/// Each lease owns its own `reqwest::Client` (with its own TCP pool), so
+/// concurrent leases execute fully in parallel.
+#[derive(Debug, Clone)]
 pub struct PooledConnection {
     pub info: ConnectionInfo,
-    pub websocket: WebSocket,
+    pub client: reqwest::Client,
 }
 
 impl PooledConnection {
-    pub fn new(websocket: WebSocket, game_endpoint: String) -> Self {
+    pub fn new(game_endpoint: String) -> Self {
         Self {
             info: ConnectionInfo::new(game_endpoint),
-            websocket,
+            client: reqwest::Client::new(),
         }
     }
 
-    /// Test connection health by sending a ping
+    /// Send a BRP JSON-RPC request through this lease.
+    pub async fn send_request(&self, request: &BrpRequest) -> Result<BrpResponse> {
+        let response = self
+            .client
+            .post(&self.info.game_endpoint)
+            .json(request)
+            .send()
+            .await
+            .map_err(Error::from)?;
+
+        if !response.status().is_success() {
+            return Err(Error::Connection(format!(
+                "BRP server returned HTTP {}",
+                response.status()
+            )));
+        }
+
+        response.json::<BrpResponse>().await.map_err(Error::from)
+    }
+
+    /// Test connection health with an `rpc.discover` probe
     pub async fn health_check(&mut self) -> bool {
-        match self.websocket.send(Message::Ping(vec![])).await {
-            Ok(_) => {
+        let probe = BrpRequest {
+            method: builtin_methods::RPC_DISCOVER_METHOD.to_string(),
+            id: Some(Value::from(self.info.id.to_string())),
+            params: None,
+        };
+
+        match self
+            .client
+            .post(&self.info.game_endpoint)
+            .json(&probe)
+            .send()
+            .await
+        {
+            Ok(response) if response.status().is_success() => {
                 debug!("Health check passed for connection {}", self.info.id);
                 self.info.is_healthy = true;
                 true
+            }
+            Ok(response) => {
+                warn!(
+                    "Health check failed for connection {}: HTTP {}",
+                    self.info.id,
+                    response.status()
+                );
+                self.info.is_healthy = false;
+                false
             }
             Err(e) => {
                 warn!("Health check failed for connection {}: {}", self.info.id, e);
@@ -105,7 +153,7 @@ impl PooledConnection {
     }
 }
 
-/// Production-grade connection pool for BRP connections
+/// Production-grade connection pool for BRP HTTP endpoints
 pub struct ConnectionPool {
     config: Config,
     pool_config: ConnectionPoolConfig,
@@ -139,11 +187,13 @@ impl ConnectionPoolMetrics {
     }
 }
 
+static PROBE_SEQ: AtomicU64 = AtomicU64::new(1);
+
 impl ConnectionPool {
     pub fn new(config: Config) -> Self {
         let pool_config = config.resilience.connection_pool.clone();
         let semaphore = Arc::new(Semaphore::new(pool_config.max_connections as usize));
-        
+
         Self {
             config,
             pool_config,
@@ -161,22 +211,21 @@ impl ConnectionPool {
 
         // Pre-populate pool with minimum connections
         for _ in 0..self.pool_config.min_connections {
-            if let Ok(connection) = self.create_connection().await {
-                let mut pool = self.available_connections.lock().await;
-                pool.push_back(connection);
-            }
+            let connection = self.create_connection();
+            let mut pool = self.available_connections.lock().await;
+            pool.push_back(connection);
         }
 
         // Start cleanup task
         self.start_cleanup_task().await;
-        
+
         // Start health check task
         self.start_health_check_task().await;
 
         Ok(())
     }
 
-    /// Get a connection from the pool
+    /// Get a connection lease from the pool
     pub async fn get_connection(&self) -> Result<PooledConnection> {
         // Try to acquire semaphore permit
         let _permit = timeout(
@@ -185,7 +234,6 @@ impl ConnectionPool {
         )
         .await
         .map_err(|_| {
-            // Update metrics
             {
                 let mut metrics = self.metrics.try_lock().unwrap();
                 metrics.connection_timeouts += 1;
@@ -199,40 +247,29 @@ impl ConnectionPool {
         {
             let mut pool = self.available_connections.lock().await;
             if let Some(mut connection) = pool.pop_front() {
-                // Perform quick health check
-                if connection.health_check().await {
-                    connection.info.mark_used();
-                    
-                    // Update metrics
-                    let mut metrics = self.metrics.lock().await;
-                    metrics.available_connections = pool.len() as u32;
-                    metrics.active_connections += 1;
-                    
-                    debug!("Reused pooled connection {}", connection.info.id);
-                    return Ok(connection);
-                } else {
-                    // Connection is unhealthy, create new one
-                    warn!("Removing unhealthy connection {} from pool", connection.info.id);
-                    let mut metrics = self.metrics.lock().await;
-                    metrics.total_connections_closed += 1;
-                    metrics.health_check_failures += 1;
-                }
+                connection.info.mark_used();
+
+                let mut metrics = self.metrics.lock().await;
+                metrics.available_connections = pool.len() as u32;
+                metrics.active_connections += 1;
+
+                debug!("Reused pooled connection {}", connection.info.id);
+                return Ok(connection);
             }
         }
 
-        // Create new connection if pool is empty or connections are unhealthy
-        let connection = self.create_connection().await?;
-        
-        // Update metrics
+        // Create new connection if pool is empty
+        let connection = self.create_connection();
+
         let mut metrics = self.metrics.lock().await;
         metrics.active_connections += 1;
-        
+
         info!("Created new pooled connection {}", connection.info.id);
         Ok(connection)
     }
 
-    /// Return a connection to the pool
-    pub async fn return_connection(&self, mut connection: PooledConnection) {
+    /// Return a connection lease to the pool
+    pub async fn return_connection(&self, connection: PooledConnection) {
         // Check if connection should be discarded
         if connection.info.is_expired(self.pool_config.max_connection_lifetime)
             || !connection.info.is_healthy
@@ -244,22 +281,10 @@ impl ConnectionPool {
             return;
         }
 
-        // Perform health check before returning to pool
-        if !connection.health_check().await {
-            warn!("Connection {} failed health check, discarding", connection.info.id);
-            let mut metrics = self.metrics.lock().await;
-            metrics.active_connections = metrics.active_connections.saturating_sub(1);
-            metrics.total_connections_closed += 1;
-            metrics.health_check_failures += 1;
-            return;
-        }
-
-        // Return healthy connection to pool
         {
             let mut pool = self.available_connections.lock().await;
             pool.push_back(connection);
-            
-            // Update metrics
+
             let mut metrics = self.metrics.lock().await;
             metrics.available_connections = pool.len() as u32;
             metrics.active_connections = metrics.active_connections.saturating_sub(1);
@@ -277,7 +302,6 @@ impl ConnectionPool {
     pub async fn shutdown(&mut self) {
         info!("Shutting down connection pool");
 
-        // Cancel background tasks
         if let Some(handle) = self.cleanup_handle.take() {
             handle.abort();
         }
@@ -285,42 +309,22 @@ impl ConnectionPool {
             handle.abort();
         }
 
-        // Close all connections
         let mut pool = self.available_connections.lock().await;
-        while let Some(mut connection) = pool.pop_front() {
-            let _ = connection.websocket.close(None).await;
-        }
+        pool.clear();
 
         info!("Connection pool shutdown complete");
     }
 
-    /// Create a new connection to the BRP endpoint
-    async fn create_connection(&self) -> Result<PooledConnection> {
-        let url_str = self.config.brp_url();
-        let url = Url::parse(&url_str)
-            .map_err(|e| Error::Connection(format!("Invalid BRP URL: {}", e)))?;
+    /// Create a new lease to the BRP endpoint
+    fn create_connection(&self) -> PooledConnection {
+        let url_str = format!(
+            "http://{}:{}",
+            self.config.bevy_brp_host, self.config.bevy_brp_port
+        );
 
-        debug!("Creating new connection to {}", url_str);
-        
-        let (websocket, _) = timeout(
-            self.pool_config.connection_timeout,
-            connect_async(&url_str)
-        )
-        .await
-        .map_err(|_| {
-            let mut metrics = self.metrics.try_lock().unwrap();
-            metrics.connection_timeouts += 1;
-            Error::Connection("Connection timeout".to_string())
-        })?
-        .map_err(|e| Error::WebSocket(Box::new(e)))?;
-
-        let connection = PooledConnection::new(websocket, url_str);
-        
-        // Update metrics
-        let mut metrics = self.metrics.lock().await;
-        metrics.total_connections_created += 1;
-
-        Ok(connection)
+        let connection = PooledConnection::new(url_str);
+        PROBE_SEQ.fetch_add(1, Ordering::Relaxed);
+        connection
     }
 
     /// Start cleanup task to remove expired/idle connections
@@ -331,40 +335,34 @@ impl ConnectionPool {
 
         let handle = tokio::spawn(async move {
             let mut interval = tokio::time::interval(Duration::from_secs(30));
-            
+
             loop {
                 interval.tick().await;
-                
-                let mut connections_to_close = Vec::new();
+
+                let mut closed_count = 0u32;
                 let mut remaining_connections = VecDeque::new();
-                
+
                 {
                     let mut pool_guard = pool.lock().await;
-                    
+
                     while let Some(connection) = pool_guard.pop_front() {
-                        if connection.info.is_expired(config.max_connection_lifetime) 
-                            || connection.info.is_idle(config.idle_timeout) 
+                        if connection.info.is_expired(config.max_connection_lifetime)
+                            || connection.info.is_idle(config.idle_timeout)
                         {
-                            connections_to_close.push(connection);
+                            closed_count += 1;
                         } else {
                             remaining_connections.push_back(connection);
                         }
                     }
-                    
-                    *pool_guard = remaining_connections;
-                }
 
-                // Close expired connections
-                let closed_count = connections_to_close.len();
-                for mut connection in connections_to_close {
-                    let _ = connection.websocket.close(None).await;
+                    *pool_guard = remaining_connections;
                 }
 
                 if closed_count > 0 {
                     debug!("Cleaned up {} expired/idle connections", closed_count);
                     let mut metrics_guard = metrics.lock().await;
                     metrics_guard.total_connections_closed += closed_count as u64;
-                    metrics_guard.available_connections = metrics_guard.available_connections.saturating_sub(closed_count as u32);
+                    metrics_guard.available_connections = metrics_guard.available_connections.saturating_sub(closed_count);
                 }
             }
         });
@@ -379,34 +377,33 @@ impl ConnectionPool {
 
         let handle = tokio::spawn(async move {
             let mut interval = tokio::time::interval(Duration::from_secs(120)); // Check every 2 minutes
-            
+
             loop {
                 interval.tick().await;
-                
+
                 let mut healthy_connections = VecDeque::new();
-                let mut unhealthy_count = 0;
-                
+                let mut unhealthy_count = 0u32;
+
                 {
                     let mut pool_guard = pool.lock().await;
-                    
+
                     while let Some(mut connection) = pool_guard.pop_front() {
                         if connection.health_check().await {
                             healthy_connections.push_back(connection);
                         } else {
                             unhealthy_count += 1;
-                            let _ = connection.websocket.close(None).await;
                         }
                     }
-                    
+
                     *pool_guard = healthy_connections;
                 }
 
                 if unhealthy_count > 0 {
                     warn!("Removed {} unhealthy connections during health check", unhealthy_count);
                     let mut metrics_guard = metrics.lock().await;
-                    metrics_guard.total_connections_closed += unhealthy_count;
-                    metrics_guard.health_check_failures += unhealthy_count;
-                    metrics_guard.available_connections = metrics_guard.available_connections.saturating_sub(unhealthy_count as u32);
+                    metrics_guard.total_connections_closed += unhealthy_count as u64;
+                    metrics_guard.health_check_failures += unhealthy_count as u64;
+                    metrics_guard.available_connections = metrics_guard.available_connections.saturating_sub(unhealthy_count);
                 }
             }
         });
@@ -432,14 +429,14 @@ mod tests {
 
     #[test]
     fn test_connection_info_expiry() {
-        let mut info = ConnectionInfo::new("ws://localhost:15702".to_string());
-        
+        let mut info = ConnectionInfo::new("http://localhost:15702".to_string());
+
         // Should not be expired immediately
         assert!(!info.is_expired(Duration::from_secs(60)));
-        
+
         // Should not be idle immediately
         assert!(!info.is_idle(Duration::from_secs(60)));
-        
+
         // Mark as used and check use count
         info.mark_used();
         assert_eq!(info.use_count, 1);
@@ -450,9 +447,9 @@ mod tests {
         let mut metrics = ConnectionPoolMetrics::default();
         metrics.active_connections = 3;
         metrics.available_connections = 7;
-        
+
         assert_eq!(metrics.connection_utilization_rate(), 0.3);
-        
+
         // Edge case: no connections
         metrics.active_connections = 0;
         metrics.available_connections = 0;

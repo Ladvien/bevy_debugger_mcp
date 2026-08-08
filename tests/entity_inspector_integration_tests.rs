@@ -1,8 +1,8 @@
 /// Integration tests for entity inspector functionality
 use bevy_debugger_mcp::brp_messages::{
-    DebugCommand, DebugResponse, EntityData, EntityId, EntityMetadata, 
-    EntityRelationships, EntityInspectionResult, DetailedComponentTypeInfo, 
-    EntityLocationInfo, BrpRequest, BrpResponse, BrpResult, BrpError, BrpErrorCode,
+    builtin_methods, BrpError, BrpPayload, BrpRequest, BrpResponse, DebugCommand, DebugResponse,
+    DetailedComponentTypeInfo, EntityData, EntityId, EntityInspectionResult, EntityLocationInfo,
+    EntityMetadata, EntityRelationships,
 };
 use bevy_debugger_mcp::entity_inspector::{EntityInspector, MAX_BATCH_SIZE};
 use bevy_debugger_mcp::brp_client::BrpClient;
@@ -149,30 +149,54 @@ impl MockBrpClient {
 
     async fn send_request(&mut self, request: &BrpRequest) -> Result<BrpResponse> {
         if self.simulate_failure {
-            return Ok(BrpResponse::Error(BrpError {
-                code: BrpErrorCode::InternalError,
-                message: "Simulated failure".to_string(),
-                details: None,
-            }));
+            return Ok(BrpResponse {
+                id: None,
+                payload: BrpPayload::Error(BrpError {
+                    code: -32603,
+                    message: "Simulated failure".to_string(),
+                    data: None,
+                }),
+            });
         }
 
-        match request {
-            BrpRequest::Get { entity, components: _ } => {
-                if let Some(entity_data) = self.entities.get(entity) {
-                    Ok(BrpResponse::Success(Box::new(BrpResult::Entity(entity_data.clone()))))
-                } else {
-                    Ok(BrpResponse::Error(BrpError {
-                        code: BrpErrorCode::EntityNotFound,
-                        message: format!("Entity {} not found", entity),
-                        details: None,
-                    }))
-                }
+        // Only `world.get_components` is mocked here.
+        if request.method != builtin_methods::BRP_GET_COMPONENTS_METHOD {
+            return Ok(BrpResponse {
+                id: None,
+                payload: BrpPayload::Error(BrpError {
+                    code: -32601,
+                    message: "Unsupported request type".to_string(),
+                    data: None,
+                }),
+            });
+        }
+
+        let entity = request
+            .params
+            .as_ref()
+            .and_then(|p| p.get("entity"))
+            .and_then(Value::as_u64)
+            .unwrap_or(0);
+
+        if let Some(entity_data) = self.entities.get(&entity) {
+            // Encode as a `world.get_components` result: `{ "components": {...} }`.
+            let mut components = serde_json::Map::new();
+            for (k, v) in &entity_data.components {
+                components.insert(k.clone(), v.clone());
             }
-            _ => Ok(BrpResponse::Error(BrpError {
-                code: BrpErrorCode::InternalError,
-                message: "Unsupported request type".to_string(),
-                details: None,
-            }))
+            Ok(BrpResponse {
+                id: None,
+                payload: BrpPayload::Result(json!({ "components": components })),
+            })
+        } else {
+            Ok(BrpResponse {
+                id: None,
+                payload: BrpPayload::Error(BrpError {
+                    code: -32602,
+                    message: format!("Entity {} not found", entity),
+                    data: None,
+                }),
+            })
         }
     }
 }

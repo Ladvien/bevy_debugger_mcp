@@ -320,7 +320,7 @@ pub fn test_connection(host: &str, port: u16) -> Result<(), Box<dyn std::error::
                 // Try to send a simple request
                 use tokio_tungstenite::tungstenite::Message;
                 let test_msg = json!({
-                    "method": "bevy/list",
+                    "method": "world.list_components",
                     "params": {}
                 });
                 
@@ -374,7 +374,7 @@ bevy = { version = "0.14", features = ["remote"] }
 bevy-debugger-mcp-helper = "0.1"  # Optional helper crate
 
 [features]
-debug = ["bevy/remote"]
+debug = ["bevy_remote"]
 "#);
     
     fs::write(&cargo_toml_path, cargo_toml)?;

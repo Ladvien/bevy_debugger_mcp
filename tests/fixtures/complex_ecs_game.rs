@@ -6,6 +6,7 @@
 use bevy::{
     prelude::*,
     remote::{RemotePlugin, BrpResult},
+    remote::http::RemoteHttpPlugin,
     app::AppExit,
     window::WindowPlugin,
     time::common_conditions::on_timer,
@@ -22,31 +23,32 @@ pub fn run_complex_ecs_game() {
         .add_plugins(DefaultPlugins.set(WindowPlugin {
             primary_window: Some(Window {
                 title: "Complex ECS Test Game".into(),
-                resolution: (1280.0, 720.0).into(),
+                resolution: (1280u32, 720u32).into(),
                 position: WindowPosition::Centered(MonitorSelection::Primary),
                 ..default()
             }),
             ..default()
         }))
         .add_plugins((
-            FrameTimeDiagnosticsPlugin,
+            FrameTimeDiagnosticsPlugin::default(),
             SystemInformationDiagnosticsPlugin,
         ))
         .add_plugins(
             RemotePlugin::default()
-                .with_method("bevy_debugger/query_entities", query_entities_handler)
-                .with_method("bevy_debugger/get_system_info", get_system_info)
-                .with_method("bevy_debugger/spawn_complex_entity", spawn_complex_entity_handler)
-                .with_method("bevy_debugger/run_simulation", run_simulation_handler)
-                .with_method("bevy_debugger/get_world_state", get_world_state_handler)
+                .with_method_main("bevy_debugger/query_entities", query_entities_handler)
+                .with_method_main("bevy_debugger/get_system_info", get_system_info)
+                .with_method_main("bevy_debugger/spawn_complex_entity", spawn_complex_entity_handler)
+                .with_method_main("bevy_debugger/run_simulation", run_simulation_handler)
+                .with_method_main("bevy_debugger/get_world_state", get_world_state_handler)
         )
+        .add_plugins(RemoteHttpPlugin::default())
         .init_resource::<GameWorld>()
         .init_resource::<EconomyResource>()
         .init_resource::<CombatStats>()
         .init_resource::<SimulationConfig>()
-        .add_event::<CombatEvent>()
-        .add_event::<TradeEvent>()
-        .add_event::<MovementEvent>()
+        .add_message::<CombatEvent>()
+        .add_message::<TradeEvent>()
+        .add_message::<MovementEvent>()
         .add_systems(Startup, setup_complex_world)
         .add_systems(Update, (
             // Core gameplay systems
@@ -135,14 +137,14 @@ impl Default for SimulationConfig {
 
 // Events
 
-#[derive(Event)]
+#[derive(Message)]
 struct CombatEvent {
     pub attacker: Entity,
     pub defender: Entity,
     pub damage: f32,
 }
 
-#[derive(Event)]
+#[derive(Message)]
 struct TradeEvent {
     pub trader: Entity,
     pub resource: String,
@@ -150,7 +152,7 @@ struct TradeEvent {
     pub price: f32,
 }
 
-#[derive(Event)]
+#[derive(Message)]
 struct MovementEvent {
     pub entity: Entity,
     pub from: Vec3,
@@ -169,6 +171,7 @@ struct ComplexEntity {
 }
 
 #[derive(Clone)]
+#[derive(Debug)]
 enum EntityClass {
     Warrior,
     Merchant,
@@ -187,6 +190,7 @@ struct AIBehavior {
 }
 
 #[derive(Clone)]
+#[derive(Debug)]
 enum BehaviorType {
     Aggressive,
     Defensive,
@@ -306,7 +310,6 @@ fn setup_complex_world(
     commands.spawn((
         DirectionalLight {
             illuminance: 3000.0,
-            shadows_enabled: true,
             ..default()
         },
         Transform::from_rotation(Quat::from_euler(EulerRot::XYZ, -0.5, -0.5, 0.0)),
@@ -703,7 +706,7 @@ fn physics_system(
 /// Combat system with complex interactions
 fn combat_system(
     mut query: Query<(Entity, &Transform, &mut Health, &mut Combat, &AIBehavior)>,
-    mut combat_events: EventWriter<CombatEvent>,
+    mut combat_events: MessageWriter<CombatEvent>,
     mut combat_stats: ResMut<CombatStats>,
     time: Res<Time>,
     config: Res<SimulationConfig>,
@@ -752,7 +755,7 @@ fn combat_system(
                     attacker_combat.last_attack = current_time;
 
                     // Record combat event
-                    combat_events.send(CombatEvent {
+                    combat_events.write(CombatEvent {
                         attacker: *attacker_entity,
                         defender: *defender_entity,
                         damage: final_damage,
@@ -798,7 +801,7 @@ fn health_system(
 /// Economy system with trading and resource management
 fn economy_system(
     mut query: Query<(Entity, &Transform, &mut Economy, &mut Inventory, &AIBehavior)>,
-    mut trade_events: EventWriter<TradeEvent>,
+    mut trade_events: MessageWriter<TradeEvent>,
     mut economy_resource: ResMut<EconomyResource>,
     time: Res<Time>,
     config: Res<SimulationConfig>,
@@ -848,7 +851,7 @@ fn economy_system(
                                     .or_insert(trade_amount);
                                 
                                 // Record trade
-                                trade_events.send(TradeEvent {
+                                trade_events.write(TradeEvent {
                                     trader: *trader_entity,
                                     resource: trade_good.clone(),
                                     amount: trade_amount,
@@ -875,8 +878,8 @@ fn economy_system(
 /// Relationship system for social interactions
 fn relationship_system(
     mut query: Query<(Entity, &Transform, &mut Relationships, &AIBehavior)>,
-    combat_events: EventReader<CombatEvent>,
-    trade_events: EventReader<TradeEvent>,
+    combat_events: MessageReader<CombatEvent>,
+    trade_events: MessageReader<TradeEvent>,
 ) {
     // Update relationships based on recent events
     // This would be more complex in a real game, but demonstrates the concept
@@ -919,7 +922,7 @@ fn lifecycle_system(
             || lifecycle.needs.values().any(|&need| need > 100.0);
 
         if should_die {
-            commands.entity(entity).despawn_recursive();
+            commands.entity(entity).despawn();
             world.entities_spawned = world.entities_spawned.saturating_sub(1);
         }
     }
@@ -941,9 +944,9 @@ fn resource_management_system(
 
 /// Event processing system
 fn event_processing_system(
-    mut combat_events: EventReader<CombatEvent>,
-    mut trade_events: EventReader<TradeEvent>,
-    mut movement_events: EventReader<MovementEvent>,
+    mut combat_events: MessageReader<CombatEvent>,
+    mut trade_events: MessageReader<TradeEvent>,
+    mut movement_events: MessageReader<MovementEvent>,
     mut world: ResMut<GameWorld>,
 ) {
     // Process combat events
@@ -1079,7 +1082,7 @@ fn world_events_system(
 /// Auto-exit system for testing
 fn auto_exit_system(
     time: Res<Time>,
-    mut exit: EventWriter<AppExit>,
+    mut exit: MessageWriter<AppExit>,
     mut timer: Local<Option<Timer>>,
 ) {
     if timer.is_none() {
@@ -1088,9 +1091,9 @@ fn auto_exit_system(
 
     if let Some(ref mut t) = timer.as_mut() {
         t.tick(time.delta());
-        if t.finished() {
+        if t.is_finished() {
             info!("Complex ECS game auto-exit timeout reached");
-            exit.send(AppExit::Success);
+            exit.write(AppExit::Success);
         }
     }
 }

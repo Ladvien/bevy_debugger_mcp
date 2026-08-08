@@ -24,6 +24,7 @@ async fn test_basic_debugging_features_only() {
         bevy_brp_host: "localhost".to_string(),
         bevy_brp_port: 15702,
         mcp_port: 3001,
+        ..Default::default()
     };
 
     let brp_client = Arc::new(tokio::sync::RwLock::new(BrpClient::new(&config)));
@@ -67,6 +68,7 @@ async fn test_caching_feature_disabled() {
         bevy_brp_host: "localhost".to_string(),
         bevy_brp_port: 15702,
         mcp_port: 3001,
+        ..Default::default()
     };
 
     let brp_client = Arc::new(tokio::sync::RwLock::new(BrpClient::new(&config)));
@@ -109,6 +111,7 @@ async fn test_lazy_init_feature_enabled() {
         bevy_brp_host: "localhost".to_string(),
         bevy_brp_port: 15702,
         mcp_port: 3001,
+        ..Default::default()
     };
 
     let brp_client = Arc::new(tokio::sync::RwLock::new(BrpClient::new(&config)));
@@ -137,6 +140,7 @@ async fn test_all_optimizations_enabled() {
         bevy_brp_host: "localhost".to_string(),
         bevy_brp_port: 15702,
         mcp_port: 3001,
+        ..Default::default()
     };
 
     // All optimization systems should be available
@@ -263,6 +267,7 @@ async fn test_disabled_features_compilation() {
         bevy_brp_host: "localhost".to_string(),
         bevy_brp_port: 15702,
         mcp_port: 3001,
+        ..Default::default()
     };
 
     let brp_client = Arc::new(tokio::sync::RwLock::new(BrpClient::new(&config)));
@@ -282,6 +287,7 @@ async fn test_graceful_degradation() {
         bevy_brp_host: "localhost".to_string(),
         bevy_brp_port: 15702,
         mcp_port: 3001,
+        ..Default::default()
     };
 
     let brp_client = Arc::new(tokio::sync::RwLock::new(BrpClient::new(&config)));
@@ -373,6 +379,7 @@ async fn test_invalid_feature_combinations() {
         bevy_brp_host: "invalid.example.com".to_string(), // Invalid host
         bevy_brp_port: 99999, // Invalid port
         mcp_port: 3001,
+        ..Default::default()
     };
 
     let brp_client = Arc::new(tokio::sync::RwLock::new(BrpClient::new(&config)));

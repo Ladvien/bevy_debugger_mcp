@@ -8,7 +8,9 @@ use bevy_debugger_mcp::{
     mcp_server::McpServer,
     brp_client::BrpClient,
     config::Config,
-    brp_messages::{BrpRequest, BrpResponse, BrpResult, BrpError, DebugCommand, DebugResponse, EntityData, EntityId},
+    brp_messages::{
+        BrpError, BrpPayload, BrpRequest, BrpResponse, DebugCommand, DebugResponse,
+    },
     debug_command_processor::{DebugCommandRouter, DebugCommandRequest},
     error::{Error, Result},
 };
@@ -384,19 +386,27 @@ pub struct MockBrpClient {
 
 impl MockBrpClient {
     pub fn new(config: &Config) -> Self {
-        let mut mock_responses = HashMap::new();
-        
-        // Set up default mock responses
-        mock_responses.insert("list_entities".to_string(), BrpResponse::Success(Box::new(
-            BrpResult::Entities(vec![])
-        )));
-        
-        mock_responses.insert("get_entity".to_string(), BrpResponse::Success(Box::new(
-            BrpResult::Entity(EntityData {
-                entity: EntityId { index: 0, generation: 0 },
-                components: vec![]
-            })
-        )));
+        let mut mock_responses: HashMap<String, BrpResponse> = HashMap::new();
+
+        // Set up default mock responses.
+        mock_responses.insert(
+            "list_entities".to_string(),
+            BrpResponse {
+                id: None,
+                payload: BrpPayload::Result(json!([])),
+            },
+        );
+
+        mock_responses.insert(
+            "get_entity".to_string(),
+            BrpResponse {
+                id: None,
+                payload: BrpPayload::Result(json!({
+                    "entity": 0,
+                    "components": {}
+                })),
+            },
+        );
 
         Self {
             config: config.clone(),
@@ -407,17 +417,21 @@ impl MockBrpClient {
     pub async fn send_request(&mut self, _request: &BrpRequest) -> Result<BrpResponse> {
         // Simulate network latency
         tokio::time::sleep(Duration::from_millis(1)).await;
-        
+
         // Return mock response based on request type
-        let response = self.mock_responses
+        let response = self
+            .mock_responses
             .get("list_entities")
             .cloned()
-            .unwrap_or(BrpResponse::Error(BrpError {
-                code: BrpErrorCode::InternalError,
-                message: "Mock response not configured".to_string(),
-                details: None,
-            }));
-            
+            .unwrap_or(BrpResponse {
+                id: None,
+                payload: BrpPayload::Error(BrpError {
+                    code: -32603,
+                    message: "Mock response not configured".to_string(),
+                    data: None,
+                }),
+            });
+
         Ok(response)
     }
 

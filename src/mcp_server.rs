@@ -541,46 +541,47 @@ impl McpServer {
             tokio::time::sleep(tokio::time::Duration::from_millis(capture_delay)).await;
         }
 
-        // Send BRP screenshot request
-        let request = crate::brp_messages::BrpRequest::Screenshot {
-            path: Some(path.clone()),
-            warmup_duration: Some(warmup_duration),
-            capture_delay: Some(capture_delay),
-            wait_for_render: Some(wait_for_render),
-            description: description.clone(),
-        };
+        // Send BRP screenshot request (as a debug command via the custom
+        // bevy_debugger/debug method — screenshot is not a stock BRP verb)
+        let request = crate::debug_brp_handler::encode_debug_request(
+            &crate::brp_messages::DebugCommand::Screenshot {
+                path: Some(path.clone()),
+                warmup_duration: Some(warmup_duration),
+                capture_delay: Some(capture_delay),
+                wait_for_render: Some(wait_for_render),
+                description: description.clone(),
+            },
+            &format!("screenshot-{}", path),
+            None,
+        )?;
 
         let mut client = self.brp_client.write().await;
         match client.send_request(&request).await {
-            Ok(response) => match response {
-                crate::brp_messages::BrpResponse::Success(
-                    boxed_result
-                ) => {
-                    if let crate::brp_messages::BrpResult::Screenshot { path, success } = boxed_result.as_ref() {
-                        if *success {
-                            Ok(json!({
-                                "success": true,
-                                "message": "Screenshot saved successfully",
-                                "path": path,
-                                "timestamp": SystemTime::now().duration_since(UNIX_EPOCH)
-                                    .unwrap_or_default().as_secs()
-                            }))
-                        } else {
-                            Ok(json!({
-                                "success": false,
-                                "error": "Screenshot failed",
-                                "message": "Screenshot operation failed in Bevy game"
-                            }))
-                        }
+            Ok(response) => match response.payload {
+                crate::brp_messages::BrpPayload::Result(value) => {
+                    let success = value.get("success").and_then(|s| s.as_bool()).unwrap_or(true);
+                    let path = value
+                        .get("path")
+                        .and_then(|p| p.as_str())
+                        .unwrap_or(&path)
+                        .to_string();
+                    if success {
+                        Ok(json!({
+                            "success": true,
+                            "message": "Screenshot saved successfully",
+                            "path": path,
+                            "timestamp": SystemTime::now().duration_since(UNIX_EPOCH)
+                                .unwrap_or_default().as_secs()
+                        }))
                     } else {
                         Ok(json!({
                             "success": false,
-                            "error": "Unexpected response",
-                            "message": "Received unexpected response type from Bevy game"
+                            "error": "Screenshot failed",
+                            "message": "Screenshot operation failed in Bevy game"
                         }))
                     }
                 }
-                crate::brp_messages::BrpResponse::Error(error) => {
+                crate::brp_messages::BrpPayload::Error(error) => {
                     warn!("Screenshot BRP request failed: {:?}", error);
                     Ok(json!({
                         "success": false,

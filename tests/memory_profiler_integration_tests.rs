@@ -28,6 +28,7 @@ fn create_test_config() -> Config {
         config.bevy_brp_port = 15702;
         config.mcp_port = 3000;
         config
+        ..Default::default()
     }
 }
 

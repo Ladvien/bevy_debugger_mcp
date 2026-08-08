@@ -17,14 +17,44 @@
  */
 
 use async_trait::async_trait;
-use serde_json::json;
+use serde_json::{json, Value};
 use std::sync::Arc;
 use tracing::{debug, error, info};
 
+use crate::brp::{BrpError, BrpRequest, BrpResponse, DebugCommand};
 use crate::brp_command_handler::{BrpCommandHandler, CommandHandlerMetadata, CommandVersion};
-use crate::brp_messages::{BrpRequest, BrpResponse, DebugCommand, DebugResponse};
-use crate::debug_command_processor::{DebugCommandRouter, DebugCommandRequest};
+use crate::debug_command_processor::{DebugCommandRequest, DebugCommandRouter};
 use crate::error::Result;
+
+/// Custom BRP method name that carries debugger `DebugCommand`s.
+///
+/// This is an extension point: a Bevy game may register a
+/// `bevy_debugger/debug` method via `RemotePlugin::with_method`; the debugger
+/// routes the command through its local debug command processors regardless.
+pub const BRP_DEBUG_METHOD: &str = "bevy_debugger/debug";
+
+/// Decode a `BrpRequest` into `(command, correlation_id, priority)` if it's a
+/// debug method call. Returns `None` for any other method.
+pub fn decode_debug_request(
+    request: &BrpRequest,
+) -> Option<(DebugCommand, String, Option<u8>)> {
+    if request.method != BRP_DEBUG_METHOD {
+        return None;
+    }
+    let params = request.params.as_ref()?;
+    let command: DebugCommand =
+        serde_json::from_value(params.get("command")?.clone()).ok()?;
+    let correlation_id = params
+        .get("correlation_id")
+        .and_then(Value::as_str)
+        .unwrap_or_default()
+        .to_string();
+    let priority = params
+        .get("priority")
+        .and_then(Value::as_u64)
+        .map(|p| p as u8);
+    Some((command, correlation_id, priority))
+}
 
 /// Handler for debug commands that routes through the debug command processor
 pub struct DebugBrpHandler {
@@ -60,48 +90,48 @@ impl BrpCommandHandler for DebugBrpHandler {
     }
 
     fn can_handle(&self, request: &BrpRequest) -> bool {
-        matches!(request, BrpRequest::Debug { .. })
+        request.method == BRP_DEBUG_METHOD
     }
 
     async fn handle(&self, request: BrpRequest) -> Result<BrpResponse> {
-        if let BrpRequest::Debug { command, correlation_id, priority } = request {
-            debug!("Processing debug command: {:?}", command);
-            
-            // Create a debug command request
-            let command_request = DebugCommandRequest::new(
-                command.clone(),
-                correlation_id.clone(),
-                priority,
-            );
-            
-            // Route through the debug command processor
-            match self.debug_router.route(command_request).await {
-                Ok(response) => {
-                    info!("Debug command processed successfully");
-                    
-                    // Convert DebugResponse to BrpResponse
-                    Ok(BrpResponse::Success(Box::new(crate::brp_messages::BrpResult::Debug(Box::new(response)))))
-                }
-                Err(e) => {
-                    error!("Failed to process debug command: {}", e);
-                    Ok(BrpResponse::Error(crate::brp_messages::BrpError {
-                        code: crate::brp_messages::BrpErrorCode::DebugValidationError,
-                        message: e.to_string(),
-                        details: None,
-                    }))
+        let Some((command, correlation_id, priority)) = decode_debug_request(&request) else {
+            return Err(crate::error::Error::Validation(
+                "DebugBrpHandler received malformed debug params".to_string(),
+            ));
+        };
+
+        debug!("Processing debug command: {:?}", command);
+
+        // Create a debug command request
+        let command_request = DebugCommandRequest::new(command.clone(), correlation_id, priority);
+
+        // Route through the debug command processor
+        match self.debug_router.route(command_request).await {
+            Ok(response) => {
+                info!("Debug command processed successfully");
+                match serde_json::to_value(response) {
+                    Ok(value) => Ok(BrpResponse::new(request.id.clone(), Ok(value))),
+                    Err(e) => Err(crate::error::Error::Json(e)),
                 }
             }
-        } else {
-            Err(crate::error::Error::Validation(
-                "DebugBrpHandler received non-debug request".to_string(),
-            ))
+            Err(e) => {
+                error!("Failed to process debug command: {}", e);
+                Ok(BrpResponse::new(
+                    request.id.clone(),
+                    Err(BrpError {
+                        code: bevy_remote::error_codes::INVALID_PARAMS,
+                        message: e.to_string(),
+                        data: None,
+                    }),
+                ))
+            }
         }
     }
 
     async fn validate(&self, request: &BrpRequest) -> Result<()> {
-        if let BrpRequest::Debug { command, .. } = request {
+        if let Some((command, _, _)) = decode_debug_request(request) {
             // Validate through the debug router
-            self.debug_router.validate_command(command).await
+            self.debug_router.validate_command(&command).await
         } else {
             Err(crate::error::Error::Validation(
                 "Invalid request type for debug handler".to_string(),
@@ -114,9 +144,27 @@ impl BrpCommandHandler for DebugBrpHandler {
     }
 }
 
+/// Build the `BrpRequest` envelope that carries a `DebugCommand` over BRP.
+pub fn encode_debug_request(
+    command: &DebugCommand,
+    correlation_id: &str,
+    priority: Option<u8>,
+) -> Result<BrpRequest> {
+    Ok(BrpRequest {
+        method: BRP_DEBUG_METHOD.to_string(),
+        id: Some(json!(correlation_id)),
+        params: Some(json!({
+            "command": serde_json::to_value(command).map_err(crate::error::Error::Json)?,
+            "correlation_id": correlation_id,
+            "priority": priority,
+        })),
+    })
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::brp::DebugResponse;
     use crate::debug_command_processor::DebugCommandProcessor;
 
     struct MockDebugProcessor;
@@ -124,9 +172,9 @@ mod tests {
     #[async_trait]
     impl DebugCommandProcessor for MockDebugProcessor {
         async fn process(&self, _command: DebugCommand) -> Result<DebugResponse> {
-            Ok(DebugResponse::Success { 
-                message: "test success".to_string(), 
-                data: Some(json!({ "test": "success" })) 
+            Ok(DebugResponse::Success {
+                message: "test success".to_string(),
+                data: Some(json!({ "test": "success" }))
             })
         }
 
@@ -152,15 +200,16 @@ mod tests {
 
         let handler = DebugBrpHandler::new(router);
 
-        let request = BrpRequest::Debug { 
-            command: DebugCommand::InspectEntity { 
-                entity_id: 123, 
-                include_metadata: None, 
-                include_relationships: None 
+        let request = encode_debug_request(
+            &DebugCommand::InspectEntity {
+                entity_id: 123,
+                include_metadata: None,
+                include_relationships: None,
             },
-            correlation_id: "test-123".to_string(),
-            priority: Some(5),
-        };
+            "test-123",
+            Some(5),
+        )
+        .unwrap();
 
         assert!(handler.can_handle(&request));
 
@@ -185,5 +234,15 @@ mod tests {
         assert_eq!(metadata.name, "debug");
         assert_eq!(metadata.version.major, 1);
         assert!(metadata.supported_commands.contains(&"InspectEntity".to_string()));
+    }
+
+    #[tokio::test]
+    async fn test_debug_round_trip() {
+        let command = DebugCommand::GetStatus;
+        let request = encode_debug_request(&command, "corr-1", None).unwrap();
+        let (decoded, corr, prio) = decode_debug_request(&request).unwrap();
+        assert!(matches!(decoded, DebugCommand::GetStatus));
+        assert_eq!(corr, "corr-1");
+        assert_eq!(prio, None);
     }
 }
