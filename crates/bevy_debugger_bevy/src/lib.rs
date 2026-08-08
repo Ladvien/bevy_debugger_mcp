@@ -27,13 +27,15 @@ use bevy::prelude::*;
 mod screenshot;
 mod input;
 
-pub use screenshot::ScreenshotParams;
+pub use screenshot::{DebugCaptureTarget, ScreenshotParams};
 pub use input::InputCommand;
 
 /// Plugin that registers all custom BRP methods for the debugger.
 ///
 /// Methods registered:
-/// - `bevy_debugger/screenshot` — capture with optional zoom/region
+/// - `bevy_debugger/screenshot` — **offscreen** capture with optional zoom/region. Requires the host
+///   to insert [`DebugCaptureTarget`]; it never captures the window, because that needs the window
+///   raised and focused.
 /// - `bevy_debugger/input` — headless keyboard/mouse injection
 pub struct DebuggerPlugin;
 

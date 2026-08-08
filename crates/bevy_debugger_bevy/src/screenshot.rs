@@ -1,17 +1,27 @@
-//! Screenshot capture with region cropping and zoom.
+//! Screenshot capture from an **offscreen render target**, with region cropping and zoom.
 //!
-//! The handler spawns a [`Screenshot`] of the primary window and observes its completion. On capture
-//! it converts the GPU image, optionally crops to a region, optionally scales it, and writes a PNG.
+//! # Why not the window
 //!
-//! # The capture is asynchronous, and the response says so
+//! `Screenshot::primary_window()` reads the window surface, which the OS only keeps current while the
+//! window is actually on screen. Capturing an occluded or unfocused window yields a single flat colour
+//! — measured on macOS: 7,188 distinct colours focused, 1 unfocused. The only way to make that path
+//! work is to raise the window, which steals focus, switches Spaces, and interrupts whoever is using
+//! the machine.
 //!
-//! `Screenshot` completes some frames after it is spawned, so this handler returns *before* the image
-//! exists. That is why it always writes to a **path** and reports that path back, rather than
-//! returning PNG bytes: there is nothing to return yet at the moment the BRP method replies. A caller
-//! reads the file once it appears.
+//! So this captures an `Image` a camera renders to instead. It is pure Bevy — no OS screen capture, no
+//! window manager, no focus change — and it works while the game is buried behind other windows, on
+//! another Space, or minimised.
 //!
-//! An earlier version of this doc promised "PNG bytes are returned if no path is given". It could not
-//! and did not — the bytes were discarded. Defaulting the path is the honest version of that contract.
+//! # The host supplies the target
+//!
+//! A library cannot know which view you want captured, so it does not guess: insert
+//! [`DebugCaptureTarget`] with a handle to an `Image` that one of your cameras renders to
+//! (`RenderTarget::Image`). Give that camera whatever marker your other camera queries exclude — or,
+//! better, filter those positively on your own main-camera marker, which is immune to any number of
+//! extra cameras.
+//!
+//! Without the resource this method fails loudly rather than silently falling back to window capture.
+//! A fallback would reintroduce exactly the focus-stealing behaviour this exists to avoid.
 
 use bevy::prelude::*;
 use bevy::remote::{error_codes, BrpError, BrpResult};
@@ -22,6 +32,16 @@ use serde_json::{json, Value};
 
 /// Where a capture goes when the caller does not name a path.
 const DEFAULT_PATH: &str = "./screenshot.png";
+
+/// The offscreen image `bevy_debugger/screenshot` captures.
+///
+/// Insert this with a handle to an `Image` that one of your cameras renders to. Nothing here spawns a
+/// camera: which view is worth capturing, at what resolution, and how it tracks your gameplay camera
+/// are all decisions only the host can make.
+#[derive(Resource, Clone)]
+pub struct DebugCaptureTarget {
+    pub image: Handle<Image>,
+}
 
 /// Parameters for the `bevy_debugger/screenshot` BRP method.
 #[derive(Debug, Deserialize)]
@@ -55,7 +75,22 @@ fn invalid_params(message: String) -> BrpError {
 }
 
 /// BRP handler: `bevy_debugger/screenshot`.
-pub fn handle_screenshot(In(params): In<Option<Value>>, mut commands: Commands) -> BrpResult {
+pub fn handle_screenshot(
+    In(params): In<Option<Value>>,
+    mut commands: Commands,
+    target: Option<Res<DebugCaptureTarget>>,
+) -> BrpResult {
+    // Loudly, not with a window-capture fallback — the fallback is the focus-stealing path.
+    let Some(target) = target else {
+        return Err(BrpError {
+            code: error_codes::INTERNAL_ERROR,
+            message: "no DebugCaptureTarget resource: the host must insert one with an Image a camera \
+                      renders to. Offscreen capture is the only path; there is deliberately no window \
+                      fallback, because capturing a window requires raising it."
+                .to_string(),
+            data: None,
+        });
+    };
     let params: ScreenshotParams = match params.as_ref() {
         Some(p) => serde_json::from_value(p.clone())
             .map_err(|e| invalid_params(format!("invalid screenshot params: {e}")))?,
@@ -83,7 +118,7 @@ pub fn handle_screenshot(In(params): In<Option<Value>>, mut commands: Commands) 
     let region = params.region;
     let zoom = params.zoom;
 
-    commands.spawn(Screenshot::primary_window()).observe(
+    commands.spawn(Screenshot::image(target.image.clone())).observe(
         move |trigger: On<ScreenshotCaptured>| {
             if let Err(e) = write_capture(&trigger.image, region.as_ref(), zoom, &path) {
                 error!("bevy_debugger/screenshot: {e}");
