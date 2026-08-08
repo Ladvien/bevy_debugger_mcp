@@ -1,5 +1,9 @@
 # Rust build artifacts
 /target/
+# Unanchored too: `crates/bevy_debugger_bevy` is a standalone package, not a workspace member,
+# so building it directly creates its own target dir and lockfile beside it.
+target/
+crates/*/Cargo.lock
 debug/
 **/*.rs.bk
 *.pdb

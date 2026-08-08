@@ -56,15 +56,22 @@ pub fn handle_input(
     mut keys: ResMut<ButtonInput<KeyCode>>,
     mut mouse: ResMut<ButtonInput<MouseButton>>,
 ) -> BrpResult {
-    let cmd: InputCommand = params
-        .as_ref()
-        .map(|p| serde_json::from_value(p.clone()))
-        .transpose()?
-        .ok_or_else(|| bevy_remote::BrpError {
+    // `serde_json::Error` has no `From` into `BrpError`, so `?` cannot carry it — a malformed payload
+    // is reported as INVALID_PARAMS with the parser's own message, which is the part a caller can act on.
+    let cmd: InputCommand = match params.as_ref() {
+        Some(p) => serde_json::from_value(p.clone()).map_err(|e| bevy_remote::BrpError {
             code: bevy_remote::error_codes::INVALID_PARAMS,
-            message: "Missing input parameters".to_string(),
+            message: format!("invalid input params: {e}"),
             data: None,
-        })?;
+        })?,
+        None => {
+            return Err(bevy_remote::BrpError {
+                code: bevy_remote::error_codes::INVALID_PARAMS,
+                message: "Missing input parameters".to_string(),
+                data: None,
+            })
+        }
+    };
 
     match cmd.kind {
         InputKind::Keyboard => {

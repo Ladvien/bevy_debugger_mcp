@@ -23,9 +23,6 @@
 //! ```
 
 use bevy::prelude::*;
-use bevy::remote::BrpResult;
-use bevy_remote::builtin_methods::*;
-use serde_json::{json, Value};
 
 mod screenshot;
 mod input;
