@@ -9,7 +9,10 @@ keywords = ["bevy", "debugging", "mcp", "brp", "gamedev"]
 categories = ["game-development", "development-tools"]
 
 [dependencies]
-bevy = { version = "0.19", features = ["default", "bevy_remote"] }
+# `serialize` is what makes `KeyCode`/`MouseButton` deserialize by name, which is how
+# `bevy_debugger/input` accepts every key Bevy knows instead of a hand-written table that goes
+# stale. See `input.rs`.
+bevy = { version = "0.19", features = ["default", "bevy_remote", "serialize"] }
 bevy_remote = "0.19"
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
