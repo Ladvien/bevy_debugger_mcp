@@ -189,12 +189,29 @@ impl SecurityManager {
                 return Ok(());
             }
             
-            info!("Development mode: Creating default users with secure random passwords");
-            
-            // Generate secure random passwords for development
-            let admin_password = SecurityConfig::generate_initial_password()?;
-            let dev_password = SecurityConfig::generate_initial_password()?;
-            let viewer_password = SecurityConfig::generate_initial_password()?;
+            // **`BEVY_MCP_DEV_PASSWORD` seeds the development users with a known password.**
+            //
+            // Without it the three dev passwords are random per start and only ever reach stderr, which
+            // makes the server unusable by the client it exists for: an MCP client cannot read its own
+            // server's log, so it can never call `authenticate`, so every tool stays locked. The tools
+            // were advertised and uncallable.
+            //
+            // This changes nothing in production mode — that path returns above without creating any
+            // user at all — and it is opt-in even in development, where the default remains a random
+            // password. It follows the `BEVY_MCP_*` convention the rest of the config already uses.
+            let seeded = std::env::var("BEVY_MCP_DEV_PASSWORD").ok().filter(|s| !s.is_empty());
+            if seeded.is_some() {
+                warn!("Development mode: seeding default users from BEVY_MCP_DEV_PASSWORD");
+            } else {
+                info!("Development mode: Creating default users with secure random passwords");
+            }
+
+            let password_for = |generated: String| -> String {
+                seeded.clone().unwrap_or(generated)
+            };
+            let admin_password = password_for(SecurityConfig::generate_initial_password()?);
+            let dev_password = password_for(SecurityConfig::generate_initial_password()?);
+            let viewer_password = password_for(SecurityConfig::generate_initial_password()?);
             
             let admin_user = User {
                 id: "admin".to_string(),

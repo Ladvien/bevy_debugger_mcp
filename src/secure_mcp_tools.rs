@@ -27,7 +27,13 @@ use schemars::JsonSchema;
 use crate::brp_client::BrpClient;
 use crate::tools::{observe, experiment, hypothesis, anomaly, stress, replay};
 use crate::security::{SecurityManager, SecurityMiddleware, Role, Claims, SecurityAudit};
-use crate::error::{Error, Result};
+// `Result` is NOT imported from `crate::error` here, deliberately. That alias takes one generic
+// argument, and `#[tool_handler]` expands to code naming `Result<CallToolResult, ErrorData>` — so
+// importing it shadows `std::result::Result` and the macro fails to compile in this module with a
+// baffling "type alias takes 1 generic argument but 2 were supplied". `mcp_tools.rs` never imported
+// it, which is the only reason the non-secure handler escaped this.
+use crate::error::Error;
+use crate::error::Result as DebugResult;
 
 // Re-export parameter structures from the original tools
 pub use crate::mcp_tools::{
@@ -112,7 +118,7 @@ impl SecureMcpTools {
     }
 
     /// Validate and authorize a tool call
-    async fn authorize_tool_call(&self, operation: &str, params: &Value) -> Result<Claims> {
+    async fn authorize_tool_call(&self, operation: &str, params: &Value) -> DebugResult<Claims> {
         let token = Self::extract_token_from_request(params)
             .ok_or_else(|| Error::SecurityError("Authentication required".to_string()))?;
         
@@ -622,6 +628,13 @@ impl SecureMcpTools {
 }
 
 // Implement ServerHandler for the secure tools
+// **Without this the tool router is built and never consulted.** `#[tool_router]` on the impl block
+// above collects every `#[tool]` into `self.tool_router`, but it is `#[tool_handler]` that generates
+// the `list_tools`/`call_tool` implementations which read it. A hand-written `ServerHandler` supplying
+// only `get_info` inherits the trait's defaults instead — an empty tool list and a call handler that
+// knows nothing — so the server advertised `tools` capability and then answered `tools/list` with
+// zero tools. `mcp_tools.rs` has carried this attribute all along; the secure variant lost it.
+#[tool_handler(router = self.tool_router)]
 impl ServerHandler for SecureMcpTools {
     fn get_info(&self) -> ServerInfo {
         ServerInfo {

@@ -137,10 +137,28 @@ impl McpServerV2 {
         tokio::select! {
             result = serve_server(Arc::try_unwrap(self.secure_tools).unwrap_or_else(|arc| (*arc).clone()), (stdin, stdout)) => {
                 match result {
-                    Ok(_) => {
-                        info!("MCP stdio server completed successfully");
-                        Ok(())
-                    }
+                    // **`serve_server` resolves once the service is RUNNING, not once it is done.** It
+                    // hands back a `RunningService` handle owning the task that reads the transport.
+                    // Returning here dropped that handle, which cancelled the task the moment the
+                    // client finished initializing — so `initialize` was answered and the very next
+                    // request was not. Claude Code showed that as
+                    // `Connected · tools fetch failed — MCP error -32000: Connection closed`,
+                    // which reads like a transport fault and is really a dropped handle.
+                    //
+                    // `waiting()` awaits the service's own quit reason, which is what "the server ran"
+                    // actually means.
+                    Ok(service) => match service.waiting().await {
+                        Ok(reason) => {
+                            info!("MCP stdio server finished: {reason:?}");
+                            Ok(())
+                        }
+                        Err(e) => {
+                            error!("MCP stdio server task failed to join: {}", e);
+                            Err(crate::error::Error::DebugError(format!(
+                                "MCP stdio server task failed to join: {e}"
+                            )))
+                        }
+                    },
                     Err(e) => {
                         error!("MCP stdio server error: {}", e);
                         Err(crate::error::Error::DebugError(format!("MCP stdio server failed: {}", e)))
