@@ -5,7 +5,10 @@ use tokio::sync::RwLock;
 use tracing::{debug, error, info, warn};
 
 use crate::brp_client::BrpClient;
-use crate::brp_messages::{BrpResponse, BrpResult, EntityData};
+use crate::brp_messages::{
+    component_type_info_from_list_result, entity_data_from_query_result, BrpPayload, BrpResponse,
+    EntityData,
+};
 use crate::error::{Error, Result};
 use crate::query_parser::{QueryCache, QueryMetrics, QueryParser, RegexQueryParser};
 use crate::state_diff::{FuzzyCompareConfig, GameRules, StateDiff, StateDiffResult, StateSnapshot};
@@ -284,78 +287,101 @@ pub async fn handle(arguments: Value, brp_client: Arc<RwLock<BrpClient>>) -> Res
     };
 
     // Process response and handle diff mode
-    let (result_json, entity_count, diff_result) = match brp_response {
-        BrpResponse::Success(result) => {
-            let entity_count = match result.as_ref() {
-                BrpResult::Entities(entities) => entities.len(),
-                BrpResult::Entity(_) => 1,
-                BrpResult::ComponentTypes(types) => types.len(),
-                _ => 0,
+    let (result_json, entity_count, diff_result) = match brp_response.payload {
+        BrpPayload::Result(value) => {
+            // Decode the method-specific payload into EntityData where possible
+            let decoded_entities = entity_data_from_query_result(&value)
+                .or_else(|| {
+                    // world.get_components result: {"components": {...}} (entity unknown here)
+                    value
+                        .get("components")
+                        .and_then(|c| c.as_object())
+                        .map(|map| {
+                            vec![EntityData {
+                                id: value.get("entity").and_then(|e| e.as_u64()).unwrap_or(0),
+                                components: map
+                                    .iter()
+                                    .map(|(k, v)| (k.clone(), v.clone()))
+                                    .collect(),
+                            }]
+                        })
+                })
+                .unwrap_or_default();
+
+            let entity_count = if !decoded_entities.is_empty() {
+                decoded_entities.len()
+            } else if let Some(arr) = value.as_array() {
+                // world.query rows or world.list_components type names
+                arr.len()
+            } else if value.is_object() {
+                // world.get_components for a single entity
+                1
+            } else {
+                0
             };
 
-            let mut result_json = serde_json::to_value(&result).map_err(Error::Json)?;
+            let mut result_json = value.clone();
 
             // Add reflection inspection if requested
             if use_reflection {
-                if let BrpResult::Entities(entities) = result.as_ref() {
-                    let mut reflection_data = Vec::new();
-                    let state_guard = state.read().await;
-                    
-                    for entity in entities.iter().take(20) { // Limit reflection to first 20 entities for performance
-                        let mut entity_reflection = serde_json::Map::new();
-                        entity_reflection.insert("entity_id".to_string(), json!(entity.id));
-                        
-                        let mut component_reflections = serde_json::Map::new();
-                        for (component_type, component_value) in &entity.components {
-                            match state_guard.reflection_inspector.inspect_component(component_type, component_value).await {
-                                Ok(inspection) => {
-                                    component_reflections.insert(component_type.clone(), json!(inspection));
-                                }
-                                Err(e) => {
-                                    warn!("Reflection inspection failed for {} on entity {}: {}", component_type, entity.id, e);
-                                    component_reflections.insert(component_type.clone(), json!({
-                                        "error": e.to_string(),
-                                        "type_name": component_type
-                                    }));
-                                }
+                let mut reflection_data = Vec::new();
+                let state_guard = state.read().await;
+
+                for entity in decoded_entities.iter().take(20) { // Limit reflection to first 20 entities for performance
+                    let mut entity_reflection = serde_json::Map::new();
+                    entity_reflection.insert("entity_id".to_string(), json!(entity.id));
+
+                    let mut component_reflections = serde_json::Map::new();
+                    for (component_type, component_value) in &entity.components {
+                        match state_guard.reflection_inspector.inspect_component(component_type, component_value).await {
+                            Ok(inspection) => {
+                                component_reflections.insert(component_type.clone(), json!(inspection));
+                            }
+                            Err(e) => {
+                                warn!("Reflection inspection failed for {} on entity {}: {}", component_type, entity.id, e);
+                                component_reflections.insert(component_type.clone(), json!({
+                                    "error": e.to_string(),
+                                    "type_name": component_type
+                                }));
                             }
                         }
-                        
-                        entity_reflection.insert("component_reflections".to_string(), json!(component_reflections));
-                        reflection_data.push(json!(entity_reflection));
                     }
-                    
-                    // Add reflection data to result
-                    if let Some(result_obj) = result_json.as_object_mut() {
-                        result_obj.insert("reflection_data".to_string(), json!(reflection_data));
-                    }
+
+                    entity_reflection.insert("component_reflections".to_string(), json!(component_reflections));
+                    reflection_data.push(json!(entity_reflection));
+                }
+
+                // Add reflection data to result
+                if let Some(result_obj) = result_json.as_object_mut() {
+                    result_obj.insert("reflection_data".to_string(), json!(reflection_data));
+                } else {
+                    // Result is an array of entities; wrap reflection alongside
+                    result_json = json!({
+                        "entities": result_json,
+                        "reflection_data": reflection_data,
+                    });
                 }
             }
 
             // Handle diff mode for entity queries
             let diff_result = if diff_mode {
-                match result.as_ref() {
-                    BrpResult::Entities(entities) => {
-                        let mut state_guard = state.write().await;
-                        let current_snapshot = state_guard.add_snapshot(entities.clone());
+                let mut state_guard = state.write().await;
+                let current_snapshot = state_guard.add_snapshot(decoded_entities.clone());
 
-                        if diff_target.starts_with("history:") {
-                            // Parse history index with bounds checking
-                            if let Ok(index) = diff_target[8..].parse::<usize>() {
-                                if index < state_guard.snapshots_history.len() {
-                                    state_guard.diff_against_history(&current_snapshot, index)
-                                } else {
-                                    None // Index out of bounds
-                                }
-                            } else {
-                                None // Invalid index format
-                            }
+                if diff_target.starts_with("history:") {
+                    // Parse history index with bounds checking
+                    if let Ok(index) = diff_target[8..].parse::<usize>() {
+                        if index < state_guard.snapshots_history.len() {
+                            state_guard.diff_against_history(&current_snapshot, index)
                         } else {
-                            // Default to diff against last
-                            state_guard.diff_against_last(&current_snapshot)
+                            None // Index out of bounds
                         }
+                    } else {
+                        None // Invalid index format
                     }
-                    _ => None, // Diff only works with entity queries
+                } else {
+                    // Default to diff against last
+                    state_guard.diff_against_last(&current_snapshot)
                 }
             } else {
                 None
@@ -363,13 +389,13 @@ pub async fn handle(arguments: Value, brp_client: Arc<RwLock<BrpClient>>) -> Res
 
             (result_json, entity_count, diff_result)
         }
-        BrpResponse::Error(error) => {
-            warn!("BRP returned error: {}", error);
+        BrpPayload::Error(error) => {
+            warn!("BRP returned error: {}", error.message);
             return Ok(json!({
                 "error": "BRP error",
                 "code": error.code,
                 "message": error.message,
-                "details": error.details
+                "details": error.data
             }));
         }
     };
@@ -471,6 +497,7 @@ mod tests {
             bevy_brp_host: "localhost".to_string(),
             bevy_brp_port: 15702,
             mcp_port: 3000,
+        ..Default::default()
         };
         let brp_client = Arc::new(RwLock::new(crate::brp_client::BrpClient::new(&config)));
 
@@ -487,6 +514,7 @@ mod tests {
             bevy_brp_host: "localhost".to_string(),
             bevy_brp_port: 15702,
             mcp_port: 3000,
+        ..Default::default()
         };
         let brp_client = Arc::new(RwLock::new(crate::brp_client::BrpClient::new(&config)));
 

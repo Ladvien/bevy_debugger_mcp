@@ -23,7 +23,9 @@ use futures_util::{stream, StreamExt};
 use rayon::prelude::*;
 use tracing::{debug, info, warn, error, instrument};
 
-use crate::brp_messages::{BrpRequest, BrpResponse, BrpResult, EntityData, QueryFilter};
+use crate::brp_messages::{BrpRequest, BrpResponse, EntityData, QueryFilter};
+use bevy_remote::BrpPayload;
+use bevy_remote::builtin_methods::{BRP_QUERY_METHOD, BRP_LIST_COMPONENTS_METHOD};
 use crate::brp_client::BrpClient;
 use crate::query_optimization::{OptimizedQuery, QueryPerformanceMetrics, ArchetypeAccessPattern};
 use crate::error::{Error, Result};
@@ -136,26 +138,24 @@ impl ParallelQueryExecutor {
         let batch_size = optimized_query.recommended_batch_size()
             .unwrap_or(self.config.batch_size);
 
-        match &optimized_query.original_request {
-            BrpRequest::Query { filter, limit, strict: _ } => {
+        match optimized_query.original_request.method.as_str() {
+            BRP_QUERY_METHOD => {
+                let filter = optimized_query.original_request.params.as_ref()
+                    .and_then(|p| p.get("filter"))
+                    .and_then(|f| serde_json::from_value::<QueryFilter>(f.clone()).ok());
+                let limit = optimized_query.original_request.params.as_ref()
+                    .and_then(|p| p.get("limit"))
+                    .and_then(|l| l.as_u64())
+                    .map(|l| l as usize);
                 self.execute_parallel_filtered_query(
-                    filter, 
-                    *limit, 
-                    batch_size, 
-                    brp_client, 
-                    start_time
-                ).await
-            }
-            BrpRequest::ListEntities { filter } => {
-                self.execute_parallel_list_entities(
-                    filter, 
-                    batch_size, 
-                    brp_client, 
+                    &filter,
+                    limit,
+                    batch_size,
+                    brp_client,
                     start_time
                 ).await
             }
             _ => {
-                // Fall back to sequential for non-parallelizable requests
                 self.execute_sequential_query(optimized_query, brp_client, start_time).await
             }
         }
@@ -171,18 +171,23 @@ impl ParallelQueryExecutor {
         start_time: Instant,
     ) -> Result<QueryExecutionResult> {
         // First, get a rough count of entities to determine batching strategy
-        let entity_count_request = BrpRequest::ListEntities { 
-            filter: filter.clone()
+        let entity_count_request = BrpRequest {
+            method: BRP_QUERY_METHOD.to_string(),
+            id: None,
+            params: Some(serde_json::json!({
+                "data": { "components": [], "option": [], "has": [] },
+                "filter": filter.as_ref().map(|f| serde_json::to_value(f).unwrap_or_default()),
+            })),
         };
 
         let entities = {
             let mut client = brp_client.write().await;
-            match client.send_request(&entity_count_request).await? {
-                BrpResponse::Success(result) => match *result {
-                    BrpResult::Entities(entities) => entities,
-                    _ => return Err(Error::Brp("Unexpected response type".to_string())),
-                },
-                BrpResponse::Error(e) => return Err(Error::Brp(format!("BRP error: {}", e.message))),
+            let response = client.send_request(&entity_count_request).await?;
+            match response.payload {
+                BrpPayload::Result(value) => {
+                    serde_json::from_value::<Vec<EntityData>>(value).unwrap_or_default()
+                }
+                BrpPayload::Error(e) => return Err(Error::Brp(format!("BRP error: {}", e.message))),
             }
         };
 
@@ -322,20 +327,12 @@ impl ParallelQueryExecutor {
             client.send_request(&optimized_query.original_request).await?
         };
 
-        match response {
-            BrpResponse::Success(result) => {
-                let (entities, entity_count) = match *result {
-                    BrpResult::Entities(entities) => {
-                        let count = entities.len();
-                        (entities, count)
-                    }
-                    BrpResult::Entity(entity) => (vec![entity], 1),
-                    _ => (vec![], 0),
-                };
-
+        match response.payload {
+            BrpPayload::Result(value) => {
+                let entities: Vec<EntityData> = serde_json::from_value(value).unwrap_or_default();
                 self.create_sequential_result(entities, start_time)
             }
-            BrpResponse::Error(e) => Err(Error::Brp(format!("BRP error: {}", e.message))),
+            BrpPayload::Error(e) => Err(Error::Brp(format!("BRP error: {}", e.message))),
         }
     }
 

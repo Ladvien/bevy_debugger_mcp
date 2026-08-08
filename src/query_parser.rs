@@ -35,6 +35,41 @@ struct QueryPattern {
     description: &'static str,
 }
 
+// ---------------------------------------------------------------------------
+// Request builders for the real Bevy 0.19 BRP method names
+// ---------------------------------------------------------------------------
+
+/// Build a `world.query` request from an optional filter.
+fn make_query_request(filter: Option<QueryFilter>) -> BrpRequest {
+    BrpRequest {
+        method: crate::brp::builtin_methods::BRP_QUERY_METHOD.to_string(),
+        id: None,
+        params: Some(crate::brp::query_params(filter.as_ref(), true)),
+    }
+}
+
+/// Build a `world.get_components` request.
+fn make_get_request(entity: u64, components: Option<Vec<String>>) -> BrpRequest {
+    BrpRequest {
+        method: crate::brp::builtin_methods::BRP_GET_COMPONENTS_METHOD.to_string(),
+        id: None,
+        params: Some(serde_json::json!({
+            "entity": entity,
+            "components": components.unwrap_or_default(),
+            "strict": false
+        })),
+    }
+}
+
+/// Build a `world.list_components` request.
+fn make_list_components_request() -> BrpRequest {
+    BrpRequest {
+        method: crate::brp::builtin_methods::BRP_LIST_COMPONENTS_METHOD.to_string(),
+        id: None,
+        params: None,
+    }
+}
+
 impl RegexQueryParser {
     /// Create a new regex-based query parser
     /// 
@@ -46,7 +81,7 @@ impl RegexQueryParser {
             QueryPattern {
                 pattern: Regex::new(r"^(?i)list\s+all\s+entities?$")
                     .map_err(|e| Error::Validation(format!("Invalid regex pattern: {}", e)))?,
-                builder: |_| Ok(BrpRequest::ListEntities { filter: None }),
+                builder: |_| Ok(make_query_request(None)),
                 description: "list all entities - List all entities in the game",
             },
 
@@ -57,10 +92,7 @@ impl RegexQueryParser {
                 builder: |caps| {
                     let entity_id = caps[1].parse::<u64>()
                         .map_err(|_| Error::Brp("Invalid entity ID".to_string()))?;
-                    Ok(BrpRequest::Get {
-                        entity: entity_id,
-                        components: None,
-                    })
+                    Ok(make_get_request(entity_id, None))
                 },
                 description: "show entity X - Show details for entity with ID X",
             },
@@ -71,15 +103,11 @@ impl RegexQueryParser {
                     .map_err(|e| Error::Validation(format!("Invalid regex pattern: {}", e)))?,
                 builder: |caps| {
                     let component_type = caps[1].to_string();
-                    Ok(BrpRequest::Query {
-                        filter: Some(QueryFilter {
-                            with: Some(vec![component_type]),
-                            without: None,
-                            where_clause: None,
-                        }),
-                        limit: None,
-                        strict: Some(false),
-                    })
+                    Ok(make_query_request(Some(QueryFilter {
+                        with: Some(vec![component_type]),
+                        without: None,
+                        where_clause: None,
+                    })))
                 },
                 description: "find entities with component Y - Find all entities that have component Y",
             },
@@ -90,15 +118,11 @@ impl RegexQueryParser {
                     .map_err(|e| Error::Validation(format!("Invalid regex pattern: {}", e)))?,
                 builder: |caps| {
                     let component_type = caps[1].to_string();
-                    Ok(BrpRequest::Query {
-                        filter: Some(QueryFilter {
-                            with: None,
-                            without: Some(vec![component_type]),
-                            where_clause: None,
-                        }),
-                        limit: None,
-                        strict: Some(false),
-                    })
+                    Ok(make_query_request(Some(QueryFilter {
+                        with: None,
+                        without: Some(vec![component_type]),
+                        where_clause: None,
+                    })))
                 },
                 description: "find entities without component Y - Find all entities that don't have component Y",
             },
@@ -107,7 +131,7 @@ impl RegexQueryParser {
             QueryPattern {
                 pattern: Regex::new(r"^(?i)list\s+components?$")
                     .map_err(|e| Error::Validation(format!("Invalid regex pattern: {}", e)))?,
-                builder: |_| Ok(BrpRequest::ListComponents),
+                builder: |_| Ok(make_list_components_request()),
                 description: "list components - List all available component types",
             },
 
@@ -127,15 +151,11 @@ impl RegexQueryParser {
                         return Err(Error::Brp("No components specified".to_string()));
                     }
 
-                    Ok(BrpRequest::Query {
-                        filter: Some(QueryFilter {
-                            with: Some(components),
-                            without: None,
-                            where_clause: None,
-                        }),
-                        limit: None,
-                        strict: Some(false),
-                    })
+                    Ok(make_query_request(Some(QueryFilter {
+                        with: Some(components),
+                        without: None,
+                        where_clause: None,
+                    })))
                 },
                 description: "find entities with A, B, C - Find entities that have all specified components",
             },
@@ -154,10 +174,10 @@ impl RegexQueryParser {
                         .filter(|s| !s.is_empty())
                         .collect();
 
-                    Ok(BrpRequest::Get {
-                        entity: entity_id,
-                        components: if components.is_empty() { None } else { Some(components) },
-                    })
+                    Ok(make_get_request(
+                        entity_id,
+                        if components.is_empty() { None } else { Some(components) },
+                    ))
                 },
                 description: "show entity X components A, B - Show specific components of entity X",
             },
@@ -167,18 +187,14 @@ impl RegexQueryParser {
                 pattern: Regex::new(r"^(?i)find\s+(\d+)\s+entities\s+with\s+component\s+([a-zA-Z_:]+)$")
                     .map_err(|e| Error::Validation(format!("Invalid regex pattern: {}", e)))?,
                 builder: |caps| {
-                    let limit = caps[1].parse::<usize>()
+                    let _limit = caps[1].parse::<usize>()
                         .map_err(|_| Error::Brp("Invalid limit".to_string()))?;
                     let component_type = caps[2].to_string();
-                    Ok(BrpRequest::Query {
-                        filter: Some(QueryFilter {
-                            with: Some(vec![component_type]),
-                            without: None,
-                            where_clause: None,
-                        }),
-                        limit: Some(limit),
-                        strict: Some(false),
-                    })
+                    Ok(make_query_request(Some(QueryFilter {
+                        with: Some(vec![component_type]),
+                        without: None,
+                        where_clause: None,
+                    })))
                 },
                 description: "find N entities with component Y - Find up to N entities with component Y",
             },
@@ -349,29 +365,32 @@ mod tests {
 
         // Test list all entities
         let result = parser.parse("list all entities").unwrap();
-        matches!(result, BrpRequest::ListEntities { .. });
+        assert_eq!(result.method, crate::brp::builtin_methods::BRP_QUERY_METHOD);
 
         // Test show entity
         let result = parser.parse("show entity 123").unwrap();
-        if let BrpRequest::Get { entity, .. } = result {
-            assert_eq!(entity, 123);
-        } else {
-            panic!("Expected Get request");
-        }
+        assert_eq!(result.method, crate::brp::builtin_methods::BRP_GET_COMPONENTS_METHOD);
+        let entity = result
+            .params
+            .as_ref()
+            .and_then(|p| p.get("entity"))
+            .and_then(|e| e.as_u64())
+            .unwrap();
+        assert_eq!(entity, 123);
 
         // Test find with component
         let result = parser
             .parse("find entities with component Transform")
             .unwrap();
-        if let BrpRequest::Query {
-            filter: Some(filter),
-            ..
-        } = result
-        {
-            assert_eq!(filter.with, Some(vec!["Transform".to_string()]));
-        } else {
-            panic!("Expected Query request");
-        }
+        assert_eq!(result.method, crate::brp::builtin_methods::BRP_QUERY_METHOD);
+        let with = result
+            .params
+            .as_ref()
+            .and_then(|p| p.get("filter"))
+            .and_then(|f| f.get("with"))
+            .and_then(|w| w.as_array())
+            .unwrap();
+        assert_eq!(with, &vec![serde_json::json!("Transform")]);
     }
 
     #[test]
@@ -381,8 +400,8 @@ mod tests {
         let result1 = parser.parse("LIST ALL ENTITIES").unwrap();
         let result2 = parser.parse("list all entities").unwrap();
 
-        matches!(result1, BrpRequest::ListEntities { .. });
-        matches!(result2, BrpRequest::ListEntities { .. });
+        assert_eq!(result1.method, crate::brp::builtin_methods::BRP_QUERY_METHOD);
+        assert_eq!(result2.method, crate::brp::builtin_methods::BRP_QUERY_METHOD);
     }
 
     #[test]
@@ -418,19 +437,21 @@ mod tests {
         let result = parser
             .parse("find entities with Transform, Velocity, Health")
             .unwrap();
-        if let BrpRequest::Query {
-            filter: Some(filter),
-            ..
-        } = result
-        {
-            let expected = vec![
-                "Transform".to_string(),
-                "Velocity".to_string(),
-                "Health".to_string(),
-            ];
-            assert_eq!(filter.with, Some(expected));
-        } else {
-            panic!("Expected Query request");
-        }
+        assert_eq!(result.method, crate::brp::builtin_methods::BRP_QUERY_METHOD);
+        let with = result
+            .params
+            .as_ref()
+            .and_then(|p| p.get("filter"))
+            .and_then(|f| f.get("with"))
+            .and_then(|w| w.as_array())
+            .unwrap();
+        assert_eq!(
+            with,
+            &vec![
+                serde_json::json!("Transform"),
+                serde_json::json!("Velocity"),
+                serde_json::json!("Health"),
+            ]
+        );
     }
 }

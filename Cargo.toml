@@ -10,7 +10,7 @@ readme = "README.md"
 license = "GPL-3.0"
 keywords = ["bevy", "debugging", "mcp", "claude", "gamedev"]
 categories = ["game-development", "development-tools", "command-line-utilities"]
-rust-version = "1.70"
+rust-version = "1.95"
 build = "build.rs"
 include = [
     "src/**/*",
@@ -46,10 +46,11 @@ rmcp = { version = "0.2.1", features = ["server"] }
 rmcp-macros = "0.2.1"
 
 tokio = { version = "1", features = ["full"] }
-tokio-tungstenite = "0.24"
+reqwest = { version = "0.12", default-features = false, features = ["json", "rustls-tls"] }
+bevy_remote = "0.19"
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
-thiserror = "1.0"
+thiserror = "2.0"
 tracing = "0.1"
 tracing-subscriber = { version = "0.3", features = ["env-filter"] }
 futures-util = "0.3"
@@ -107,7 +108,7 @@ tower-http = { version = "0.5", features = ["auth", "cors", "trace", "metrics"] 
 axum = { version = "0.7", features = ["macros", "json"] }
 
 # Optional Bevy dependency for visual overlays and reflection
-bevy = { version = "0.16", features = ["default", "bevy_remote"], optional = true }
+bevy = { version = "0.19", features = ["default", "bevy_remote"], optional = true }
 
 [features]
 # Default features - minimal overhead
@@ -182,7 +183,7 @@ lto = "thin"        # Faster LTO for benchmarks
 
 [dev-dependencies]
 tokio-test = "0.4"
-bevy = { version = "0.16", features = ["default", "bevy_remote"] }
+bevy = { version = "0.19", features = ["default", "bevy_remote"] }
 nix = { version = "0.27", features = ["signal", "process"] }
 tempfile = "3.0"
 sha2 = "0.10.9"

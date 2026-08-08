@@ -170,11 +170,11 @@ pub mod connection_pool;
 pub mod heartbeat;
 
 // Communication
+pub mod brp;
 pub mod brp_client;
 pub mod brp_client_v2;
 pub mod brp_command_handler;
 pub mod brp_integration;
-pub mod brp_messages;
 pub mod brp_validation;
 pub mod debug_brp_handler;
 pub mod debug_command_processor;
@@ -271,3 +271,6 @@ pub mod bevy_observability_integration;
 // Epic 6: Production features - Observability stack
 #[cfg(feature = "observability")]
 pub mod observability;
+
+// Legacy name for the `brp` module, removed hand-rolled `brp_messages` module.
+pub use brp as brp_messages;

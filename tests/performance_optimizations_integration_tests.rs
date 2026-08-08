@@ -284,6 +284,7 @@ mod feature_flag_tests {
             bevy_brp_host: "localhost".to_string(),
             bevy_brp_port: 15702,
             mcp_port: 3001,
+        ..Default::default()
         };
         let brp_client = Arc::new(RwLock::new(BrpClient::new(&config)));
         let lazy_components = LazyComponents::new(brp_client);

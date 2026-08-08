@@ -17,7 +17,7 @@ use crate::brp_messages::DebugOverlayType;
 #[cfg(feature = "visual_overlays")]
 use bevy::prelude::*;
 #[cfg(feature = "visual_overlays")]
-use bevy::render::camera::{CameraProjection, Viewport};
+use bevy::camera::Viewport;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
@@ -303,6 +303,7 @@ impl VisualOverlayManager {
             memory_usage_bytes: total_memory_usage,
             frame_updates: total_frame_updates,
             active_this_frame: any_active,
+            viewport_stats: HashMap::new(),
         };
         
         // Track system execution time
@@ -359,9 +360,10 @@ impl VisualOverlayManager {
             // Add new viewport if not exists
             if !viewport_config.viewport_overlays.contains_key(&viewport_id) {
                 if viewport_config.viewport_overlays.len() < viewport_config.max_viewports {
+                    let default = viewport_config.default_settings.clone();
                     viewport_config.viewport_overlays.insert(
                         viewport_id.clone(),
-                        viewport_config.default_settings.clone(),
+                        default,
                     );
                     info!("Auto-detected new viewport: {}", viewport_id);
                 } else {

@@ -279,7 +279,7 @@ impl Config {
 
     #[must_use]
     pub fn brp_url(&self) -> String {
-        format!("ws://{}:{}", self.bevy_brp_host, self.bevy_brp_port)
+        format!("http://{}:{}", self.bevy_brp_host, self.bevy_brp_port)
     }
     
     /// Validate configuration values

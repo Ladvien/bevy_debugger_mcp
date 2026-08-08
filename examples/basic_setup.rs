@@ -1,16 +1,12 @@
 use bevy::prelude::*;
 use bevy::remote::RemotePlugin;
+use bevy::remote::http::RemoteHttpPlugin;
 
-/// Basic Bevy game setup with RemotePlugin for debugging
-///
-/// This example shows the minimal setup required to enable
-/// debugging with Bevy Debugger MCP.
-///
-/// Run with: cargo run --example basic_setup
 fn main() {
     App::new()
         .add_plugins(DefaultPlugins)
-        .add_plugins(RemotePlugin::default()) // Enable remote debugging
+        .add_plugins(RemotePlugin::default())
+        .add_plugins(RemoteHttpPlugin::default())
         .add_systems(Startup, setup)
         .add_systems(Update, (move_player, rotate_cube))
         .run();
@@ -46,7 +42,6 @@ fn setup(
     // Light
     commands.spawn((
         PointLight {
-            shadows_enabled: true,
             ..default()
         },
         Transform::from_xyz(4.0, 8.0, 4.0),

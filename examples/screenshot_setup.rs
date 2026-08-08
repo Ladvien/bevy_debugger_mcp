@@ -1,19 +1,19 @@
 use bevy::{
     prelude::*,
     remote::{RemotePlugin, BrpResult},
-    render::view::screenshot::{save_to_disk, Screenshot},
+    remote::http::RemoteHttpPlugin,
+    render::view::window::screenshot::{save_to_disk, Screenshot},
 };
 use serde_json::Value;
 
-/// Example Bevy game setup with screenshot support for the Bevy Debugger MCP
 fn main() {
     App::new()
         .add_plugins(DefaultPlugins)
-        // Enable remote debugging with custom screenshot method
         .add_plugins(
             RemotePlugin::default()
-                .with_method("bevy_debugger/screenshot", screenshot_handler)
+                .with_method_main("bevy_debugger/screenshot", screenshot_handler)
         )
+        .add_plugins(RemoteHttpPlugin::default())
         .add_systems(Startup, setup)
         .add_systems(Update, (rotate_cube, screenshot_on_spacebar))
         .run();
@@ -42,7 +42,6 @@ fn setup(
     // Add a light
     commands.spawn((
         PointLight {
-            shadows_enabled: true,
             ..default()
         },
         Transform::from_xyz(4.0, 8.0, 4.0),

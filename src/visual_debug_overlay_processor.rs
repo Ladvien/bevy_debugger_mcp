@@ -3,7 +3,7 @@
 /// This processor handles the MCP side of visual debug overlays. The actual
 /// rendering implementation is handled by the game-side Bevy systems.
 use crate::brp_messages::{
-    DebugCommand, DebugResponse, DebugOverlayType, BrpRequest, BrpResponse, BrpResult
+    DebugCommand, DebugResponse, DebugOverlayType
 };
 use crate::brp_client::BrpClient;
 use crate::debug_command_processor::DebugCommandProcessor;
@@ -184,11 +184,11 @@ impl VisualDebugOverlayState {
         };
 
         let correlation_id = Uuid::new_v4().to_string();
-        let brp_request = BrpRequest::Debug {
-            command: debug_command,
-            correlation_id: correlation_id.clone(),
-            priority: Some(5), // Medium priority
-        };
+        let brp_request = crate::debug_brp_handler::encode_debug_request(
+            &debug_command,
+            &correlation_id,
+            Some(5), // Medium priority
+        )?;
 
         let mut client = self.brp_client.write().await;
         if !client.is_connected() {
@@ -196,34 +196,25 @@ impl VisualDebugOverlayState {
         }
 
         match client.send_request(&brp_request).await {
-            Ok(BrpResponse::Success(boxed_result)) => {
-                if let BrpResult::Debug(response) = boxed_result.as_ref() {
+            Ok(response) => match response.payload {
+                crate::brp_messages::BrpPayload::Result(value) => {
                     debug!(
                         "Visual debug overlay sync successful: correlation_id={}, response={:?}",
-                        correlation_id, response
+                        correlation_id, value
                     );
                     Ok(())
-                } else {
-                    Err(Error::Brp("Expected debug response".to_string()))
                 }
-            }
-            Ok(BrpResponse::Error(error)) => {
-                warn!(
-                    "Visual debug overlay sync failed: correlation_id={}, error={:?}",
-                    correlation_id, error
-                );
-                Err(Error::Brp(format!(
-                    "Overlay sync failed: {}",
-                    error.message
-                )))
-            }
-            Ok(response) => {
-                warn!(
-                    "Unexpected BRP response for overlay sync: {:?}",
-                    response
-                );
-                Err(Error::Brp("Unexpected response type".to_string()))
-            }
+                crate::brp_messages::BrpPayload::Error(error) => {
+                    warn!(
+                        "Visual debug overlay sync failed: correlation_id={}, error={:?}",
+                        correlation_id, error
+                    );
+                    Err(Error::Brp(format!(
+                        "Overlay sync failed: {}",
+                        error.message
+                    )))
+                }
+            },
             Err(e) => {
                 error!(
                     "BRP request failed for overlay sync: correlation_id={}, error={}",

@@ -401,11 +401,11 @@ impl VisualDebugOverlay {
                 config: Some(state.config.clone()),
             };
             
-            let request = crate::brp_messages::BrpRequest::Debug {
-                command: debug_command,
-                correlation_id: uuid::Uuid::new_v4().to_string(),
-                priority: Some(5),
-            };
+            let request = crate::debug_brp_handler::encode_debug_request(
+                &debug_command,
+                &uuid::Uuid::new_v4().to_string(),
+                Some(5),
+            )?;
             
             client.send_request(&request).await?;
         }
@@ -559,6 +559,7 @@ mod tests {
             bevy_brp_host: "localhost".to_string(),
             bevy_brp_port: 15702,
             mcp_port: 3000,
+        ..Default::default()
         };
         let brp_client = Arc::new(RwLock::new(BrpClient::new(&config)));
         let overlay = VisualDebugOverlay::new(brp_client);
@@ -573,6 +574,7 @@ mod tests {
             bevy_brp_host: "localhost".to_string(),
             bevy_brp_port: 15702,
             mcp_port: 3000,
+        ..Default::default()
         };
         let brp_client = Arc::new(RwLock::new(BrpClient::new(&config)));
         let overlay = VisualDebugOverlay::new(brp_client);

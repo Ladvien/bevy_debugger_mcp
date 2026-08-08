@@ -485,6 +485,7 @@ mod tests {
             bevy_brp_host: "localhost".to_string(),
             bevy_brp_port: 15702,
             mcp_port: 3000,
+        ..Default::default()
         };
         let brp_client = Arc::new(RwLock::new(crate::brp_client::BrpClient::new(&config)));
 
@@ -504,6 +505,7 @@ mod tests {
             bevy_brp_host: "localhost".to_string(),
             bevy_brp_port: 15702,
             mcp_port: 3000,
+        ..Default::default()
         };
         let brp_client = Arc::new(RwLock::new(crate::brp_client::BrpClient::new(&config)));
 

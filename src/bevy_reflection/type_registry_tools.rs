@@ -26,6 +26,9 @@ use bevy::prelude::*;
 #[cfg(feature = "bevy-reflection")]
 use bevy::reflect::*;
 
+#[cfg(feature = "bevy-reflection")]
+use ::serde::{Deserialize, Serialize};
+#[cfg(not(feature = "bevy-reflection"))]
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
 use std::any::TypeId;
@@ -138,6 +141,7 @@ impl TypeRegistryManager {
 
             // Build cached type info
             let cached_info = self.build_cached_type_info(registration).await?;
+            let is_reflected = cached_info.metadata.is_reflected;
             
             // Store in caches
             {
@@ -151,11 +155,11 @@ impl TypeRegistryManager {
             }
 
             discovered_count += 1;
-            if cached_info.metadata.is_reflected {
+            if is_reflected {
                 reflected_count += 1;
             }
 
-            debug!("Discovered type: {} (reflected: {})", type_name, cached_info.metadata.is_reflected);
+            debug!("Discovered type: {} (reflected: {})", type_name, is_reflected);
         }
 
         // Update statistics
@@ -245,7 +249,9 @@ impl TypeRegistryManager {
             TypeInfo::Array(_) => (TypeCategory::Array, Vec::new()),
             TypeInfo::List(_) => (TypeCategory::List, Vec::new()),
             TypeInfo::Map(_) => (TypeCategory::Map, Vec::new()),
-            TypeInfo::Value(_) => (TypeCategory::Value, Vec::new()),
+            TypeInfo::Set(_) => (TypeCategory::Map, Vec::new()),
+            TypeInfo::Tuple(_) => (TypeCategory::TupleStruct, Vec::new()),
+            TypeInfo::Opaque(_) => (TypeCategory::Value, Vec::new()),
         };
 
         Ok(ReflectionMetadata {
@@ -299,29 +305,42 @@ impl TypeRegistryManager {
                 json!({
                     "type": "array",
                     "name": array_info.type_path(),
-                    "length": array_info.len(),
-                    "item_type": array_info.item_type_path_table().path(),
+                    "capacity": array_info.capacity(),
+                    "item_type": array_info.item_info().map(|i| i.type_path()),
                 })
             }
             TypeInfo::List(list_info) => {
                 json!({
                     "type": "list",
                     "name": list_info.type_path(),
-                    "item_type": list_info.item_type_path_table().path(),
+                    "item_type": list_info.item_info().map(|i| i.type_path()),
                 })
             }
             TypeInfo::Map(map_info) => {
                 json!({
                     "type": "map",
                     "name": map_info.type_path(),
-                    "key_type": map_info.key_type_path_table().path(),
-                    "value_type": map_info.value_type_path_table().path(),
+                    "key_type": map_info.key_info().map(|i| i.type_path()),
+                    "value_type": map_info.value_info().map(|i| i.type_path()),
                 })
             }
-            TypeInfo::Value(value_info) => {
+            TypeInfo::Set(set_info) => {
                 json!({
-                    "type": "value",
-                    "name": value_info.type_path(),
+                    "type": "set",
+                    "name": set_info.type_path(),
+                })
+            }
+            TypeInfo::Tuple(tuple_info) => {
+                json!({
+                    "type": "tuple",
+                    "name": tuple_info.type_path(),
+                    "field_count": tuple_info.field_len(),
+                })
+            }
+            TypeInfo::Opaque(opaque_info) => {
+                json!({
+                    "type": "opaque",
+                    "name": opaque_info.type_path(),
                 })
             }
         }

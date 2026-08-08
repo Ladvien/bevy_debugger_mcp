@@ -1,7 +1,7 @@
 /// Entity inspection system for detailed debugging and analysis
 use crate::brp_messages::{
-    BrpRequest, BrpResponse, BrpResult, EntityData, EntityId, EntityMetadata, 
-    EntityRelationships, EntityInspectionResult, DetailedComponentTypeInfo, 
+    builtin_methods, entity_data_from_get_result, BrpPayload, BrpRequest, EntityData, EntityId,
+    EntityMetadata, EntityRelationships, EntityInspectionResult, DetailedComponentTypeInfo,
     EntityLocationInfo, DebugResponse, ComponentValue,
 };
 use crate::brp_client::BrpClient;
@@ -218,27 +218,26 @@ impl EntityInspector {
     /// Fetch entity data from Bevy via BRP client
     async fn fetch_entity_from_brp(&self, entity_id: EntityId) -> Result<EntityData> {
         let mut brp_client = self.brp_client.write().await;
-        
-        // Use BRP Get command to fetch entity with all components
-        let request = BrpRequest::Get {
-            entity: entity_id,
-            components: None, // Fetch all components
+
+        // Use world.get_components to fetch entity with all components
+        let request = BrpRequest {
+            method: builtin_methods::BRP_GET_COMPONENTS_METHOD.to_string(),
+            id: None,
+            params: Some(json!({
+                "entity": entity_id,
+                "components": [],
+                "strict": false
+            })),
         };
 
         let response = brp_client.send_request(&request).await?;
 
-        match response {
-            BrpResponse::Success(boxed_result) => {
-                if let BrpResult::Entity(entity_data) = boxed_result.as_ref() {
-                    Ok(entity_data.clone())
-                } else {
-                    Err(Error::Brp("Expected entity data".to_string()))
-                }
-            }
-            BrpResponse::Error(err) => {
+        match response.payload {
+            BrpPayload::Result(value) => entity_data_from_get_result(entity_id, &value)
+                .ok_or_else(|| Error::Brp("Expected component map in world.get_components result".to_string())),
+            BrpPayload::Error(err) => {
                 Err(Error::DebugError(format!("BRP error: {}", err.message)))
             }
-            _ => Err(Error::DebugError("Unexpected BRP response type".to_string())),
         }
     }
 

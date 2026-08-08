@@ -1,7 +1,8 @@
 use bevy::{
     prelude::*,
     remote::{RemotePlugin, BrpResult},
-    render::view::screenshot::{save_to_disk, Screenshot},
+    remote::http::RemoteHttpPlugin,
+    render::view::window::screenshot::{save_to_disk, Screenshot},
     app::AppExit,
     window::WindowPlugin,
 };
@@ -15,7 +16,7 @@ pub fn run_animated_test_game() {
         .add_plugins(DefaultPlugins.set(WindowPlugin {
             primary_window: Some(Window {
                 title: "Screenshot Test Game - Animated".into(),
-                resolution: (800.0, 600.0).into(),
+                resolution: (800u32, 600u32).into(),
                 position: WindowPosition::Centered(MonitorSelection::Primary),
                 ..default()
             }),
@@ -23,8 +24,9 @@ pub fn run_animated_test_game() {
         }))
         .add_plugins(
             RemotePlugin::default()
-                .with_method("bevy_debugger/screenshot", screenshot_handler)
+                .with_method_main("bevy_debugger/screenshot", screenshot_handler)
         )
+        .add_plugins(RemoteHttpPlugin::default())
         .add_systems(Startup, setup_animated_scene)
         .add_systems(Update, (
             rotate_cubes,
@@ -93,7 +95,6 @@ fn setup_animated_scene(
         PointLight {
             intensity: 1000.0,
             color: Color::WHITE,
-            shadows_enabled: false,
             ..default()
         },
         Transform::from_xyz(0.0, 5.0, 0.0),
@@ -177,7 +178,7 @@ fn pulse_light(
 /// Auto-exit system to prevent hanging in CI
 fn auto_exit_system(
     time: Res<Time>,
-    mut exit: EventWriter<AppExit>,
+    mut exit: MessageWriter<AppExit>,
     mut timer: Local<Option<Timer>>,
 ) {
     if timer.is_none() {
@@ -186,7 +187,7 @@ fn auto_exit_system(
 
     if let Some(ref mut t) = timer.as_mut() {
         t.tick(time.delta());
-        if t.finished() {
+        if t.is_finished() {
             info!("Auto-exit timer finished - shutting down animated test game");
             exit.write(AppExit::Success);
         }

@@ -22,9 +22,9 @@ use std::collections::HashMap;
 use std::sync::Arc;
 use tokio::sync::RwLock;
 
-use crate::brp_messages::{BrpRequest, BrpResponse};
+use crate::brp::{builtin_methods, BrpRequest, BrpResponse};
 use crate::brp_validation::BrpValidator;
-use crate::error::Result;
+use crate::error::{Error, Result};
 
 /// Version information for command handlers
 #[derive(Debug, Clone)]
@@ -95,9 +95,9 @@ pub trait BrpCommandHandler: Send + Sync {
     /// Override this to add custom validation logic.
     /// Default implementation uses comprehensive BRP validation.
     async fn validate(&self, request: &BrpRequest) -> Result<()> {
-        // Use basic validation from brp_messages module as fallback
-        crate::brp_messages::validation::validate_request(request)
-            .map_err(|e| crate::error::Error::Validation(e))
+        // The request must name one of the real Bevy 0.19 BRP methods.
+        crate::brp_validation::validate_method_name(&request.method)
+            .map_err(Error::Validation)
     }
 
     /// Get the handler's priority (higher = processed first).
@@ -210,7 +210,7 @@ impl CommandHandlerRegistry {
     }
 }
 
-/// Default handler for core BRP commands
+/// Default handler for core BRP methods
 pub struct CoreBrpHandler;
 
 #[async_trait]
@@ -219,36 +219,41 @@ impl BrpCommandHandler for CoreBrpHandler {
         CommandHandlerMetadata {
             name: "core".to_string(),
             version: CommandVersion::new(1, 0, 0),
-            description: "Handler for core BRP commands".to_string(),
+            description: "Handler for core BRP methods".to_string(),
             supported_commands: vec![
-                "Query".to_string(),
-                "Get".to_string(),
-                "Set".to_string(),
-                "ListEntities".to_string(),
-                "ListComponents".to_string(),
-                "SpawnEntity".to_string(),
-                "DestroyEntity".to_string(),
+                builtin_methods::BRP_QUERY_METHOD.to_string(),
+                builtin_methods::BRP_GET_COMPONENTS_METHOD.to_string(),
+                builtin_methods::BRP_SPAWN_ENTITY_METHOD.to_string(),
+                builtin_methods::BRP_DESPAWN_COMPONENTS_METHOD.to_string(),
+                builtin_methods::BRP_INSERT_COMPONENTS_METHOD.to_string(),
+                builtin_methods::BRP_REMOVE_COMPONENTS_METHOD.to_string(),
+                builtin_methods::BRP_REPARENT_ENTITIES_METHOD.to_string(),
+                builtin_methods::BRP_LIST_COMPONENTS_METHOD.to_string(),
             ],
         }
     }
 
     fn can_handle(&self, request: &BrpRequest) -> bool {
         matches!(
-            request,
-            BrpRequest::Query { .. }
-                | BrpRequest::Get { .. }
-                | BrpRequest::Set { .. }
-                | BrpRequest::ListEntities { .. }
-                | BrpRequest::ListComponents { .. }
-                | BrpRequest::Spawn { .. }
-                | BrpRequest::Destroy { .. }
+            request.method.as_str(),
+            builtin_methods::BRP_QUERY_METHOD
+                | builtin_methods::BRP_GET_COMPONENTS_METHOD
+                | builtin_methods::BRP_SPAWN_ENTITY_METHOD
+                | builtin_methods::BRP_DESPAWN_COMPONENTS_METHOD
+                | builtin_methods::BRP_INSERT_COMPONENTS_METHOD
+                | builtin_methods::BRP_REMOVE_COMPONENTS_METHOD
+                | builtin_methods::BRP_REPARENT_ENTITIES_METHOD
+                | builtin_methods::BRP_LIST_COMPONENTS_METHOD
         )
     }
 
-    async fn handle(&self, request: BrpRequest) -> Result<BrpResponse> {
-        // This will be handled by the actual BRP WebSocket connection
-        // For now, return a placeholder
-        Ok(BrpResponse::Success(Box::new(crate::brp_messages::BrpResult::Success)))
+    async fn handle(&self, _request: BrpRequest) -> Result<BrpResponse> {
+        // Requests are transported by the HTTP BRP client, not this handler;
+        // a handler only intercepts when it has domain knowledge to add.
+        // No local intercept: report that the handler cannot produce a result.
+        Err(Error::Validation(
+            "CoreBrpHandler does not execute requests locally".to_string(),
+        ))
     }
 
     fn priority(&self) -> i32 {
@@ -274,19 +279,23 @@ mod tests {
     async fn test_handler_registry() {
         let registry = CommandHandlerRegistry::new();
         let handler = Arc::new(CoreBrpHandler);
-        
+
         registry.register(handler.clone()).await;
-        
-        let request = BrpRequest::ListEntities { filter: None };
+
+        let request = BrpRequest {
+            method: builtin_methods::BRP_LIST_COMPONENTS_METHOD.to_string(),
+            id: None,
+            params: None,
+        };
         let found = registry.find_handler(&request).await;
-        
+
         assert!(found.is_some());
     }
 
     #[tokio::test]
     async fn test_handler_priority() {
         struct HighPriorityHandler;
-        
+
         #[async_trait]
         impl BrpCommandHandler for HighPriorityHandler {
             fn metadata(&self) -> CommandHandlerMetadata {
@@ -294,16 +303,18 @@ mod tests {
                     name: "high_priority".to_string(),
                     version: CommandVersion::default(),
                     description: "High priority handler".to_string(),
-                    supported_commands: vec!["ListEntities".to_string()],
+                    supported_commands: vec![
+                        builtin_methods::BRP_LIST_COMPONENTS_METHOD.to_string()
+                    ],
                 }
             }
 
             fn can_handle(&self, request: &BrpRequest) -> bool {
-                matches!(request, BrpRequest::ListEntities { .. })
+                request.method == builtin_methods::BRP_LIST_COMPONENTS_METHOD
             }
 
             async fn handle(&self, _request: BrpRequest) -> Result<BrpResponse> {
-                Ok(BrpResponse::Success(Box::new(crate::brp_messages::BrpResult::Success)))
+                Err(Error::Validation("test stub".to_string()))
             }
 
             fn priority(&self) -> i32 {
@@ -312,16 +323,20 @@ mod tests {
         }
 
         let registry = CommandHandlerRegistry::new();
-        
+
         // Register low priority first
         registry.register(Arc::new(CoreBrpHandler)).await;
-        
+
         // Then high priority
         registry.register(Arc::new(HighPriorityHandler)).await;
-        
-        let request = BrpRequest::ListEntities { filter: None };
+
+        let request = BrpRequest {
+            method: builtin_methods::BRP_LIST_COMPONENTS_METHOD.to_string(),
+            id: None,
+            params: None,
+        };
         let handler = registry.find_handler(&request).await.unwrap();
-        
+
         // Should get high priority handler
         assert_eq!(handler.priority(), 100);
     }

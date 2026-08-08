@@ -5,6 +5,8 @@
 
 pub mod static_test_game;
 pub mod animated_test_game;
+pub mod complex_ecs_game;
+pub mod performance_test_game;
 
 pub use static_test_game::run_static_test_game;
 pub use animated_test_game::run_animated_test_game;

@@ -170,6 +170,7 @@ async fn test_mcp_protocol_compliance() {
         bevy_brp_host: "localhost".to_string(),
         bevy_brp_port: 15702,
         mcp_port: 3001,
+        ..Default::default()
     };
 
     let mock_client = MockMcpClient::new(config).await.unwrap();

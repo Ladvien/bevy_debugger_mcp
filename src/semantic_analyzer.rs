@@ -169,22 +169,25 @@ impl SemanticQueryBuilder {
         with_components.sort();
         with_components.dedup();
 
-        let request = BrpRequest::Query {
-            filter: Some(QueryFilter {
-                with: if with_components.is_empty() {
-                    None
-                } else {
-                    Some(with_components)
-                },
-                without: None,
-                where_clause: if where_clauses.is_empty() {
-                    None
-                } else {
-                    Some(where_clauses)
-                },
-            }),
-            limit: Some(100), // Reasonable default for semantic queries
-            strict: Some(false), // Non-strict mode for semantic queries
+        let request = BrpRequest {
+            method: crate::brp::builtin_methods::BRP_QUERY_METHOD.to_string(),
+            id: None,
+            params: Some(crate::brp::query_params(
+                Some(&QueryFilter {
+                    with: if with_components.is_empty() {
+                        None
+                    } else {
+                        Some(with_components)
+                    },
+                    without: None,
+                    where_clause: if where_clauses.is_empty() {
+                        None
+                    } else {
+                        Some(where_clauses)
+                    },
+                }),
+                true,
+            )),
         };
 
         let suggestions = self.generate_suggestions();

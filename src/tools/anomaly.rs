@@ -6,7 +6,9 @@ use tracing::{debug, error, info, warn};
 
 use crate::anomaly_detector::{Anomaly, AnomalyConfig, AnomalyDetectionSystem};
 use crate::brp_client::BrpClient;
-use crate::brp_messages::{BrpRequest, BrpResponse, BrpResult};
+use crate::brp_messages::{
+    builtin_methods, entity_data_from_query_result, BrpPayload, BrpRequest,
+};
 use crate::error::Result;
 
 /// Shared state for anomaly detection
@@ -96,7 +98,11 @@ async fn handle_detect(arguments: Value, brp_client: Arc<RwLock<BrpClient>>) -> 
     }
 
     // Query all entities
-    let brp_request = BrpRequest::ListEntities { filter: None };
+    let brp_request = BrpRequest {
+        method: builtin_methods::BRP_QUERY_METHOD.to_string(),
+        id: None,
+        params: Some(crate::brp_messages::query_params(None, true)),
+    };
     let brp_response = {
         let mut client = brp_client.write().await;
         match client.send_request(&brp_request).await {
@@ -111,24 +117,25 @@ async fn handle_detect(arguments: Value, brp_client: Arc<RwLock<BrpClient>>) -> 
         }
     };
 
-    let entities = match brp_response {
-        BrpResponse::Success(boxed_result) => {
-            if let BrpResult::Entities(entities) = boxed_result.as_ref() {
-                entities.clone()
-            } else {
-                return Ok(json!({
-                    "error": "Unexpected response type",
-                    "message": "Expected entities list from BRP"
-                }));
+    let entities = match brp_response.payload {
+        BrpPayload::Result(value) => {
+            match entity_data_from_query_result(&value) {
+                Some(entities) => entities,
+                None => {
+                    return Ok(json!({
+                        "error": "Unexpected response type",
+                        "message": "Expected entity list from world.query"
+                    }))
+                }
             }
         }
-        BrpResponse::Error(error) => {
-            warn!("BRP returned error: {}", error);
+        BrpPayload::Error(error) => {
+            warn!("BRP returned error: {}", error.message);
             return Ok(json!({
                 "error": "BRP error",
                 "code": error.code,
                 "message": error.message,
-                "details": error.details
+                "details": error.data
             }));
         }
     };

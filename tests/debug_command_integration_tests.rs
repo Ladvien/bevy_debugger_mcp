@@ -1,7 +1,7 @@
 /// Integration tests for debug command infrastructure
 use bevy_debugger_mcp::brp_messages::{
-    DebugCommand, DebugResponse, DebugOverlayType, SessionOperation,
-    ValidatedQuery, QueryFilter, QueryCost, EntityData, BrpRequest,
+    builtin_methods, BrpRequest, DebugCommand, DebugOverlayType, DebugResponse,
+    EntityData, QueryCost, QueryFilter, SessionOperation, ValidatedQuery,
 };
 use bevy_debugger_mcp::debug_command_processor::{
     DebugCommandRequest, DebugCommandRouter, DebugCommandProcessor,
@@ -64,23 +64,28 @@ impl DebugCommandProcessor for MockDebugProcessor {
 
 #[tokio::test]
 async fn test_debug_command_compatibility() {
-    // Ensure new debug commands don't break existing BRP commands
-    let query_request = BrpRequest::Query {
-        filter: None,
-        limit: Some(10),
-        strict: Some(false),
+    // Ensure new debug commands don't break existing BRP commands.
+    let query_request = BrpRequest {
+        method: builtin_methods::BRP_QUERY_METHOD.to_string(),
+        id: None,
+        params: Some(serde_json::json!({
+            "data": { "components": [], "option": "all", "has": [] },
+            "filter": { "with": [], "without": [] },
+            "strict": false
+        })),
     };
-    
-    let debug_request = BrpRequest::Debug {
-        command: DebugCommand::GetStatus,
-        correlation_id: "test-123".to_string(),
-        priority: Some(5),
-    };
-    
+
+    let debug_request = bevy_debugger_mcp::debug_brp_handler::encode_debug_request(
+        &DebugCommand::GetStatus,
+        "test-123",
+        Some(5),
+    )
+    .unwrap();
+
     // Both should serialize/deserialize correctly
     let query_json = serde_json::to_string(&query_request).unwrap();
     let debug_json = serde_json::to_string(&debug_request).unwrap();
-    
+
     let _query_parsed: BrpRequest = serde_json::from_str(&query_json).unwrap();
     let _debug_parsed: BrpRequest = serde_json::from_str(&debug_json).unwrap();
 }
@@ -477,6 +482,7 @@ async fn test_backward_compatibility() {
         bevy_brp_host: "localhost".to_string(),
         bevy_brp_port: 15702,
         mcp_port: 3000,
+        ..Default::default()
     };
     
     let brp_client = Arc::new(RwLock::new(BrpClient::new(&config)));

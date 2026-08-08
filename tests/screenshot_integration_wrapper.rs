@@ -167,6 +167,7 @@ async fn test_screenshot_mcp_integration() {
         bevy_brp_host: "localhost".to_string(),
         bevy_brp_port: 15709,
         mcp_port: 3009,
+        ..Default::default()
     };
 
     let brp_client = std::sync::Arc::new(tokio::sync::RwLock::new(

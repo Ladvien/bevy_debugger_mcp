@@ -21,6 +21,9 @@
 //! This module provides an enhanced query system that leverages Bevy's reflection
 //! capabilities to enable more sophisticated entity and component queries.
 
+#[cfg(feature = "bevy-reflection")]
+use ::serde::{Deserialize, Serialize};
+#[cfg(not(feature = "bevy-reflection"))]
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
 use std::collections::HashMap;
@@ -326,14 +329,12 @@ impl ReflectionQueryEngine {
         let response = client.send_request(&brp_request).await?;
         
         // Extract entities from response
-        match response {
-            crate::brp_messages::BrpResponse::Success(result) => {
-                match result.as_ref() {
-                    crate::brp_messages::BrpResult::Entities(entities) => Ok(entities.clone()),
-                    _ => Ok(vec![]), // Other result types
-                }
+        match response.payload {
+            crate::brp_messages::BrpPayload::Result(value) => {
+                Ok(crate::brp_messages::entity_data_from_query_result(&value)
+                    .unwrap_or_default())
             }
-            crate::brp_messages::BrpResponse::Error(err) => {
+            crate::brp_messages::BrpPayload::Error(err) => {
                 Err(Error::Brp(format!("BRP query failed: {}", err.message)))
             }
         }
@@ -341,14 +342,14 @@ impl ReflectionQueryEngine {
 
     /// Parse query string to BRP request (simplified)
     fn parse_query_to_brp(&self, query: &str) -> Result<BrpRequest> {
-        // This is a simplified implementation
-        // In a real system, this would integrate with the existing query parser
-        if query.contains("list all") || query.contains("all entities") {
-            Ok(BrpRequest::ListEntities { filter: None })
-        } else {
-            // Default to listing all entities for now
-            Ok(BrpRequest::ListEntities { filter: None })
-        }
+        // This is a simplified implementation; all natural-language variants
+        // fall to a full world.query with no filter.
+        let _ = query;
+        Ok(BrpRequest {
+            method: crate::brp_messages::builtin_methods::BRP_QUERY_METHOD.to_string(),
+            id: None,
+            params: Some(crate::brp_messages::query_params(None, true)),
+        })
     }
 
     /// Enhance entities with reflection data

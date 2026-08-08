@@ -173,8 +173,8 @@ pub enum Error {
     #[error("Configuration error: {0}")]
     Config(String),
 
-    #[error("WebSocket error: {0}")]
-    WebSocket(#[from] Box<tokio_tungstenite::tungstenite::Error>),
+    #[error("HTTP error: {0}")]
+    Http(#[from] reqwest::Error),
 
     #[error("IO error: {0}")]
     Io(#[from] std::io::Error),

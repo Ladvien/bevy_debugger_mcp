@@ -23,7 +23,7 @@ use tokio::sync::RwLock;
 use tracing::{debug, error, info, warn, instrument};
 
 use crate::brp_client::BrpClient;
-use crate::brp_messages::{BrpResponse, BrpResult, EntityData};
+use crate::brp_messages::{BrpPayload, EntityData};
 use crate::error::{Error, Result};
 use crate::query_parser::{QueryCache, QueryMetrics, QueryParser, RegexQueryParser};
 use crate::query_optimization::{QueryOptimizer, QueryPerformanceMetrics};
@@ -437,24 +437,26 @@ async fn execute_fallback_query(
         }
     };
 
-    let (result_json, entity_count) = match brp_response {
-        BrpResponse::Success(result) => {
-            let entity_count = match result.as_ref() {
-                BrpResult::Entities(entities) => entities.len(),
-                BrpResult::Entity(_) => 1,
-                BrpResult::ComponentTypes(types) => types.len(),
-                _ => 0,
+    let (result_json, entity_count) = match brp_response.payload {
+        BrpPayload::Result(value) => {
+            let entity_count = if let Some(arr) = value.as_array() {
+                // world.query rows or world.list_components type names
+                arr.len()
+            } else if value.is_object() {
+                // world.get_components for a single entity
+                1
+            } else {
+                0
             };
-            let result_json = serde_json::to_value(&result).map_err(Error::Json)?;
-            (result_json, entity_count)
+            (value, entity_count)
         }
-        BrpResponse::Error(error) => {
-            warn!("BRP returned error: {}", error);
+        BrpPayload::Error(error) => {
+            warn!("BRP returned error: {}", error.message);
             return Ok(json!({
                 "error": "BRP error",
                 "code": error.code,
                 "message": error.message,
-                "details": error.details
+                "details": error.data
             }));
         }
     };

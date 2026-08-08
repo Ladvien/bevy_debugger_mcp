@@ -6,6 +6,7 @@
 use bevy::{
     prelude::*,
     remote::{RemotePlugin, BrpResult},
+    remote::http::RemoteHttpPlugin,
     app::AppExit,
     window::WindowPlugin,
     time::common_conditions::on_timer,
@@ -21,23 +22,24 @@ pub fn run_performance_test_game() {
         .add_plugins(DefaultPlugins.set(WindowPlugin {
             primary_window: Some(Window {
                 title: "Performance Test Game".into(),
-                resolution: (1024.0, 768.0).into(),
+                resolution: (1024u32, 768u32).into(),
                 position: WindowPosition::Centered(MonitorSelection::Primary),
                 ..default()
             }),
             ..default()
         }))
         .add_plugins((
-            FrameTimeDiagnosticsPlugin,
+            FrameTimeDiagnosticsPlugin::default(),
             SystemInformationDiagnosticsPlugin,
         ))
         .add_plugins(
             RemotePlugin::default()
-                .with_method("bevy_debugger/get_entity_count", get_entity_count)
-                .with_method("bevy_debugger/spawn_entities", spawn_entities_handler)
-                .with_method("bevy_debugger/despawn_entities", despawn_entities_handler)
-                .with_method("bevy_debugger/get_performance_metrics", get_performance_metrics)
-                .with_method("bevy_debugger/stress_test", stress_test_handler)
+                .with_method_main("bevy_debugger/get_entity_count", get_entity_count)
+                .with_method_main("bevy_debugger/spawn_entities", spawn_entities_handler)
+        .add_plugins(RemoteHttpPlugin::default())
+                .with_method_main("bevy_debugger/despawn_entities", despawn_entities_handler)
+                .with_method_main("bevy_debugger/get_performance_metrics", get_performance_metrics)
+                .with_method_main("bevy_debugger/stress_test", stress_test_handler)
         )
         .init_resource::<EntitySpawnConfig>()
         .init_resource::<PerformanceMetrics>()
@@ -470,7 +472,7 @@ fn update_entity_stats(
 /// Auto-exit system for CI testing
 fn auto_exit_system(
     time: Res<Time>,
-    mut exit: EventWriter<AppExit>,
+    mut exit: MessageWriter<AppExit>,
     mut timer: Local<Option<Timer>>,
 ) {
     if timer.is_none() {
@@ -479,9 +481,9 @@ fn auto_exit_system(
 
     if let Some(ref mut t) = timer.as_mut() {
         t.tick(time.delta());
-        if t.finished() {
+        if t.is_finished() {
             info!("Performance test auto-exit timeout reached");
-            exit.send(AppExit::Success);
+            exit.write(AppExit::Success);
         }
     }
 }

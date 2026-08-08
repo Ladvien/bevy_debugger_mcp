@@ -344,11 +344,11 @@ impl QueryBuilderProcessor {
 
         // Convert to BRP request
         let brp_request = match command {
-            DebugCommand::ExecuteQuery { query, limit, offset: _ } => {
-                crate::brp_messages::BrpRequest::Query {
-                    filter: Some(query.filter),
-                    limit,
-                    strict: Some(false),
+            DebugCommand::ExecuteQuery { query, limit: _, offset: _ } => {
+                crate::brp_messages::BrpRequest {
+                    method: crate::brp_messages::builtin_methods::BRP_QUERY_METHOD.to_string(),
+                    id: None,
+                    params: Some(crate::brp_messages::query_params(Some(&query.filter), true)),
                 }
             }
             _ => return Err(Error::DebugError("Invalid command type".to_string())),
@@ -373,7 +373,9 @@ impl QueryBuilderProcessor {
 
                 Ok(DebugResponse::QueryExecution {
                     success: true,
-                    result: Some(Box::new(response)),
+                    result: Some(
+                        serde_json::to_value(&response).map_err(Error::Json)?,
+                    ),
                     execution_time_us: execution_time.as_micros() as u64,
                     entities_processed: None, // Would be filled by actual execution
                 })
