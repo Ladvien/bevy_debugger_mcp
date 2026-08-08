@@ -28,6 +28,18 @@ use crate::brp_client::BrpClient;
 use crate::tools::{observe, experiment, hypothesis, anomaly, stress, replay};
 
 // Parameter structures for tools
+//
+// **Every one of these must be named in a `#[tool]` signature, not deserialized from
+// `Parameters<Value>` inside the body.** `schemars` renders `serde_json::Value` as
+// `{"$schema": …, "title": "AnyValue"}` — a schema with no `type` and no `properties` — and an MCP
+// client rejects the whole tool list with `expected "object" (at tools.N.inputSchema.type)`. The
+// tools were unreachable in Claude Code for exactly that reason: `authenticate` named `AuthRequest`
+// and advertised a correct object schema, and all twelve others named `Value` and did not.
+//
+// The `auth_token`/`authorization` pair is declared field-by-field rather than as a shared
+// `#[serde(flatten)]` wrapper on purpose: `schemars` 0.8 lowers a flattened generic to `allOf`,
+// which reintroduces exactly the "top level is not a plain object" shape the client rejects.
+
 #[derive(Debug, Deserialize, JsonSchema)]
 pub struct ObserveRequest {
     pub query: String,
@@ -37,6 +49,12 @@ pub struct ObserveRequest {
     pub detailed: bool,
     #[serde(default)]
     pub reflection: bool,
+    /// JWT from `authenticate`.
+    #[serde(default)]
+    pub auth_token: Option<String>,
+    /// Alternative to `auth_token`, as `"Bearer <jwt>"`.
+    #[serde(default)]
+    pub authorization: Option<String>,
 }
 
 #[derive(Debug, Deserialize, JsonSchema)]
@@ -46,6 +64,12 @@ pub struct ExperimentRequest {
     #[serde(default)]
     pub params: Value,
     pub duration: Option<f32>,
+    /// JWT from `authenticate`.
+    #[serde(default)]
+    pub auth_token: Option<String>,
+    /// Alternative to `auth_token`, as `"Bearer <jwt>"`.
+    #[serde(default)]
+    pub authorization: Option<String>,
 }
 
 #[derive(Debug, Deserialize, JsonSchema)]
@@ -54,6 +78,12 @@ pub struct HypothesisRequest {
     #[serde(default = "default_confidence")]
     pub confidence: f32,
     pub context: Option<Value>,
+    /// JWT from `authenticate`.
+    #[serde(default)]
+    pub auth_token: Option<String>,
+    /// Alternative to `auth_token`, as `"Bearer <jwt>"`.
+    #[serde(default)]
+    pub authorization: Option<String>,
 }
 
 #[derive(Debug, Deserialize, JsonSchema)]
@@ -63,6 +93,12 @@ pub struct AnomalyRequest {
     #[serde(default = "default_sensitivity")]
     pub sensitivity: f32,
     pub window: Option<f32>,
+    /// JWT from `authenticate`.
+    #[serde(default)]
+    pub auth_token: Option<String>,
+    /// Alternative to `auth_token`, as `"Bearer <jwt>"`.
+    #[serde(default)]
+    pub authorization: Option<String>,
 }
 
 #[derive(Debug, Deserialize, JsonSchema)]
@@ -75,6 +111,12 @@ pub struct StressTestRequest {
     pub duration: f32,
     #[serde(default)]
     pub detailed_metrics: bool,
+    /// JWT from `authenticate`.
+    #[serde(default)]
+    pub auth_token: Option<String>,
+    /// Alternative to `auth_token`, as `"Bearer <jwt>"`.
+    #[serde(default)]
+    pub authorization: Option<String>,
 }
 
 #[derive(Debug, Deserialize, JsonSchema)]
@@ -83,6 +125,12 @@ pub struct ReplayRequest {
     pub checkpoint_id: Option<String>,
     #[serde(default = "default_speed")]
     pub speed: f32,
+    /// JWT from `authenticate`.
+    #[serde(default)]
+    pub auth_token: Option<String>,
+    /// Alternative to `auth_token`, as `"Bearer <jwt>"`.
+    #[serde(default)]
+    pub authorization: Option<String>,
 }
 
 // Default value functions

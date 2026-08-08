@@ -53,18 +53,93 @@ pub struct CreateUserRequest {
     pub username: String,
     pub password: String,
     pub role: String, // "viewer", "developer", or "admin"
+    /// JWT from `authenticate`.
+    #[serde(default)]
+    pub auth_token: Option<String>,
+    /// Alternative to `auth_token`, as `"Bearer <jwt>"`.
+    #[serde(default)]
+    pub authorization: Option<String>,
 }
 
 #[derive(Debug, Deserialize, JsonSchema)]
 pub struct DeleteUserRequest {
     pub username: String,
+    /// JWT from `authenticate`.
+    #[serde(default)]
+    pub auth_token: Option<String>,
+    /// Alternative to `auth_token`, as `"Bearer <jwt>"`.
+    #[serde(default)]
+    pub authorization: Option<String>,
 }
 
 #[derive(Debug, Deserialize, JsonSchema)]
 pub struct AuditLogRequest {
     pub limit: Option<usize>,
     pub offset: Option<usize>,
+    /// JWT from `authenticate`.
+    #[serde(default)]
+    pub auth_token: Option<String>,
+    /// Alternative to `auth_token`, as `"Bearer <jwt>"`.
+    #[serde(default)]
+    pub authorization: Option<String>,
 }
+
+/// Parameters for the tools that need nothing but a token: `logout`, `list_users`, `security_scan`.
+///
+/// It exists so those three can name a concrete type in their `#[tool]` signature. Naming
+/// `Parameters<Value>` there is what produced an untyped `AnyValue` schema and made the client
+/// discard the entire tool list.
+#[derive(Debug, Deserialize, JsonSchema)]
+pub struct TokenOnlyRequest {
+    /// JWT from `authenticate`.
+    #[serde(default)]
+    pub auth_token: Option<String>,
+    /// Alternative to `auth_token`, as `"Bearer <jwt>"`.
+    #[serde(default)]
+    pub authorization: Option<String>,
+}
+
+/// The JWT carried by a tool request.
+///
+/// `authorize_tool_call` used to read these two fields out of a `serde_json::Value`. Now that every
+/// tool names a real struct, the fields are typed, and this trait is what lets one authorization
+/// helper serve all twelve of them.
+pub trait AuthedRequest {
+    fn auth_token(&self) -> Option<&str>;
+    fn authorization(&self) -> Option<&str>;
+
+    /// The bearer token, from either field. `auth_token` wins, matching the previous precedence.
+    fn bearer(&self) -> Option<String> {
+        if let Some(token) = self.auth_token() {
+            return Some(token.to_string());
+        }
+        self.authorization()
+            .and_then(|auth| auth.strip_prefix("Bearer "))
+            .map(|token| token.to_string())
+    }
+}
+
+macro_rules! impl_authed_request {
+    ($($ty:ty),+ $(,)?) => {
+        $(impl AuthedRequest for $ty {
+            fn auth_token(&self) -> Option<&str> { self.auth_token.as_deref() }
+            fn authorization(&self) -> Option<&str> { self.authorization.as_deref() }
+        })+
+    };
+}
+
+impl_authed_request!(
+    TokenOnlyRequest,
+    CreateUserRequest,
+    DeleteUserRequest,
+    AuditLogRequest,
+    ObserveRequest,
+    ExperimentRequest,
+    HypothesisRequest,
+    AnomalyRequest,
+    StressTestRequest,
+    ReplayRequest,
+);
 
 #[derive(Debug, Serialize)]
 pub struct AuthResponse {
@@ -100,28 +175,20 @@ impl SecureMcpTools {
         }
     }
 
-    /// Extract JWT token from request headers or parameters
-    fn extract_token_from_request(params: &Value) -> Option<String> {
-        // Check if token is provided in parameters
-        if let Some(token) = params.get("auth_token").and_then(|t| t.as_str()) {
-            return Some(token.to_string());
-        }
-        
-        // Check if token is in authorization parameter
-        if let Some(auth) = params.get("authorization").and_then(|a| a.as_str()) {
-            if let Some(token) = auth.strip_prefix("Bearer ") {
-                return Some(token.to_string());
-            }
-        }
-        
-        None
+    /// Extract JWT token from a typed request.
+    ///
+    /// This read the two fields out of an untyped `serde_json::Value` until every tool started
+    /// naming a real parameter struct; the precedence (`auth_token`, then a `Bearer` prefix on
+    /// `authorization`) is unchanged and now lives in [`AuthedRequest::bearer`].
+    fn extract_token_from_request(params: &impl AuthedRequest) -> Option<String> {
+        params.bearer()
     }
 
     /// Validate and authorize a tool call
-    async fn authorize_tool_call(&self, operation: &str, params: &Value) -> DebugResult<Claims> {
+    async fn authorize_tool_call(&self, operation: &str, params: &impl AuthedRequest) -> DebugResult<Claims> {
         let token = Self::extract_token_from_request(params)
             .ok_or_else(|| Error::SecurityError("Authentication required".to_string()))?;
-        
+
         self.security_middleware.authorize_tool_call(Some(&token), operation).await
     }
 
@@ -170,7 +237,7 @@ impl SecureMcpTools {
 
     /// Revoke JWT token (logout)
     #[tool(description = "Revoke your JWT token to log out. This will invalidate the token and end your session.")]
-    pub async fn logout(&self, Parameters(params): Parameters<Value>) -> std::result::Result<CallToolResult, McpError> {
+    pub async fn logout(&self, Parameters(params): Parameters<TokenOnlyRequest>) -> std::result::Result<CallToolResult, McpError> {
         let token = Self::extract_token_from_request(&params)
             .ok_or_else(|| McpError::invalid_params("Authentication token required".to_string(), None))?;
         
@@ -188,8 +255,8 @@ impl SecureMcpTools {
 
     /// Observe and query Bevy game state (requires Viewer role or higher)
     #[tool(description = "Observe and query Bevy game state in real-time with optional reflection-based component inspection. Requires authentication token and Viewer role or higher.")]
-    pub async fn observe(&self, Parameters(mut req): Parameters<Value>) -> std::result::Result<CallToolResult, McpError> {
-        let claims = match self.authorize_tool_call("observe", &req).await {
+    pub async fn observe(&self, Parameters(observe_req): Parameters<ObserveRequest>) -> std::result::Result<CallToolResult, McpError> {
+        let claims = match self.authorize_tool_call("observe", &observe_req).await {
             Ok(claims) => claims,
             Err(e) => {
                 self.log_tool_failure("observe", &e.to_string()).await;
@@ -197,14 +264,8 @@ impl SecureMcpTools {
             }
         };
 
-        // Remove auth parameters before passing to the actual tool
-        req.as_object_mut().map(|obj| {
-            obj.remove("auth_token");
-            obj.remove("authorization");
-        });
-
-        let observe_req: ObserveRequest = serde_json::from_value(req)
-            .map_err(|e| McpError::invalid_params(format!("Invalid observe parameters: {}", e), None))?;
+        // The auth fields no longer need stripping before the call below: they are named fields on
+        // `ObserveRequest`, and the `arguments` object is rebuilt field by field rather than forwarded.
 
         debug!("User {} executing observe query: {}", claims.sub, observe_req.query);
         
@@ -230,23 +291,14 @@ impl SecureMcpTools {
 
     /// Run controlled experiments on game state (requires Developer role or higher)
     #[tool(description = "Run controlled experiments on your Bevy game to test behavior and performance. Requires authentication token and Developer role or higher.")]
-    pub async fn experiment(&self, Parameters(mut req): Parameters<Value>) -> std::result::Result<CallToolResult, McpError> {
-        let claims = match self.authorize_tool_call("experiment", &req).await {
+    pub async fn experiment(&self, Parameters(exp_req): Parameters<ExperimentRequest>) -> std::result::Result<CallToolResult, McpError> {
+        let claims = match self.authorize_tool_call("experiment", &exp_req).await {
             Ok(claims) => claims,
             Err(e) => {
                 self.log_tool_failure("experiment", &e.to_string()).await;
                 return Err(McpError::invalid_params(format!("Authorization failed: {}", e), None));
             }
         };
-
-        // Remove auth parameters
-        req.as_object_mut().map(|obj| {
-            obj.remove("auth_token");
-            obj.remove("authorization");
-        });
-
-        let exp_req: ExperimentRequest = serde_json::from_value(req)
-            .map_err(|e| McpError::invalid_params(format!("Invalid experiment parameters: {}", e), None))?;
 
         debug!("User {} running experiment: {}", claims.sub, exp_req.experiment_type);
         
@@ -271,22 +323,14 @@ impl SecureMcpTools {
 
     /// Test hypotheses about game behavior (requires Viewer role or higher)
     #[tool(description = "Test hypotheses about game behavior and state. Requires authentication token and Viewer role or higher.")]
-    pub async fn hypothesis(&self, Parameters(mut req): Parameters<Value>) -> std::result::Result<CallToolResult, McpError> {
-        let claims = match self.authorize_tool_call("hypothesis", &req).await {
+    pub async fn hypothesis(&self, Parameters(hyp_req): Parameters<HypothesisRequest>) -> std::result::Result<CallToolResult, McpError> {
+        let claims = match self.authorize_tool_call("hypothesis", &hyp_req).await {
             Ok(claims) => claims,
             Err(e) => {
                 self.log_tool_failure("hypothesis", &e.to_string()).await;
                 return Err(McpError::invalid_params(format!("Authorization failed: {}", e), None));
             }
         };
-
-        req.as_object_mut().map(|obj| {
-            obj.remove("auth_token");
-            obj.remove("authorization");
-        });
-
-        let hyp_req: HypothesisRequest = serde_json::from_value(req)
-            .map_err(|e| McpError::invalid_params(format!("Invalid hypothesis parameters: {}", e), None))?;
 
         debug!("User {} testing hypothesis: {}", claims.sub, hyp_req.hypothesis);
         
@@ -311,22 +355,14 @@ impl SecureMcpTools {
 
     /// Detect anomalies in game behavior (requires Viewer role or higher)
     #[tool(description = "Detect anomalies in game behavior, performance, and state. Requires authentication token and Viewer role or higher.")]
-    pub async fn detect_anomaly(&self, Parameters(mut req): Parameters<Value>) -> std::result::Result<CallToolResult, McpError> {
-        let claims = match self.authorize_tool_call("detect_anomaly", &req).await {
+    pub async fn detect_anomaly(&self, Parameters(anom_req): Parameters<AnomalyRequest>) -> std::result::Result<CallToolResult, McpError> {
+        let claims = match self.authorize_tool_call("detect_anomaly", &anom_req).await {
             Ok(claims) => claims,
             Err(e) => {
                 self.log_tool_failure("detect_anomaly", &e.to_string()).await;
                 return Err(McpError::invalid_params(format!("Authorization failed: {}", e), None));
             }
         };
-
-        req.as_object_mut().map(|obj| {
-            obj.remove("auth_token");
-            obj.remove("authorization");
-        });
-
-        let anom_req: AnomalyRequest = serde_json::from_value(req)
-            .map_err(|e| McpError::invalid_params(format!("Invalid anomaly detection parameters: {}", e), None))?;
 
         debug!("User {} running anomaly detection: {}", claims.sub, anom_req.detection_type);
         
@@ -351,22 +387,14 @@ impl SecureMcpTools {
 
     /// Run stress tests (requires Developer role or higher)
     #[tool(description = "Run stress tests to find performance limits and bottlenecks. Requires authentication token and Developer role or higher.")]
-    pub async fn stress_test(&self, Parameters(mut req): Parameters<Value>) -> std::result::Result<CallToolResult, McpError> {
-        let claims = match self.authorize_tool_call("stress_test", &req).await {
+    pub async fn stress_test(&self, Parameters(stress_req): Parameters<StressTestRequest>) -> std::result::Result<CallToolResult, McpError> {
+        let claims = match self.authorize_tool_call("stress_test", &stress_req).await {
             Ok(claims) => claims,
             Err(e) => {
                 self.log_tool_failure("stress_test", &e.to_string()).await;
                 return Err(McpError::invalid_params(format!("Authorization failed: {}", e), None));
             }
         };
-
-        req.as_object_mut().map(|obj| {
-            obj.remove("auth_token");
-            obj.remove("authorization");
-        });
-
-        let stress_req: StressTestRequest = serde_json::from_value(req)
-            .map_err(|e| McpError::invalid_params(format!("Invalid stress test parameters: {}", e), None))?;
 
         info!("User {} starting stress test: {} at intensity {}", claims.sub, stress_req.test_type, stress_req.intensity);
         
@@ -392,22 +420,14 @@ impl SecureMcpTools {
 
     /// Replay and time travel (requires Developer role or higher)
     #[tool(description = "Replay game states and perform time travel debugging. Requires authentication token and Developer role or higher.")]
-    pub async fn time_travel_replay(&self, Parameters(mut req): Parameters<Value>) -> std::result::Result<CallToolResult, McpError> {
-        let claims = match self.authorize_tool_call("time_travel_replay", &req).await {
+    pub async fn time_travel_replay(&self, Parameters(replay_req): Parameters<ReplayRequest>) -> std::result::Result<CallToolResult, McpError> {
+        let claims = match self.authorize_tool_call("time_travel_replay", &replay_req).await {
             Ok(claims) => claims,
             Err(e) => {
                 self.log_tool_failure("time_travel_replay", &e.to_string()).await;
                 return Err(McpError::invalid_params(format!("Authorization failed: {}", e), None));
             }
         };
-
-        req.as_object_mut().map(|obj| {
-            obj.remove("auth_token");
-            obj.remove("authorization");
-        });
-
-        let replay_req: ReplayRequest = serde_json::from_value(req)
-            .map_err(|e| McpError::invalid_params(format!("Invalid replay parameters: {}", e), None))?;
 
         info!("User {} executing time travel replay: {}", claims.sub, replay_req.action);
         
@@ -432,8 +452,8 @@ impl SecureMcpTools {
 
     /// Create a new user (requires Admin role)
     #[tool(description = "Create a new user with specified role. Requires Admin role. Roles: viewer (read-only), developer (full debugging), admin (user management).")]
-    pub async fn create_user(&self, Parameters(mut req): Parameters<Value>) -> std::result::Result<CallToolResult, McpError> {
-        let claims = match self.authorize_tool_call("user_management", &req).await {
+    pub async fn create_user(&self, Parameters(create_req): Parameters<CreateUserRequest>) -> std::result::Result<CallToolResult, McpError> {
+        let claims = match self.authorize_tool_call("user_management", &create_req).await {
             Ok(claims) => claims,
             Err(e) => {
                 self.log_tool_failure("create_user", &e.to_string()).await;
@@ -441,17 +461,8 @@ impl SecureMcpTools {
             }
         };
 
-        // Extract token first, then remove auth parameters
-        let token = Self::extract_token_from_request(&req)
+        let token = Self::extract_token_from_request(&create_req)
             .ok_or_else(|| McpError::invalid_params("Authentication token required".to_string(), None))?;
-
-        req.as_object_mut().map(|obj| {
-            obj.remove("auth_token");
-            obj.remove("authorization");
-        });
-
-        let create_req: CreateUserRequest = serde_json::from_value(req)
-            .map_err(|e| McpError::invalid_params(format!("Invalid create user parameters: {}", e), None))?;
 
         // Parse role
         let role = match create_req.role.to_lowercase().as_str() {
@@ -479,8 +490,8 @@ impl SecureMcpTools {
 
     /// Delete a user (requires Admin role)
     #[tool(description = "Delete an existing user. Requires Admin role. Cannot delete your own account.")]
-    pub async fn delete_user(&self, Parameters(mut req): Parameters<Value>) -> std::result::Result<CallToolResult, McpError> {
-        let claims = match self.authorize_tool_call("user_management", &req).await {
+    pub async fn delete_user(&self, Parameters(delete_req): Parameters<DeleteUserRequest>) -> std::result::Result<CallToolResult, McpError> {
+        let claims = match self.authorize_tool_call("user_management", &delete_req).await {
             Ok(claims) => claims,
             Err(e) => {
                 self.log_tool_failure("delete_user", &e.to_string()).await;
@@ -488,16 +499,8 @@ impl SecureMcpTools {
             }
         };
 
-        let token = Self::extract_token_from_request(&req)
+        let token = Self::extract_token_from_request(&delete_req)
             .ok_or_else(|| McpError::invalid_params("Authentication token required".to_string(), None))?;
-
-        req.as_object_mut().map(|obj| {
-            obj.remove("auth_token");
-            obj.remove("authorization");
-        });
-
-        let delete_req: DeleteUserRequest = serde_json::from_value(req)
-            .map_err(|e| McpError::invalid_params(format!("Invalid delete user parameters: {}", e), None))?;
 
         info!("Admin {} deleting user: {}", claims.sub, delete_req.username);
         
@@ -517,7 +520,7 @@ impl SecureMcpTools {
 
     /// List all users (requires Admin role)
     #[tool(description = "List all users in the system. Requires Admin role.")]
-    pub async fn list_users(&self, Parameters(req): Parameters<Value>) -> std::result::Result<CallToolResult, McpError> {
+    pub async fn list_users(&self, Parameters(req): Parameters<TokenOnlyRequest>) -> std::result::Result<CallToolResult, McpError> {
         let claims = match self.authorize_tool_call("user_management", &req).await {
             Ok(claims) => claims,
             Err(e) => {
@@ -558,7 +561,7 @@ impl SecureMcpTools {
 
     /// Get audit log (requires Admin role)
     #[tool(description = "Get security audit log entries. Requires Admin role. Supports pagination with limit and offset.")]
-    pub async fn get_audit_log(&self, Parameters(mut req): Parameters<Value>) -> std::result::Result<CallToolResult, McpError> {
+    pub async fn get_audit_log(&self, Parameters(req): Parameters<AuditLogRequest>) -> std::result::Result<CallToolResult, McpError> {
         let claims = match self.authorize_tool_call("audit_log_access", &req).await {
             Ok(claims) => claims,
             Err(e) => {
@@ -570,19 +573,15 @@ impl SecureMcpTools {
         let token = Self::extract_token_from_request(&req)
             .ok_or_else(|| McpError::invalid_params("Authentication token required".to_string(), None))?;
 
-        req.as_object_mut().map(|obj| {
-            obj.remove("auth_token");
-            obj.remove("authorization");
-        });
-
-        let audit_req: AuditLogRequest = serde_json::from_value(req).unwrap_or(AuditLogRequest {
-            limit: Some(100),
-            offset: Some(0),
-        });
+        // The auth fields used to be stripped out of a `Value` by hand and the remainder re-parsed
+        // into this struct, with a silent `unwrap_or` default when that failed — so a typo in `limit`
+        // quietly returned the first 100 entries instead of complaining. Deserializing once removes
+        // both the dance and the silence.
+        let (limit, offset) = (req.limit, req.offset);
 
         info!("Admin {} accessing audit log", claims.sub);
         
-        match self.security_manager.get_audit_log(&token, audit_req.limit, audit_req.offset).await {
+        match self.security_manager.get_audit_log(&token, limit, offset).await {
             Ok(entries) => {
                 Ok(CallToolResult::success(vec![
                     Content::text(serde_json::to_string_pretty(&entries).unwrap())
@@ -598,7 +597,7 @@ impl SecureMcpTools {
 
     /// Run security vulnerability scan (requires Admin role)
     #[tool(description = "Run a comprehensive security vulnerability scan. Requires Admin role. Identifies security issues and provides remediation recommendations.")]
-    pub async fn security_scan(&self, Parameters(req): Parameters<Value>) -> std::result::Result<CallToolResult, McpError> {
+    pub async fn security_scan(&self, Parameters(req): Parameters<TokenOnlyRequest>) -> std::result::Result<CallToolResult, McpError> {
         let claims = match self.authorize_tool_call("security_scan", &req).await {
             Ok(claims) => claims,
             Err(e) => {
