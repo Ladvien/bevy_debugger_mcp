@@ -2,9 +2,11 @@
 
 > ⚠️ **Vibe Coded** — written by an AI agent working from a human's direction. It is used against a shipping game and covered by tests, but it has had no line-by-line human audit. Read it before you trust it.
 
-Lets an agent inspect and drive a **running** Bevy game: query entities, components and resources live, capture frames from an offscreen render target, and inject keyboard and mouse input — none of which touches your desktop, your window manager, or the OS input stack.
+Lets an agent inspect and drive a **running** Bevy game: query entities, components and resources live, capture frames from an offscreen render target, and inject keyboard and mouse input — including **cursor position**, so a click-drag is expressible — none of which touches your desktop, your window manager, or the OS input stack.
 
 > **This repo is a read-only mirror.** It is split out of [`Ladvien/foundation_vs_slop`](https://github.com/Ladvien/foundation_vs_slop) at `crates/bevy_debugger_mcp/` with `git subtree split`, history intact. Issues and PRs belong upstream — changes made here cannot be pulled back.
+
+> **For agents working in the monorepo: this is first-party code, not a dependency.** It lives under `crates/` alongside everything else and is edited exactly the same way. A capability it lacks is a feature to add, not a constraint to design around — the cursor injection above was added precisely because two rounds of work had treated its absence as fixed. The one part that is not an ordinary change is the OS boundary below.
 
 [![Build Status](https://img.shields.io/badge/build-passing-brightgreen)](https://github.com/ladvien/bevy_debugger_mcp)
 [![License: MIT OR Apache-2.0](https://img.shields.io/badge/License-MIT%20OR%20Apache--2.0-blue.svg)](LICENSE-MIT)
@@ -22,14 +24,30 @@ They are independent — the server does not depend on the plugin. The plugin is
 
 ## Examples
 
-The one that demonstrates what this crate actually does — no window, no GPU, prints to the terminal:
+The two that demonstrate what this crate actually does — no window, no GPU, no mouse; both print to the terminal:
 
 ```sh
 cargo run -p bevy_debugger_bevy --example injected_input_lands
+cargo run -p bevy_debugger_bevy --example cursor_drag_lands
 ```
 
-It shows the property the plugin exists to provide: an injected key is visible to `just_pressed` for
-exactly one frame and `just_released` on the next, the same shape a physical key produces.
+The first shows the property the plugin exists to provide: an injected key is visible to `just_pressed` for exactly one frame and `just_released` on the next, the same shape a physical key produces.
+
+The second shows a **click-drag** — `move, press, move, move, release` queued in one batch — and the property that makes it mean anything: **the press is read where it was aimed**. Apply the queued move and the queued press in the same frame and the game reads the press at the destination, so the drag starts wherever it ended and selects nothing. It earned its keep immediately: it caught a real ordering bug where a release overtook two still-pending moves and committed the box at the wrong corner.
+
+## Injecting a cursor
+
+`bevy_debugger/input` takes `kind: "Cursor"` with `x`/`y` in **logical window pixels**, or `clear: true` to hand the pointer back to the real mouse. The position is state, not an edge — it stays where it was put until moved again, so there is no per-frame stream to keep up with.
+
+```jsonc
+{"kind": "Cursor", "x": 640, "y": 360}   // aim
+{"kind": "Mouse", "button": "Left", "action": "Press"}
+{"kind": "Cursor", "x": 720, "y": 400}   // drag
+{"kind": "Mouse", "button": "Left", "action": "Release"}
+{"kind": "Cursor", "clear": true}        // give it back
+```
+
+**A host has to read the pointer through `bevy_debugger_bevy::cursor_position(&window, &debug_cursor)`.** A host that calls `Window::cursor_position` directly cannot be driven, and that is not a bug in the plugin — the window's own cursor is deliberately never written, because Bevy's windowing backend turns a change to it into a request to move the *physical* pointer. That would drag the mouse out from under whoever is at the machine, which is the one thing this crate exists to prevent.
 
 Two older examples ship with the server, and it is worth being precise about them, because neither
 demonstrates `DebuggerPlugin`:

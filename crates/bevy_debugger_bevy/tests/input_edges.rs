@@ -17,7 +17,7 @@
 
 use bevy::input::InputSystems;
 use bevy::prelude::*;
-use bevy_debugger_bevy::{apply_pending_input, InputAction, PendingInput};
+use bevy_debugger_bevy::{apply_pending_input, DebugCursor, InputAction, PendingInput};
 
 /// What an ordinary `Update` system saw, one entry per frame.
 #[derive(Resource, Default)]
@@ -44,6 +44,10 @@ fn app_correctly_ordered() -> App {
     app.add_plugins(MinimalPlugins)
         .add_plugins(bevy::input::InputPlugin)
         .init_resource::<PendingInput>()
+        // `apply_pending_input` writes the injected pointer here, and in Bevy 0.19 a missing
+        // `ResMut<T>` panics the system rather than skipping it. `DebuggerPlugin` inits this; a host
+        // that registers the system by hand — as these tests do — has to init it too.
+        .init_resource::<bevy_debugger_bevy::DebugCursor>()
         .init_resource::<Seen>()
         .add_systems(PreUpdate, apply_pending_input.after(InputSystems))
         .add_systems(Update, observe);
@@ -94,6 +98,10 @@ fn ordering_before_input_systems_erases_the_press_entirely() {
     app.add_plugins(MinimalPlugins)
         .add_plugins(bevy::input::InputPlugin)
         .init_resource::<PendingInput>()
+        // `apply_pending_input` writes the injected pointer here, and in Bevy 0.19 a missing
+        // `ResMut<T>` panics the system rather than skipping it. `DebuggerPlugin` inits this; a host
+        // that registers the system by hand — as these tests do — has to init it too.
+        .init_resource::<bevy_debugger_bevy::DebugCursor>()
         .init_resource::<Seen>()
         .add_systems(PreUpdate, apply_pending_input.before(InputSystems))
         .add_systems(Update, observe);
@@ -165,4 +173,146 @@ fn a_tap_and_a_release_never_show_both_edges_with_the_key_unpressed() {
             "frame {n} shows a press and a release at once with the key unpressed: {frame:?}"
         );
     }
+}
+
+// ------------------------------------------------------------------------------------------------
+// Cursor position — the half that makes a drag expressible
+// ------------------------------------------------------------------------------------------------
+
+/// A move lands, stays put without being re-sent, and clearing hands the pointer back.
+#[test]
+fn a_cursor_move_lands_and_clearing_releases_it() {
+    let mut app = app_correctly_ordered();
+    app.world_mut()
+        .resource_mut::<PendingInput>()
+        .queue_cursor(Some(Vec2::new(120.0, 64.0)));
+    app.update();
+    assert_eq!(app.world().resource::<DebugCursor>().0, Some(Vec2::new(120.0, 64.0)));
+
+    // No per-frame stream to keep up: a position is state, not an edge.
+    app.update();
+    assert_eq!(app.world().resource::<DebugCursor>().0, Some(Vec2::new(120.0, 64.0)));
+
+    app.world_mut().resource_mut::<PendingInput>().queue_cursor(None);
+    app.update();
+    assert_eq!(app.world().resource::<DebugCursor>().0, None);
+}
+
+/// **Aim, then click, in one frame** — the one ordering that is correct together, and the common one.
+#[test]
+fn a_move_before_an_untouched_button_applies_in_the_same_frame() {
+    let mut app = app_correctly_ordered();
+    {
+        let mut pending = app.world_mut().resource_mut::<PendingInput>();
+        pending.queue_cursor(Some(Vec2::new(10.0, 20.0)));
+        pending.queue_mouse(MouseButton::Left, InputAction::Press);
+    }
+    app.update();
+    assert_eq!(
+        app.world().resource::<DebugCursor>().0,
+        Some(Vec2::new(10.0, 20.0)),
+        "the aim has to land on the frame the press is read"
+    );
+    assert!(app.world().resource::<ButtonInput<MouseButton>>().pressed(MouseButton::Left));
+}
+
+/// **A press must be read where it was aimed**, so a move queued after one waits a frame.
+///
+/// Applied together, the game would see the press at the *new* position and the click would never
+/// happen where it was pointed.
+#[test]
+fn a_move_after_a_button_waits_for_the_next_frame() {
+    let mut app = app_correctly_ordered();
+    {
+        let mut pending = app.world_mut().resource_mut::<PendingInput>();
+        pending.queue_cursor(Some(Vec2::new(10.0, 10.0)));
+        pending.queue_mouse(MouseButton::Left, InputAction::Press);
+        pending.queue_cursor(Some(Vec2::new(90.0, 90.0)));
+    }
+    app.update();
+    assert_eq!(
+        app.world().resource::<DebugCursor>().0,
+        Some(Vec2::new(10.0, 10.0)),
+        "the press frame must still read the position it was aimed at"
+    );
+    app.update();
+    assert_eq!(
+        app.world().resource::<DebugCursor>().0,
+        Some(Vec2::new(90.0, 90.0)),
+        "and the drag continues on the next frame"
+    );
+}
+
+/// Two moves in one batch are two frames, so a drag has a path and not just an endpoint.
+#[test]
+fn two_moves_in_one_batch_are_spread_over_two_frames() {
+    let mut app = app_correctly_ordered();
+    {
+        let mut pending = app.world_mut().resource_mut::<PendingInput>();
+        pending.queue_cursor(Some(Vec2::new(1.0, 1.0)));
+        pending.queue_cursor(Some(Vec2::new(2.0, 2.0)));
+    }
+    app.update();
+    assert_eq!(app.world().resource::<DebugCursor>().0, Some(Vec2::new(1.0, 1.0)));
+    app.update();
+    assert_eq!(app.world().resource::<DebugCursor>().0, Some(Vec2::new(2.0, 2.0)));
+}
+
+/// **The injected pointer wins while it is set, and the window's own is read otherwise.**
+///
+/// One question with one answer. A host calling `Window::cursor_position` directly is undrivable by
+/// an agent; a host calling this behaves identically for a person, because `DebugCursor` is `None`
+/// until something explicitly sets it.
+#[test]
+fn the_injected_pointer_takes_precedence_and_hands_back_when_cleared() {
+    use bevy::window::{Window, WindowResolution};
+    let window = Window {
+        resolution: WindowResolution::new(800, 600),
+        ..Default::default()
+    };
+    assert_eq!(
+        bevy_debugger_bevy::cursor_position(&window, &DebugCursor(Some(Vec2::new(5.0, 6.0)))),
+        Some(Vec2::new(5.0, 6.0))
+    );
+    // A bare `Window` has no real cursor, so clearing gives what the window gives: nothing.
+    assert_eq!(
+        bevy_debugger_bevy::cursor_position(&window, &DebugCursor(None)),
+        window.cursor_position()
+    );
+}
+
+/// **A later command must never overtake an earlier deferred one.**
+///
+/// The regression this pins was found by `examples/cursor_drag_lands.rs` on the day cursor injection
+/// landed, and every individual rule was behaving as written: the queue was ordered *per key*, so in
+/// `move, press, move, move, release` the release — a button nothing had touched yet that frame —
+/// jumped ahead of the two still-pending moves and the drag committed at the wrong corner.
+#[test]
+fn a_release_does_not_overtake_the_moves_queued_before_it() {
+    let mut app = app_correctly_ordered();
+    {
+        let mut pending = app.world_mut().resource_mut::<PendingInput>();
+        pending.queue_cursor(Some(Vec2::new(100.0, 100.0)));
+        pending.queue_mouse(MouseButton::Left, InputAction::Press);
+        pending.queue_cursor(Some(Vec2::new(140.0, 130.0)));
+        pending.queue_cursor(Some(Vec2::new(180.0, 160.0)));
+        pending.queue_mouse(MouseButton::Left, InputAction::Release);
+    }
+    // Frame 0: aim and press together — the one pairing that is correct in one frame.
+    app.update();
+    assert_eq!(app.world().resource::<DebugCursor>().0, Some(Vec2::new(100.0, 100.0)));
+    assert!(app.world().resource::<ButtonInput<MouseButton>>().pressed(MouseButton::Left));
+
+    // Frame 1: the drag moves, and the button is still held.
+    app.update();
+    assert_eq!(app.world().resource::<DebugCursor>().0, Some(Vec2::new(140.0, 130.0)));
+    assert!(
+        app.world().resource::<ButtonInput<MouseButton>>().pressed(MouseButton::Left),
+        "the release must not have jumped the queue"
+    );
+
+    // Frame 2: the last move, and only then the release — at the far corner, where it was aimed.
+    app.update();
+    assert_eq!(app.world().resource::<DebugCursor>().0, Some(Vec2::new(180.0, 160.0)));
+    assert!(app.world().resource::<ButtonInput<MouseButton>>().just_released(MouseButton::Left));
 }

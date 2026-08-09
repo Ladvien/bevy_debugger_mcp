@@ -1,5 +1,18 @@
 # bevy_debugger_mcp — notes for agents
 
+> **This is our code. Edit it here.**
+>
+> It is not a third-party dependency, not a vendored upstream, and not something to work around. If
+> the debugger is missing a capability you need, **add the capability** — that is an ordinary change
+> in this repo, reviewed like any other. The one thing that is *not* ordinary is widening the OS
+> boundary below; that costs a deliberate argument.
+>
+> The word "vendored" appears in the history because this arrived by `git subtree add` rather than
+> being written here. It says where the code came from, not who may change it. Every previous agent
+> that treated a missing feature here as a fixed constraint was wrong: the cursor-position gap in
+> `bevy_debugger/input` sat unfixed through two whole steps of work for exactly that reason, and it
+> was a forty-line change.
+
 An MCP server plus a companion Bevy plugin that let an agent inspect and drive a **running** Bevy game: live entity/component/resource queries, offscreen frame capture, and keyboard/mouse injection.
 
 ## Source of truth
@@ -31,6 +44,16 @@ So:
 `DebuggerPlugin::build` registers its methods with `RemotePlugin::with_method_main(..)`, so handlers execute in Bevy's `Last` schedule. Bevy's `keyboard_input_system` clears `just_pressed`/`just_released` in the **next** frame's `PreUpdate`.
 
 A press written in `Last` therefore has its `just_pressed` flag cleared before any `Update` system reads it, so **`just_pressed`-based actions could never be triggered by injected input** — the method returned `success: true` and the game did not move. Held `pressed` state survives the clear, which is why some actions appeared to work and others did not. See `input.rs` for how this is handled now; if you change the schedule or the action shape, re-verify against a real game rather than a unit test.
+
+## The cursor is a resource, not the window's
+
+`bevy_debugger/input` accepts `kind: "Cursor"` with `x`/`y` in logical window pixels, or `clear: true`. It writes `DebugCursor`, **not** `Window::set_cursor_position`.
+
+That looks like the obvious call and it is the wrong one, read out of the pinned engine rather than guessed: `Window::set_cursor_position` writes an internal field, and Bevy's windowing backend diffs that field against a per-window cache every frame and asks the platform to **move the physical pointer** (`bevy_winit-0.19.0/src/system.rs:433`). The cache is `pub(crate)`, so a plugin cannot suppress the diff. Writing the window would drag the mouse out from under whoever is at the machine — the precise class of thing this crate exists to avoid, and it would pass `tests/leaf.rs` while defeating its whole purpose.
+
+**A host has to read the pointer through `bevy_debugger_bevy::cursor_position(&window, &debug_cursor)`** or the injected half never reaches it. A host that calls `Window::cursor_position` directly is undrivable by an agent, and that is not a bug in the plugin.
+
+Ordering is load-bearing and is handled in `apply_pending_input`: a move *after* a button, or a second move in one frame, is deferred to the next frame. Applying `press, move` together makes the game read the press at the new position — the click never happens where it was aimed — and two moves in one frame collapse a drag's path to its endpoint.
 
 ## `DebuggerPlugin` owns `RemotePlugin`
 

@@ -33,7 +33,10 @@ mod screenshot;
 mod input;
 
 pub use screenshot::{DebugCaptureTarget, ScreenshotParams};
-pub use input::{apply_pending_input, InputAction, InputCommand, InputKind, PendingInput};
+pub use input::{
+    apply_pending_input, cursor_position, DebugCursor, InputAction, InputCommand, InputKind,
+    PendingInput,
+};
 
 /// Plugin that registers all custom BRP methods for the debugger.
 ///
@@ -41,7 +44,10 @@ pub use input::{apply_pending_input, InputAction, InputCommand, InputKind, Pendi
 /// - `bevy_debugger/screenshot` — **offscreen** capture with optional zoom/region. Requires the host
 ///   to insert [`DebugCaptureTarget`]; it never captures the window, because that needs the window
 ///   raised and focused.
-/// - `bevy_debugger/input` — headless keyboard/mouse injection
+/// - `bevy_debugger/input` — headless keyboard/mouse injection, including **cursor position**, so a
+///   drag is expressible: move, press, move, release. A host must read the pointer through
+///   [`cursor_position`] rather than [`Window::cursor_position`](bevy::window::Window::cursor_position)
+///   for that half to reach it — see [`DebugCursor`] for why the window's own cursor is not written.
 pub struct DebuggerPlugin;
 
 impl Plugin for DebuggerPlugin {
@@ -71,6 +77,11 @@ impl Plugin for DebuggerPlugin {
         // *does* add `InputPlugin` is unaffected whichever order the plugins go in.
         .init_resource::<ButtonInput<KeyCode>>()
         .init_resource::<ButtonInput<MouseButton>>()
+        // **The injected pointer.** Not the window's own cursor, and that is not a shortcut — writing
+        // `Window::set_cursor_position` makes Bevy's windowing backend move the *physical* mouse, so
+        // it would drag the pointer out from under whoever is at the machine. `input::DebugCursor`
+        // carries the full argument and the line number it was read from.
+        .init_resource::<input::DebugCursor>()
         .add_message::<bevy::input::mouse::MouseWheel>()
         .add_systems(
             PreUpdate,

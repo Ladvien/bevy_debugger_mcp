@@ -34,7 +34,10 @@ use serde_json::{json, Value};
 pub struct InputCommand {
     /// What kind of input to inject.
     pub kind: InputKind,
-    /// What action to perform.
+    /// What action to perform. Defaults to [`InputAction::Tap`], and [`InputKind::Cursor`] ignores it
+    /// — a position has no press and no release, so requiring a meaningless one would be a field a
+    /// caller has to supply and cannot get right.
+    #[serde(default)]
     pub action: InputAction,
     /// Key name — any [`KeyCode`] variant, e.g. `"KeyW"`, `"Space"`, `"ArrowLeft"`, `"F5"`,
     /// `"Numpad7"`, `"ShiftLeft"`.
@@ -52,6 +55,13 @@ pub struct InputCommand {
     /// Scroll unit: `"Line"` (default) or `"Pixel"`.
     #[serde(default)]
     pub unit: Option<String>,
+    /// [`InputKind::Cursor`] only: put the pointer back under the real mouse.
+    ///
+    /// A separate flag rather than "omit `x` and `y`", because omitting a coordinate is much more
+    /// likely to be a caller bug than an intent to release the pointer, and the two must not look
+    /// alike.
+    #[serde(default)]
+    pub clear: bool,
 }
 
 #[derive(Debug, Deserialize)]
@@ -59,12 +69,21 @@ pub enum InputKind {
     Keyboard,
     Mouse,
     Scroll,
+    /// **Where the pointer is**, in logical window pixels — `x` right, `y` down from the top-left,
+    /// the same frame [`bevy::window::Window::cursor_position`] reports.
+    ///
+    /// Set it and it stays until moved again or cleared; there is no per-frame stream to keep up.
+    /// That is what makes a drag expressible: put the cursor down, press the button, move, release.
+    Cursor,
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Default, Deserialize, Clone, Copy, PartialEq, Eq)]
 pub enum InputAction {
     Press,
     Release,
+    /// Pressed for one frame and released the next — what a physical key does, and what a
+    /// `just_pressed` reader expects. The default because it is what a caller nearly always means.
+    #[default]
     Tap,
 }
 
@@ -80,6 +99,42 @@ enum Injected {
     Key(KeyCode, InputAction),
     Mouse(MouseButton, InputAction),
     Scroll { unit: MouseScrollUnit, x: f32, y: f32, window: Entity },
+    Cursor(Option<Vec2>),
+}
+
+/// **Where an injected pointer is**, in logical window pixels — `None` when the real mouse owns it.
+///
+/// # Why this is a resource and not the window's own cursor
+///
+/// Bevy has `Window::set_cursor_position`, and it looks like exactly the right call. It is not, and
+/// the reason was read out of the pinned engine source rather than guessed.
+///
+/// `Window::set_cursor_position` writes only an internal field. But Bevy's windowing backend runs a
+/// `changed_windows` system that compares that field against a per-window cache each frame, and on a
+/// difference asks the platform to **move the physical pointer** — `bevy_winit-0.19.0/src/system.rs`
+/// line 433. The cache is `pub(crate)`, so a plugin cannot update it to suppress the diff.
+///
+/// Writing the window would therefore drag the mouse out from under whoever is at the machine. That
+/// is precisely the class of thing this crate exists to avoid, and `tests/leaf.rs` is the ratchet
+/// that keeps it avoided; a cursor that moves the real one would satisfy the letter of that test
+/// while breaking the whole point of it.
+///
+/// So the injected position lives here, beside the game's own input, and a host reads it through
+/// [`cursor_position`]. Nothing outside the process is touched.
+#[derive(Resource, Default, Debug, Clone, Copy, PartialEq)]
+pub struct DebugCursor(pub Option<Vec2>);
+
+/// **The pointer a host should act on** — the injected position if one is set, else the real one.
+///
+/// One question with one answer, asked in one place. A host that calls
+/// [`Window::cursor_position`](bevy::window::Window::cursor_position) directly is unreachable by an
+/// agent; a host that calls this is drivable and behaves identically for a person, because
+/// [`DebugCursor`] is `None` until something explicitly sets it.
+///
+/// Precedence, not fallback: the injected value is only ever present because a caller asked for it,
+/// and clearing it is equally explicit. There is no degraded substitute that switches itself on.
+pub fn cursor_position(window: &Window, injected: &DebugCursor) -> Option<Vec2> {
+    injected.0.or_else(|| window.cursor_position())
 }
 
 /// Injected input waiting to be applied in `PreUpdate`.
@@ -132,17 +187,29 @@ impl PendingInput {
     pub fn queue_mouse(&mut self, button: MouseButton, action: InputAction) {
         self.queue.push(Injected::Mouse(button, action));
     }
+
+    /// Queue a cursor move — logical window pixels, or `None` to hand the pointer back.
+    ///
+    /// Through the queue like everything else, so a cursor move and the click that follows it land in
+    /// the documented order rather than racing: a click applied a frame before the move would be read
+    /// at the old position, which is the drag bug this whole module is shaped around avoiding.
+    pub fn queue_cursor(&mut self, at: Option<Vec2>) {
+        self.queue.push(Injected::Cursor(at));
+    }
 }
 
 /// Applies queued injections, in `PreUpdate` after Bevy has cleared last frame's edges.
 ///
 /// Registered by [`DebuggerPlugin`](crate::DebuggerPlugin); a host that builds its own schedule must
-/// keep the `.after(InputSystems)` ordering or the clear will eat these writes exactly as before.
+/// keep the `.after(InputSystems)` ordering or the clear will eat these writes exactly as before, and
+/// must `init_resource::<DebugCursor>()` — in Bevy 0.19 a missing `ResMut<T>` panics the system rather
+/// than skipping it, so the absence is loud rather than a cursor injection that quietly does nothing.
 pub fn apply_pending_input(
     mut pending: ResMut<PendingInput>,
     mut keys: ResMut<ButtonInput<KeyCode>>,
     mut mouse: ResMut<ButtonInput<MouseButton>>,
     mut wheel: MessageWriter<MouseWheel>,
+    mut cursor: ResMut<DebugCursor>,
 ) {
     // Taken out first: draining in place would hold a borrow of `pending` across the loop below.
     let release_keys = core::mem::take(&mut pending.release_next_keys);
@@ -175,15 +242,45 @@ pub fn apply_pending_input(
     // `deferred` behind it.
     let mut keys_touched: Vec<KeyCode> = Vec::new();
     let mut buttons_touched: Vec<MouseButton> = Vec::new();
+    let mut cursor_moved = false;
     let mut deferred: Vec<Injected> = Vec::new();
 
     for cmd in queue {
+        // **Once anything is held back, everything after it is too.**
+        //
+        // Without this the queue is only ordered *per key*: a later command of a different kind
+        // overtakes an earlier deferred one. Measured by `examples/cursor_drag_lands.rs` the day
+        // cursor injection landed — in `move, press, move, move, release` the release jumped ahead of
+        // the two pending moves and the drag committed at the wrong corner, while every individual
+        // rule was behaving as written.
+        //
+        // The cost is that two *different* keys queued behind a deferral now take a frame each
+        // instead of sharing one. That is the right trade: a caller wrote a sequence, and a sequence
+        // that arrives out of order is wrong in a way no amount of speed makes up for.
+        if !deferred.is_empty() {
+            deferred.push(cmd);
+            continue;
+        }
         match &cmd {
             Injected::Key(key, _) if keys_touched.contains(key) => {
                 deferred.push(cmd);
                 continue;
             }
             Injected::Mouse(button, _) if buttons_touched.contains(button) => {
+                deferred.push(cmd);
+                continue;
+            }
+            // **A move after a button, or a second move, waits for the next frame.**
+            //
+            // Position is state and a button edge is read against it, so both orderings matter and
+            // only one is expressible per frame. `press, move` applied together would have the game
+            // read the press at the *new* position — the press never happens where it was aimed —
+            // and two moves in one frame would collapse a drag's path to its endpoint. Deferring
+            // gives each its own frame, which is the shape a real mouse produces.
+            //
+            // A move *before* an untouched button is the one combination that is correct together,
+            // and it is the common one: aim, then click there.
+            Injected::Cursor(_) if cursor_moved || !buttons_touched.is_empty() => {
                 deferred.push(cmd);
                 continue;
             }
@@ -224,6 +321,10 @@ pub fn apply_pending_input(
                     // A mouse always reports `Moved`; the variant exists for touch.
                     phase: TouchPhase::Moved,
                 });
+            }
+            Injected::Cursor(at) => {
+                cursor_moved = true;
+                cursor.0 = at;
             }
         }
     }
@@ -293,6 +394,31 @@ pub fn handle_input(
                 )));
             }
             pending.queue.push(Injected::Scroll { unit, x, y, window: *window });
+        }
+        InputKind::Cursor => {
+            if cmd.clear {
+                pending.queue.push(Injected::Cursor(None));
+            } else {
+                // Both required, and named individually: a caller who sent only `x` has made a
+                // mistake, and a `y` defaulted to 0 would put the pointer at the top of the window
+                // and look like a working call.
+                let x = cmd
+                    .x
+                    .ok_or_else(|| invalid_params("Missing 'x' for cursor input".to_string()))?;
+                let y = cmd
+                    .y
+                    .ok_or_else(|| invalid_params("Missing 'y' for cursor input".to_string()))?;
+                if !x.is_finite() || !y.is_finite() {
+                    return Err(invalid_params(format!(
+                        "cursor position must be finite, got x={x}, y={y}"
+                    )));
+                }
+                // Deliberately not bounded to the window here. `Window::cursor_position` already
+                // reports `None` outside the window area, so a host reading through
+                // `cursor_position` sees "off the window" — which is a real state a mouse produces
+                // and a thing worth being able to test.
+                pending.queue.push(Injected::Cursor(Some(Vec2::new(x, y))));
+            }
         }
     }
 
