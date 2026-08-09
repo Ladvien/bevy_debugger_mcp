@@ -14,6 +14,7 @@ use bevy_debugger_mcp::brp_command_handler::{
 use bevy_debugger_mcp::brp_messages::{
     builtin_methods, BrpError, BrpPayload, BrpRequest, BrpResponse,
 };
+use bevy_debugger_mcp::brp_validation::{BrpValidator, ValidationConfig};
 use bevy_debugger_mcp::config::Config;
 use bevy_debugger_mcp::debug_brp_handler::DebugBrpHandler;
 use bevy_debugger_mcp::debug_command_processor::DebugCommandRouter;
@@ -179,8 +180,12 @@ async fn test_debug_handler_integration() {
 async fn test_backward_compatibility() {
     let config = Config::default();
     let client = BrpClient::new(&config);
+    // `BrpClient::new` leaves the registry empty; `init()` is what registers `CoreBrpHandler`,
+    // because registration is async and a constructor cannot await. Production does this at startup
+    // (`main.rs`, `mcp_server_v2.rs`), and a test that skips it is asserting against a client that
+    // was never finished being built.
+    client.init().await.expect("client init registers the core handler");
 
-    // Verify core handler is registered by default
     let registry = client.command_registry();
 
     // Core BRP methods should be handleable.
@@ -257,7 +262,17 @@ async fn test_handler_validation() {
         }
     }
 
-    let registry = CommandHandlerRegistry::new();
+    // What is under test here is the HANDLER's own `validate`, so the request validator's policy
+    // layer is turned off. `CommandHandlerRegistry::process` runs as `"default_session"`, and
+    // `validate_permissions` rejects any session it cannot find — with the default config no such
+    // session exists, so every request failed before reaching `ValidatingHandler` at all.
+    let permissive = ValidationConfig {
+        enforce_permissions: false,
+        enforce_entity_existence: false,
+        enforce_component_registry: false,
+        ..Default::default()
+    };
+    let registry = CommandHandlerRegistry::with_validator(BrpValidator::with_config(permissive));
     registry.register(Arc::new(ValidatingHandler)).await;
 
     // Valid request should pass
@@ -293,6 +308,8 @@ async fn test_no_handler_error() {
 async fn test_all_commands_have_handlers() {
     let config = Config::default();
     let client = BrpClient::new(&config);
+    // See `test_backward_compatibility`: `init()` is what registers `CoreBrpHandler`.
+    client.init().await.expect("client init registers the core handler");
     let registry = client.command_registry();
 
     // List of all core BRP methods that should be supported by the core handler.

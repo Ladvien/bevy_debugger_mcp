@@ -156,10 +156,17 @@ async fn test_drift_detector() {
     assert!(!detector.needs_correction());
     assert!(detector.get_correction().is_none());
 
-    // Add samples with large drift (should trigger correction)
-    detector.add_sample(Duration::from_millis(400), Duration::from_millis(500));
-    detector.add_sample(Duration::from_millis(500), Duration::from_millis(620));
+    // Add samples with large drift (should trigger correction).
+    //
+    // `needs_correction` compares the **average** drift across every retained sample against the
+    // threshold, which is the point of averaging: a couple of mildly late frames must not trip a
+    // correction. So the late samples have to be large enough to pull the mean over 100 ms, and the
+    // 100/120 ms pair this test used to add did not — mean drift was (5+8+10+100+120)/5 = 48.6 ms,
+    // so the assertion below could never have held.
+    detector.add_sample(Duration::from_millis(400), Duration::from_millis(1000));
+    detector.add_sample(Duration::from_millis(500), Duration::from_millis(1100));
 
+    // Mean drift is now (5+8+10+600+600)/5 = 244.6 ms, comfortably over the 100 ms threshold.
     assert!(detector.needs_correction());
     assert!(detector.get_correction().is_some());
 }

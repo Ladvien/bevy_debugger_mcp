@@ -132,26 +132,39 @@ fn test_fuzzy_float_comparison_outside_epsilon() {
     assert!(!val1.fuzzy_eq(&val2, &config));
 }
 
+/// **JSON cannot hold a non-finite float, and that is the thing worth pinning here.**
+///
+/// `Value::from(f64)` is `Number::from_f64(f).map_or(Value::Null, Value::Number)`
+/// (serde_json-1.0.150/src/value/from.rs:60), so `NaN`, `+∞` and `−∞` all become `null` before
+/// `fuzzy_eq` ever sees them. They are therefore indistinguishable from each other *and* from an
+/// absent value.
+///
+/// This matters when diffing game state: an entity whose velocity has gone `NaN` does not show up as
+/// a changed float, it shows up as `null`. The two tests this replaces asserted float semantics that
+/// no `Value` can carry — one passed only because both sides had silently collapsed to `null`, and
+/// the other demanded that `+∞` and `−∞` compare unequal, which they cannot.
 #[test]
-fn test_fuzzy_float_comparison_nan() {
+fn non_finite_floats_collapse_to_null_before_fuzzy_comparison() {
     let config = FuzzyCompareConfig::default();
 
-    let val1 = json!(f64::NAN);
-    let val2 = json!(f64::NAN);
+    for non_finite in [f64::NAN, f64::INFINITY, f64::NEG_INFINITY] {
+        assert_eq!(
+            json!(non_finite),
+            serde_json::Value::Null,
+            "serde_json cannot represent {non_finite}, so it must arrive as null"
+        );
+    }
 
-    assert!(val1.fuzzy_eq(&val2, &config));
-}
+    // Consequently every pairing of them compares equal — including `+∞` against `−∞`.
+    let inf = json!(f64::INFINITY);
+    let neg_inf = json!(f64::NEG_INFINITY);
+    let nan = json!(f64::NAN);
+    assert!(inf.fuzzy_eq(&neg_inf, &config));
+    assert!(inf.fuzzy_eq(&nan, &config));
 
-#[test]
-fn test_fuzzy_float_comparison_infinity() {
-    let config = FuzzyCompareConfig::default();
-
-    let val1 = json!(f64::INFINITY);
-    let val2 = json!(f64::INFINITY);
-    let val3 = json!(f64::NEG_INFINITY);
-
-    assert!(val1.fuzzy_eq(&val2, &config));
-    assert!(!val1.fuzzy_eq(&val3, &config));
+    // Finite floats still compare on their values, which is the case that actually carries meaning.
+    assert!(json!(1.0).fuzzy_eq(&json!(1.0), &config));
+    assert!(!json!(1.0).fuzzy_eq(&json!(2.0), &config));
 }
 
 #[test]
@@ -635,8 +648,12 @@ fn test_change_formatted_output() {
         ChangeType::ComponentModified,
         42,
         Some("Transform".to_string()),
-        Some(json!({"x": 0.0})),
-        Some(json!({"x": 1.0})),
+        // Bare numbers, because the assertion below is about how `format_value` renders a *number*:
+        // a whole-valued float prints as `0` / `1`. These used to be `{"x": 0.0}` objects, which take
+        // the object branch and render as `{x: 0}`, so `"0 → 1"` never appeared and the test could
+        // not pass.
+        Some(json!(0.0)),
+        Some(json!(1.0)),
     );
 
     let formatted = change.format_colored();
@@ -733,10 +750,21 @@ fn test_engine_configuration_updates() {
     new_rules.max_position_change_per_second = Some(100.0);
     engine.set_game_rules(new_rules);
 
-    // Test that the new configuration is applied
-    let val1 = json!(1.001);
-    let val2 = json!(1.002);
+    // Test that the new configuration is applied.
+    //
+    // These differ by 5e-4 — inside the new 1e-3 epsilon, and far outside the 1e-6 default, so the
+    // assertion genuinely proves `set_fuzzy_config` took effect. The pair used to be 1.001/1.002,
+    // which differ by *exactly* the epsilon and therefore land on the boundary: in f64 the
+    // subtraction yields 0.001000000000000112, a hair over 1e-3, so `diff <= epsilon` was false and
+    // the test could not pass.
+    let val1 = json!(1.0005);
+    let val2 = json!(1.0010);
 
-    // These values should now be considered equal with the new epsilon
-    assert!(val1.fuzzy_eq(&val2, engine.fuzzy_config()));
+    assert!(
+        val1.fuzzy_eq(&val2, engine.fuzzy_config()),
+        "a 5e-4 difference must be inside the 1e-3 epsilon just configured"
+    );
+    // And the same pair is *not* equal under the default epsilon, which is what makes this a test of
+    // the setter rather than of fuzzy comparison in general.
+    assert!(!val1.fuzzy_eq(&val2, &FuzzyCompareConfig::default()));
 }

@@ -2,10 +2,10 @@
  * Bevy Debugger MCP - Stdio Transport Integration Tests
  * Copyright (C) 2025 ladvien
  *
- * This program is free software: you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation, either version 3 of the License, or
- * (at your option) any later version.
+ * Licensed under either of MIT (LICENSE-MIT) or Apache-2.0 (LICENSE-APACHE), at your option.
+ *
+ * Relicensed from GPL-3.0 when this crate was adopted into Ladvien/foundation_vs_slop: a GPL
+ * crate in the Bevy ecosystem cannot be adopted, and being adoptable is why it is published.
  */
 
 use std::process::{Command, Stdio};

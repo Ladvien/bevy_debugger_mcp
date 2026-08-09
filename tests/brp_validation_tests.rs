@@ -210,6 +210,10 @@ async fn test_entity_existence_validation() {
 async fn test_component_registry_validation() {
     let mut config = ValidationConfig::default();
     config.enforce_component_registry = true;
+    // The comment below always said this test disables entity-existence checking, but nothing did.
+    // `validate_entity_existence` runs *before* the component-registry check, so with no BRP
+    // connection entity 123 failed existence first and that error masked the one under test.
+    config.enforce_entity_existence = false;
     let validator = BrpValidator::with_config(config);
     let session_id = "component_test_session";
     let request_size = 100;
@@ -308,8 +312,13 @@ async fn test_query_limits() {
     let result = validator.validate_request(&valid_query, session_id, request_size).await;
     assert!(result.is_ok());
 
-    // Query exceeding limit should fail
-    let invalid_query = request(
+    // **A larger `limit` is accepted too, and that is the contract** — the same one the comment above
+    // states. `validate_request_specifics` deliberately bounds nothing for `world.query`: pagination
+    // belongs to the server, which is the only side that knows how many entities actually match.
+    //
+    // The rest of this test used to assert the opposite, expecting an "exceeds maximum" rejection.
+    // It contradicted both the product and its own first comment, and it could never have passed.
+    let larger_query = request(
         builtin_methods::BRP_QUERY_METHOD,
         Some(serde_json::json!({
             "data": { "components": [], "option": "all", "has": [] },
@@ -318,12 +327,11 @@ async fn test_query_limits() {
         })),
     );
 
-    let result = validator.validate_request(&invalid_query, session_id, request_size).await;
-    assert!(result.is_err());
-
-    let error_message = result.unwrap_err().to_string();
-    assert!(error_message.contains("exceeds maximum"));
-    assert!(error_message.contains("Use pagination"));
+    let result = validator.validate_request(&larger_query, session_id, request_size).await;
+    assert!(
+        result.is_ok(),
+        "world.query limits are the server's business; the client validator must not reject one: {result:?}"
+    );
 }
 
 #[tokio::test]
