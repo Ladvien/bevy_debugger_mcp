@@ -53,3 +53,9 @@ claude_cache/
 # macOS service files (runtime generated)
 *.log.bak
 .DS_Store
+
+# Runtime session state written by the running server. These are checkpoints from a debugging
+# session, not source: 16 of them were committed upstream, and because the monorepo mirrors this
+# directory, simply running `bevy-debugger-mcp` dirtied the tree and tripped the clean-tree guard in
+# `scripts/mirror_crates.sh` — blocking the mirror of every other crate too.
+debug_sessions/

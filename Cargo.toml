@@ -7,7 +7,12 @@ description = "AI-assisted debugging for Bevy games through Claude Code using Mo
 homepage = "https://github.com/ladvien/bevy_debugger_mcp"
 repository = "https://github.com/ladvien/bevy_debugger_mcp"
 readme = "README.md"
-license = "GPL-3.0"
+# Relicensed from GPL-3.0 to match the other `bevy_*` crates in this workspace. A GPL crate in the
+# Bevy ecosystem is unadoptable, and adoption is the whole point of mirroring these out; the GPL stays
+# with the `emerge-*` family and the game they were carved from.
+license = "MIT OR Apache-2.0"
+# Never reaches crates.io by accident, same as every other crate here.
+publish = false
 keywords = ["bevy", "debugging", "mcp", "claude", "gamedev"]
 categories = ["game-development", "development-tools", "command-line-utilities"]
 rust-version = "1.95"
@@ -18,7 +23,8 @@ include = [
     "benches/**/*",
     "Cargo.toml",
     "Cargo.lock",
-    "LICENSE",
+    "LICENSE-MIT",
+    "LICENSE-APACHE",
     "README.md",
     "build.rs",
     "scripts/bevy-debugger-control"
@@ -34,11 +40,6 @@ exclude = [
 [[bin]]
 name = "bevy-debugger-mcp"
 path = "src/main.rs"
-
-# Test configuration for screenshot integration
-[[test]]
-name = "screenshot_integration_wrapper"
-path = "tests/screenshot_integration_wrapper.rs"
 
 [dependencies]
 # MCP SDK for proper protocol implementation
@@ -155,31 +156,27 @@ profiling = ["performance-profiling"]
 # Legacy compatibility
 visual_overlays = ["visual-debugging"]
 
-[profile.release]
-# Optimize for performance in release builds
-opt-level = 3
-lto = true          # Link-time optimization
-codegen-units = 1   # Better optimization, slower compile
-panic = "abort"     # Smaller binaries, no unwinding
-strip = true        # Remove debug symbols
-
-[profile.dev]
-# Faster compilation for development
-opt-level = 0
-debug = true
-incremental = true
-
-[profile.release-with-debug]
-# Release performance with debug info
-inherits = "release"
-debug = true
-strip = false
-
-[profile.bench]
-# Optimization for benchmarks
-inherits = "release"
-debug = true
-lto = "thin"        # Faster LTO for benchmarks
+# **No `[profile.*]` here on purpose — profiles come from the workspace root.**
+#
+# This crate is a member of the `foundation_vs_slop` workspace, and Cargo honours profiles only at the
+# workspace root: a `[profile.release]` in this file would be silently ignored except for a warning
+# printed on *every* cargo command in the monorepo. Deleting it is the honest version of what Cargo was
+# going to do anyway.
+#
+# The settings this file used to carry were `opt-level = 3`, `lto = true`, `codegen-units = 1`,
+# `panic = "abort"`, `strip = true`; the root already sets `opt-level = 3`, `lto = "thin"` and
+# `codegen-units = 1`, so the optimisation story is effectively unchanged.
+#
+# **`panic = "abort"` is a real behavioural difference, though**, and an earlier version of this
+# comment wrongly claimed otherwise. Under `abort` a panic anywhere — including inside a spawned
+# tokio task — takes the process down. Unwinding instead lets the runtime catch a panicking task and
+# keep serving, so a failure that used to be loud and terminal can now leave the server up in a
+# partially-failed state. That is a downgrade in fail-loud behaviour, noted here rather than papered
+# over; restoring it means setting `panic = "abort"` on the workspace root, which would also apply to
+# the game and is a separate decision.
+#
+# If you are reading this in the standalone mirror, this file is the repo root again and you can add
+# a `[profile.release]` back; nothing here depends on one.
 
 [dev-dependencies]
 tokio-test = "0.4"

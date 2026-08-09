@@ -1,9 +1,43 @@
 # Bevy Debugger MCP Server
 
+> ⚠️ **Vibe Coded** — written by an AI agent working from a human's direction. It is used against a shipping game and covered by tests, but it has had no line-by-line human audit. Read it before you trust it.
+
+Lets an agent inspect and drive a **running** Bevy game: query entities, components and resources live, capture frames from an offscreen render target, and inject keyboard and mouse input — none of which touches your desktop, your window manager, or the OS input stack.
+
+> **This repo is a read-only mirror.** It is split out of [`Ladvien/foundation_vs_slop`](https://github.com/Ladvien/foundation_vs_slop) at `crates/bevy_debugger_mcp/` with `git subtree split`, history intact. Issues and PRs belong upstream — changes made here cannot be pulled back.
+
 [![Build Status](https://img.shields.io/badge/build-passing-brightgreen)](https://github.com/ladvien/bevy_debugger_mcp)
-[![License: GPL v3](https://img.shields.io/badge/License-GPLv3-blue.svg)](LICENSE)
-[![Rust](https://img.shields.io/badge/rust-1.70+-orange.svg)](https://www.rust-lang.org)
-[![Bevy](https://img.shields.io/badge/bevy-0.14+-purple.svg)](https://bevyengine.org)
+[![License: MIT OR Apache-2.0](https://img.shields.io/badge/License-MIT%20OR%20Apache--2.0-blue.svg)](LICENSE-MIT)
+[![Rust](https://img.shields.io/badge/rust-1.95+-orange.svg)](https://www.rust-lang.org)
+[![Bevy](https://img.shields.io/badge/bevy-0.19-purple.svg)](https://bevyengine.org)
+
+## Two halves
+
+| | What it is | Where it runs |
+|---|---|---|
+| `bevy_debugger_mcp` (this crate) | The MCP **server** binary, `bevy-debugger-mcp`. Speaks MCP to an agent and BRP to the game. | Its own process |
+| [`crates/bevy_debugger_bevy`](crates/bevy_debugger_bevy) | The companion **Bevy plugin**. Registers the custom BRP methods `bevy_debugger/screenshot` and `bevy_debugger/input`. | Inside the game |
+
+They are independent — the server does not depend on the plugin. The plugin is what a game links; the server is what an agent talks to.
+
+## Examples
+
+The one that demonstrates what this crate actually does — no window, no GPU, prints to the terminal:
+
+```sh
+cargo run -p bevy_debugger_bevy --example injected_input_lands
+```
+
+It shows the property the plugin exists to provide: an injected key is visible to `just_pressed` for
+exactly one frame and `just_released` on the next, the same shape a physical key produces.
+
+Two older examples ship with the server, and it is worth being precise about them, because neither
+demonstrates `DebuggerPlugin`:
+
+| Example | What it actually does |
+|---|---|
+| `basic_setup` | A plain Bevy app with `RemotePlugin` + `RemoteHttpPlugin` — a *target* to debug, not a use of this crate. It does **not** add `DebuggerPlugin`. |
+| `screenshot_setup` | Uses Bevy's built-in `Screenshot::primary_window()`. That is **window-surface capture — the opposite of this crate's path**, which reads an offscreen `Image` precisely so it never needs the window raised. Read it as background on Bevy's own screenshot API, not as guidance for this crate. |
 
 > [!WARNING]
 > ## ⚠️ 100% VIBE CODED ⚠️
@@ -755,7 +789,9 @@ cargo test screenshot_integration_wrapper::test_screenshot_performance
 
 ## 📄 License
 
-This project is licensed under the GNU General Public License v3.0 - see the [LICENSE](LICENSE) file for details.
+Licensed under either of [MIT](LICENSE-MIT) or [Apache-2.0](LICENSE-APACHE) at your option.
+
+It was GPL-3.0 until it was adopted into [`Ladvien/foundation_vs_slop`](https://github.com/Ladvien/foundation_vs_slop), and relicensed on the way in to match the other `bevy_*` crates there: a GPL crate in the Bevy ecosystem cannot be adopted, and being adoptable is the entire reason these are published.
 
 ## 🙏 Acknowledgments
 
