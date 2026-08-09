@@ -169,8 +169,16 @@ impl CircuitBreaker {
             return false;
         }
 
-        // Check if timeout has passed
-        if let Some(last_failure) = *self.last_failure_time.read().await {
+        // Check if timeout has passed.
+        //
+        // **The read guard must be dropped before `reset()`.** Written as
+        // `if let Some(x) = *self.last_failure_time.read().await`, the temporary guard lives until the
+        // end of the whole `if let` (edition 2021), so `reset()` — which takes the WRITE lock on this
+        // same `RwLock` — waits on a read lock the same task is still holding. That is a self-deadlock,
+        // and it hangs the first time an open breaker is asked whether it may close again: exactly the
+        // moment recovery depends on. Binding first ends the borrow at the semicolon.
+        let last_failure = *self.last_failure_time.read().await;
+        if let Some(last_failure) = last_failure {
             if last_failure.elapsed() > self.reset_timeout {
                 self.reset().await;
                 return false;

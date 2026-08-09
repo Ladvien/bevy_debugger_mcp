@@ -26,7 +26,15 @@ const VIOLATION_DETECTION_LATENCY_MS: u64 = 100;
 const PLATFORM_DETECTION_INTERVAL: Duration = Duration::from_secs(60);
 
 /// Performance budget configuration
+///
+/// `#[serde(default)]` so a **partial** config deserializes, with anything unspecified taken from
+/// [`BudgetConfig::default`]. Without it every field was mandatory — including `system_budgets`,
+/// `platform_overrides`, `auto_adjust_percentile` and `violation_window_seconds` — so the
+/// `SetPerformanceBudget` BRP command rejected `{"frame_time_ms": 20.0}` with a missing-field error
+/// and a client had to resend the entire struct to change one number. "Set a budget" is inherently a
+/// partial update, and this struct already defines what every unset field should be.
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(default)]
 pub struct BudgetConfig {
     /// Frame time budget in milliseconds
     pub frame_time_ms: Option<f32>,

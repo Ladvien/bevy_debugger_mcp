@@ -410,9 +410,22 @@ impl SessionManager {
             checkpoint_manager.restore_checkpoint(checkpoint_id).await?
         };
 
-        let restored_session: DebugSession = serde_json::from_value(checkpoint.state_data)?;
+        let mut restored_session: DebugSession = serde_json::from_value(checkpoint.state_data)?;
 
         let mut sessions = self.sessions.write().await;
+
+        // **The checkpoint list survives a restore.** It is a record of what you can restore *to*,
+        // not part of the state being restored.
+        //
+        // `create_checkpoint` snapshots the session before appending the new id to
+        // `session.checkpoints`, so the snapshot never contains its own id. Replacing the session
+        // wholesale therefore erased the entry for the checkpoint just used — and every later one —
+        // which made a restore single-use and silently discarded the session's history. Carrying the
+        // current list across keeps every checkpoint reachable, including the one restored from.
+        if let Some(current) = sessions.get(session_id) {
+            restored_session.checkpoints = current.checkpoints.clone();
+        }
+
         sessions.insert(session_id.to_string(), restored_session);
 
         info!("Restored session {} from checkpoint {}", session_id, checkpoint_id);

@@ -2,18 +2,10 @@
  * Production-Grade Circuit Breaker for BRP Connections
  * Copyright (C) 2025 ladvien
  *
- * This program is free software: you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation, either version 3 of the License, or
- * (at your option) any later version.
+ * Licensed under either of MIT (LICENSE-MIT) or Apache-2.0 (LICENSE-APACHE), at your option.
  *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program.  If not, see <https://www.gnu.org/licenses/>.
+ * Relicensed from GPL-3.0 when this crate was adopted into Ladvien/foundation_vs_slop: a GPL
+ * crate in the Bevy ecosystem cannot be adopted, and being adoptable is why it is published.
  */
 
 use crate::config::CircuitBreakerConfig;
@@ -299,7 +291,13 @@ mod tests {
         let metrics = breaker.get_metrics();
         assert_eq!(metrics.success_count, 2);
         assert_eq!(metrics.failure_count, 1);
-        assert_eq!(metrics.failure_rate(), 33.333333333333336);
+        // 1/3 has no exact binary representation, so the literal a human writes down and the value the
+        // division produces differ in the last ulp. Comparing floats for exact equality is the bug.
+        assert!(
+            (metrics.failure_rate() - 100.0 / 3.0).abs() < 1e-9,
+            "failure rate should be ~33.33%, got {}",
+            metrics.failure_rate()
+        );
         assert!(metrics.is_healthy());
     }
 }

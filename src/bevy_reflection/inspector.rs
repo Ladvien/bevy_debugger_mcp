@@ -2,18 +2,10 @@
  * Bevy Debugger MCP Server - Bevy Reflection Inspector
  * Copyright (C) 2025 ladvien
  *
- * This program is free software: you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation, either version 3 of the License, or
- * (at your option) any later version.
+ * Licensed under either of MIT (LICENSE-MIT) or Apache-2.0 (LICENSE-APACHE), at your option.
  *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program.  If not, see <https://www.gnu.org/licenses/>.
+ * Relicensed from GPL-3.0 when this crate was adopted into Ladvien/foundation_vs_slop: a GPL
+ * crate in the Bevy ecosystem cannot be adopted, and being adoptable is why it is published.
  */
 
 //! # Bevy Reflection Integration
@@ -518,6 +510,35 @@ impl BevyReflectionInspector {
         Ok(metadata)
     }
 
+    /// The fields of a component value, keyed by name — the unit `diff_components` compares.
+    ///
+    /// A component's fields *are* its JSON object keys; a component that is not an object (a newtype
+    /// over a scalar, say) has exactly one implicit field. That is a definition, not a fallback: both
+    /// shapes produce one map with the same meaning, and the caller has no second code path.
+    async fn field_map(
+        &self,
+        value: &ComponentValue,
+    ) -> Result<HashMap<String, InspectedValue>> {
+        let mut fields = HashMap::new();
+        match value {
+            Value::Object(obj) => {
+                for (name, field_value) in obj {
+                    fields.insert(
+                        name.clone(),
+                        self.inspect_value_generic(field_value, name).await?,
+                    );
+                }
+            }
+            other => {
+                fields.insert(
+                    "root".to_string(),
+                    self.inspect_value_generic(other, "root").await?,
+                );
+            }
+        }
+        Ok(fields)
+    }
+
     /// Perform reflection-based diffing of component states
     pub async fn diff_components(
         &self,
@@ -527,8 +548,16 @@ impl BevyReflectionInspector {
     ) -> Result<ReflectionDiffResult> {
         debug!("Diffing components of type: {}", component_type);
 
-        let old_inspection = self.inspect_component(component_type, old_value).await?;
-        let new_inspection = self.inspect_component(component_type, new_value).await?;
+        // **Diff by the component's actual fields.**
+        //
+        // This used to read `inspect_component(..).field_values`, which inserts exactly one entry —
+        // `"root"` — holding the whole component (see `inspect_component`). Both sides therefore always
+        // had the same single key, so the `(None, Some(_))` / `(Some(_), None)` arms below were
+        // unreachable and `added_fields`/`removed_fields` could never be anything but zero. A diff that
+        // structurally cannot report an added field is worse than no diff, because the summary looks
+        // authoritative.
+        let old_fields = self.field_map(old_value).await?;
+        let new_fields = self.field_map(new_value).await?;
 
         let mut field_diffs = HashMap::new();
         let mut summary = DiffSummary {
@@ -543,18 +572,17 @@ impl BevyReflectionInspector {
         };
 
         // Compare field values
-        let all_field_names: std::collections::HashSet<String> = old_inspection
-            .field_values
+        let all_field_names: std::collections::HashSet<String> = old_fields
             .keys()
-            .chain(new_inspection.field_values.keys())
+            .chain(new_fields.keys())
             .cloned()
             .collect();
 
         summary.total_fields = all_field_names.len();
 
         for field_name in all_field_names {
-            let old_field = old_inspection.field_values.get(&field_name);
-            let new_field = new_inspection.field_values.get(&field_name);
+            let old_field = old_fields.get(&field_name);
+            let new_field = new_fields.get(&field_name);
 
             let (change_type, severity) = match (old_field, new_field) {
                 (None, Some(_)) => (ChangeType::Added, ChangeSeverity::Minor),

@@ -384,10 +384,14 @@ mod tests {
     #[test]
     fn test_health_status_calculation() {
         let mut observability = DefaultBevyObservability::new();
+        // Memory pressure only downgrades health from `Healthy` to `Warning`; a bad BRP connection
+        // sets `Critical` outright and wins. `BevyMetrics::default()` starts `Disconnected`, so
+        // without this line the assertion below is measuring the connection check, not the memory one.
+        observability.metrics.brp_connection_status = ConnectionStatus::Connected;
         observability.metrics.memory_pressure_level = MemoryPressure::High;
-        
+
         let health = observability.get_health_status();
-        
+
         assert_eq!(health.overall_status, HealthLevel::Warning);
         assert!(!health.memory_usage_healthy);
         assert!(health.issues.len() > 0);

@@ -2,18 +2,10 @@
  * Bevy Debugger MCP Server - Library
  * Copyright (C) 2025 ladvien
  *
- * This program is free software: you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation, either version 3 of the License, or
- * (at your option) any later version.
+ * Licensed under either of MIT (LICENSE-MIT) or Apache-2.0 (LICENSE-APACHE), at your option.
  *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program.  If not, see <https://www.gnu.org/licenses/>.
+ * Relicensed from GPL-3.0 when this crate was adopted into Ladvien/foundation_vs_slop: a GPL
+ * crate in the Bevy ecosystem cannot be adopted, and being adoptable is why it is published.
  */
 
 //! # Bevy Debugger MCP
@@ -108,22 +100,29 @@
 //!
 //! ```rust,no_run
 //! use bevy_debugger_mcp::prelude::*;
+//! use bevy_debugger_mcp::config::Config;
 //!
 //! # #[tokio::main]
-//! # async fn main() -> Result<(), Box<dyn std::error::Error>> {
-//! // Connect to your Bevy game
-//! let mut client = BrpClient::connect("ws://localhost:15702").await?;
+//! # // `Result` here is this crate's own one-parameter alias, re-exported by the prelude — it
+//! # // shadows `std::result::Result`, so spelling it with two parameters does not compile.
+//! # async fn main() -> Result<()> {
+//! // The client is built from config and then initialised: `init` is what registers the core
+//! // command handler, and it is async, so a constructor cannot do it.
+//! let config = Config::default();
+//! let client = BrpClient::new(&config);
+//! client.init().await?;
 //!
-//! // Parse natural language queries
-//! let parser = RegexQueryParser::new();
-//! let request = parser.parse("find entities with Transform and Velocity")?;
-//!
-//! // Execute the query
-//! let response = client.send_request(request).await?;
-//! println!("Found entities: {:?}", response);
+//! // Parse a natural-language query into a BRP request.
+//! let parser = RegexQueryParser::new()?;
+//! let request: BrpRequest = parser.parse("find entities with Transform and Velocity")?;
+//! println!("built request: {request:?}");
 //! # Ok(())
 //! # }
 //! ```
+//!
+//! The transport is JSON-RPC over HTTP (default port 15702). An earlier version of this example
+//! showed `BrpClient::connect("ws://…")`; the WebSocket transport was replaced in the Bevy 0.19
+//! upgrade and that method no longer exists.
 //!
 //! ## Architecture
 //!

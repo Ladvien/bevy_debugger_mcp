@@ -4,7 +4,7 @@
 /// to ensure we've eliminated all unwrap() calls that could crash the application.
 
 use crate::brp_messages::{DebugCommand, ComponentValue, ComponentFilter, FilterOp, QueryFilter};
-use crate::checkpoint::{CheckpointManager, CheckpointConfig};
+use crate::checkpoint::{Checkpoint, CheckpointManager, CheckpointConfig};
 use crate::config::Config;
 use crate::error::Result;
 use crate::memory_profiler::{MemoryProfiler, MemoryProfilerConfig};
@@ -55,20 +55,22 @@ async fn test_query_parser_no_panic() {
         Err(_) => return, // If constructor fails, that's expected
     };
     
+    // Every element is owned: `.repeat()` yields `String`, so the bare literals must be converted
+    // too or the vec has no single element type.
     let malformed_queries = vec![
-        "", // Empty
-        "|||||||||||", // Invalid regex chars
-        "find entities with \0\0\0", // Null bytes
+        String::new(), // Empty
+        "|||||||||||".to_string(), // Invalid regex chars
+        "find entities with \0\0\0".to_string(), // Null bytes
         "find entities with ".repeat(1000), // Very long
         "find entities with component Component".repeat(100), // Repetitive
-        "show entity 18446744073709551615", // Max u64
-        "show entity -1", // Negative
-        "show entity abc", // Non-numeric
-        "find 999999999999999999999999999999999999 entities", // Overflow number
+        "show entity 18446744073709551615".to_string(), // Max u64
+        "show entity -1".to_string(), // Negative
+        "show entity abc".to_string(), // Non-numeric
+        "find 999999999999999999999999999999999999 entities".to_string(), // Overflow number
     ];
-    
+
     for query in malformed_queries {
-        let _ = parser.parse(query); // Shouldn't panic, may return error
+        let _ = parser.parse(&query); // Shouldn't panic, may return error
     }
 }
 
@@ -84,7 +86,7 @@ async fn test_semantic_analyzer_no_panic() {
         "\0".repeat(10000), // Null bytes
         "🚀".repeat(1000), // Unicode
         "find".repeat(10000), // Repetitive
-        "", // Empty
+        String::new(), // Empty
         " ".repeat(10000), // Spaces
         "find stuck entities".repeat(1000), // Long valid query
     ];
@@ -98,22 +100,28 @@ async fn test_semantic_analyzer_no_panic() {
 #[tokio::test]
 async fn test_checkpoint_manager_no_panic() {
     let config = CheckpointConfig::default();
-    let manager = CheckpointManager::new(config);
-    
+    // The manager itself is shared, not a reference to it: `Arc::new(&manager)` wraps a borrow that
+    // cannot outlive this function, while the spawned tasks can.
+    let manager = Arc::new(CheckpointManager::new(config));
+
     // Try to create many checkpoints concurrently
     let mut handles = vec![];
     for i in 0..50 {
-        let manager_clone = Arc::new(&manager);
+        let manager_clone = Arc::clone(&manager);
         let handle = tokio::spawn(async move {
             for j in 0..10 {
                 let checkpoint_data = json!({"iteration": i * 10 + j});
-                let _ = manager_clone.create_checkpoint(
-                    &format!("test_checkpoint_{}", i * 10 + j),
-                    &format!("Test description {}", i * 10 + j),
-                    "test_operation",
-                    "test_component",
-                    checkpoint_data
-                ).await;
+                // These five used to be `create_checkpoint`'s parameters; they now build the
+                // `Checkpoint` it takes.
+                let _ = manager_clone
+                    .create_checkpoint(Checkpoint::new(
+                        &format!("test_checkpoint_{}", i * 10 + j),
+                        &format!("Test description {}", i * 10 + j),
+                        "test_operation",
+                        "test_component",
+                        checkpoint_data,
+                    ))
+                    .await;
             }
         });
         handles.push(handle);
@@ -147,7 +155,9 @@ async fn test_state_diff_no_panic() {
     
     // Add different components to second snapshot (this creates the key mismatch scenario)
     components2.insert("Position".to_string(), ComponentValue::String("15,25,35".to_string()));
-    components2.insert("Health".to_string(), ComponentValue::Number(100.0));
+    // `ComponentValue::Number` wraps a `serde_json::Number`, not an `f64`. `json!` builds one without
+    // the fallible `Number::from_f64` (and so without an `unwrap`).
+    components2.insert("Health".to_string(), json!(100.0));
     // Note: Missing Velocity, adding Health - this tests our unwrap fixes
     
     let entity1 = crate::brp_messages::EntityData {

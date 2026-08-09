@@ -429,12 +429,17 @@ mod tests {
 
         {
             let state_guard = state.read().await;
-            let overlay_status = state_guard.get_overlay_status(&DebugOverlayType::EntityHighlight);
-            assert!(overlay_status.is_some());
-            
-            let status = overlay_status.unwrap();
-            assert!(status.enabled);
-            assert_eq!(status.config["color"], json!([1.0, 0.0, 0.0, 1.0]));
+            // **A failed sync must leave no overlay state.** `set_overlay_enabled` stores the config
+            // only after `sync_overlay_to_bevy` succeeds, so a push the game never received cannot
+            // leave local state claiming the overlay is on. This assertion used to demand the
+            // opposite — that the config was recorded anyway — which would be phantom state: the
+            // processor reporting an overlay as enabled in a game that never heard about it.
+            assert!(
+                state_guard
+                    .get_overlay_status(&DebugOverlayType::EntityHighlight)
+                    .is_none(),
+                "a failed BRP sync must not leave the overlay recorded as enabled"
+            );
         }
     }
 
@@ -446,6 +451,19 @@ mod tests {
         {
             let mut state_guard = state.write().await;
             
+            // `update_metrics` only records against an overlay that is already registered, and
+            // registration happens after a successful BRP sync — which this harness has no game to
+            // perform. Register it directly (same module, so the field is reachable) so what is under
+            // test here is the budget arithmetic, not the connection.
+            let key = state_guard.overlay_type_to_key(&DebugOverlayType::EntityHighlight);
+            // Enabled, because `recalculate_total_metrics` only sums overlays that are on — a
+            // disabled overlay costs nothing, which is the point of disabling it.
+            let registered = OverlayConfig {
+                enabled: true,
+                ..OverlayConfig::default()
+            };
+            state_guard.overlays.insert(key, registered);
+
             // Simulate performance metrics that exceed budget
             let high_cost_metrics = OverlayMetrics {
                 render_time_us: 3000, // 3ms, exceeds 2ms budget
@@ -453,7 +471,7 @@ mod tests {
                 memory_usage_bytes: 1024 * 1024,
                 update_count: 50,
             };
-            
+
             state_guard.update_metrics(&DebugOverlayType::EntityHighlight, high_cost_metrics);
             assert!(state_guard.is_performance_budget_exceeded());
         }

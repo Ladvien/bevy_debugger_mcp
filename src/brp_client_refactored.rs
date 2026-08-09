@@ -17,7 +17,7 @@ use crate::brp_command_handler::{CommandHandlerRegistry, CoreBrpHandler, BrpComm
 use crate::config::Config;
 use crate::debug_command_processor::{DebugCommandRequest, DebugCommandRouter};
 use crate::error::{Error, Result};
-use crate::resource_manager::ResourceManager;
+use crate::resource_manager::{ResourceConfig, ResourceManager};
 
 /// Refactored BRP client with interior mutability
 ///
@@ -259,7 +259,7 @@ mod tests {
     #[tokio::test]
     async fn test_brp_client_with_resource_manager() {
         let config = Config::default();
-        let resource_manager = Arc::new(ResourceManager::new());
+        let resource_manager = Arc::new(ResourceManager::new(ResourceConfig::default()));
         let client = create_brp_client_with_manager(&config, resource_manager).await.unwrap();
 
         assert!(client.get_resource_manager().is_some());

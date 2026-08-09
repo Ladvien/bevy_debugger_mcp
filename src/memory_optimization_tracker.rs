@@ -292,10 +292,16 @@ mod tests {
         let target = OptimizationTarget::new("lazy_init".to_string(), 56, 40.0);
         tracker.add_optimization_target(target);
         
-        tracker.update_target("lazy_init", 34);
-        
+        // Meeting a 40% reduction from a baseline of 56 needs the current count at or below 33.6.
+        // This said 34, which is a 39.29% reduction — just under the target it then asserted was met.
+        tracker.update_target("lazy_init", 33);
+
         let summary = tracker.get_optimization_summary();
         assert_eq!(summary.targets.len(), 1);
-        assert!(summary.targets[0].is_target_met());
+        assert!(
+            summary.targets[0].is_target_met(),
+            "56 -> 33 is a {:.2}% reduction, which should meet the 40% target",
+            summary.targets[0].reduction_achieved()
+        );
     }
 }

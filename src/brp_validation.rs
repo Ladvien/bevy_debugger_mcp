@@ -2,10 +2,10 @@
  * Bevy Debugger MCP Server - BRP Command Validation
  * Copyright (C) 2025 ladvien
  *
- * This program is free software: you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation, either version 3 of the License, or
- * (at your option) any later version.
+ * Licensed under either of MIT (LICENSE-MIT) or Apache-2.0 (LICENSE-APACHE), at your option.
+ *
+ * Relicensed from GPL-3.0 when this crate was adopted into Ladvien/foundation_vs_slop: a GPL
+ * crate in the Bevy ecosystem cannot be adopted, and being adoptable is why it is published.
  */
 
 use crate::brp::{builtin_methods, BrpRequest, ComponentTypeId, EntityId};
@@ -70,7 +70,12 @@ pub struct ValidationConfig {
     /// Maximum request size in bytes
     pub max_request_size: usize,
 
-    /// Maximum entities per query
+    /// Maximum entities per query.
+    ///
+    /// **Currently enforced by nothing.** `validate_request_specifics` deliberately bounds nothing for
+    /// `world.query` — the server owns pagination, being the only side that knows how many entities
+    /// match. The field is kept because it is part of the serialized config shape, but setting it has
+    /// no effect; do not read a limit here as a guarantee.
     pub max_entities_per_query: usize,
 
     /// Rate limit (operations per second)
@@ -749,9 +754,10 @@ mod tests {
         let registry = registry.read().await;
 
         // Common types should be registered
-        assert!(registry.is_registered("Transform"));
-        assert!(registry.is_registered("Name"));
-        assert!(!registry.is_registered("NonexistentComponent"));
+        // `ComponentTypeId` is a `String` alias, so these need owned values rather than `&str`.
+        assert!(registry.is_registered(&"Transform".to_string()));
+        assert!(registry.is_registered(&"Name".to_string()));
+        assert!(!registry.is_registered(&"NonexistentComponent".to_string()));
     }
 
     #[tokio::test]

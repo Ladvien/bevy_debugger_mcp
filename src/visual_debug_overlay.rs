@@ -207,20 +207,26 @@ impl VisualDebugOverlay {
             ));
         }
 
-        let mut states = self.overlay_states.write().await;
-        
-        let state = OverlayState {
-            enabled,
-            config: config.unwrap_or(serde_json::json!({})),
-            last_update_us: std::time::SystemTime::now()
-                .duration_since(std::time::UNIX_EPOCH)
-                .unwrap_or_default()
-                .as_micros() as u64,
-            performance_impact_ms: 0.0,
-        };
+        // **The write guard is scoped, and that is load-bearing.** `sync_overlay_state` below takes a
+        // READ lock on this same `overlay_states`, and a tokio `RwLock` is not reentrant — holding the
+        // write guard across that call deadlocks the task outright. It hung every caller of
+        // `highlight_entities`, which is to say the whole visual-overlay path.
+        {
+            let mut states = self.overlay_states.write().await;
 
-        states.insert(overlay_type.clone(), state);
-        
+            let state = OverlayState {
+                enabled,
+                config: config.unwrap_or(serde_json::json!({})),
+                last_update_us: std::time::SystemTime::now()
+                    .duration_since(std::time::UNIX_EPOCH)
+                    .unwrap_or_default()
+                    .as_micros() as u64,
+                performance_impact_ms: 0.0,
+            };
+
+            states.insert(overlay_type.clone(), state);
+        }
+
         // Send update to Bevy
         self.sync_overlay_state(overlay_type).await?;
         
@@ -611,7 +617,13 @@ mod tests {
         tracker.update(&DebugOverlayType::ColliderVisualization, 0.8);
         tracker.update(&DebugOverlayType::PerformanceMetrics, 0.3);
         
-        assert_eq!(tracker.total_frame_time_ms, 1.6);
+        // 0.5 + 0.8 + 0.3 accumulates rounding error in `f32`; the sum is 1.5999999, not 1.6. Exact
+        // float equality is the bug, not the arithmetic.
+        assert!(
+            (tracker.total_frame_time_ms - 1.6).abs() < 1e-5,
+            "total frame time should be ~1.6 ms, got {}",
+            tracker.total_frame_time_ms
+        );
         
         // Test warning throttle
         assert!(tracker.should_warn());

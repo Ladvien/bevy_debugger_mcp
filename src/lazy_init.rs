@@ -131,15 +131,19 @@ impl LazyComponents {
             return Arc::clone(processor);
         }
         
+        // **Resolve dependencies BEFORE taking `init_mutex`.** Every `get_*` on this type shares that
+        // one mutex and `tokio::sync::Mutex` is not reentrant, so calling a nested `get_*` while
+        // holding it waits forever on a lock this same task owns.
+        let inspector = self.get_entity_inspector().await;
+
         let _guard = self.init_mutex.lock().await;
-        
+
         // Double-check after acquiring lock
         if let Some(processor) = self.entity_processor.get() {
             return Arc::clone(processor);
         }
-        
+
         debug!("Lazy initializing EntityInspectionProcessor");
-        let inspector = self.get_entity_inspector().await;
         let processor = Arc::new(EntityInspectionProcessor::new(inspector));
         
         let _ = self.entity_processor.set(Arc::clone(&processor));
@@ -154,15 +158,17 @@ impl LazyComponents {
             return Arc::clone(processor);
         }
         
+        // Dependency resolved before the lock — see `get_entity_processor` for why.
+        let profiler = self.get_system_profiler().await;
+
         let _guard = self.init_mutex.lock().await;
-        
+
         // Double-check after acquiring lock
         if let Some(processor) = self.profiler_processor.get() {
             return Arc::clone(processor);
         }
-        
+
         debug!("Lazy initializing SystemProfilerProcessor");
-        let profiler = self.get_system_profiler().await;
         let processor = Arc::new(SystemProfilerProcessor::new(profiler));
         
         let _ = self.profiler_processor.set(Arc::clone(&processor));
@@ -326,18 +332,13 @@ impl LazyComponents {
             return Arc::clone(router);
         }
         
-        let _guard = self.init_mutex.lock().await;
-        
-        // Double-check after acquiring lock
-        if let Some(router) = self.debug_command_router.get() {
-            return Arc::clone(router);
-        }
-        
-        debug!("Lazy initializing DebugCommandRouter");
-        let router = Arc::new(DebugCommandRouter::new());
-        
-        // Initialize processors synchronously to avoid race conditions
-        // This ensures the router is fully configured before being returned
+        // **Every processor is resolved BEFORE `init_mutex` is taken.**
+        //
+        // These calls used to sit inside the lock, and each of them takes that same mutex. A
+        // `tokio::sync::Mutex` is not reentrant, so the first call to this method deadlocked the task
+        // outright unless every processor happened to be initialised already — which is exactly the
+        // case a lazy initialiser exists to handle. Resolving first keeps the double-checked pattern
+        // (the check below still decides who wins a race) while removing the re-entrancy.
         let entity_processor = self.get_entity_processor().await;
         let profiler_processor = self.get_profiler_processor().await;
         let visual_overlay_processor = self.get_visual_overlay_processor().await;
@@ -346,7 +347,17 @@ impl LazyComponents {
         let session_processor = self.get_session_processor().await;
         let issue_detector_processor = self.get_issue_detector_processor().await;
         let performance_budget_processor = self.get_performance_budget_processor().await;
-        
+
+        let _guard = self.init_mutex.lock().await;
+
+        // Double-check after acquiring lock
+        if let Some(router) = self.debug_command_router.get() {
+            return Arc::clone(router);
+        }
+
+        debug!("Lazy initializing DebugCommandRouter");
+        let router = Arc::new(DebugCommandRouter::new());
+
         // Register all processors before storing the router
         router.register_processor("entity_inspection".to_string(), entity_processor).await;
         router.register_processor("system_profiling".to_string(), profiler_processor).await;
@@ -393,15 +404,17 @@ impl LazyComponents {
             return Arc::clone(engine);
         }
         
+        // Dependency resolved before the lock — see `get_entity_processor` for why.
+        let pattern_system = self.get_pattern_learning_system().await;
+
         let _guard = self.init_mutex.lock().await;
-        
+
         // Double-check after acquiring lock
         if let Some(engine) = self.suggestion_engine.get() {
             return Arc::clone(engine);
         }
-        
+
         debug!("Lazy initializing SuggestionEngine");
-        let pattern_system = self.get_pattern_learning_system().await;
         let engine = Arc::new(SuggestionEngine::new(pattern_system));
         
         let _ = self.suggestion_engine.set(Arc::clone(&engine));
@@ -416,16 +429,18 @@ impl LazyComponents {
             return Arc::clone(automation);
         }
         
+        // Dependencies resolved before the lock — see `get_entity_processor` for why.
+        let pattern_system = self.get_pattern_learning_system().await;
+        let suggestion_engine = self.get_suggestion_engine().await;
+
         let _guard = self.init_mutex.lock().await;
-        
+
         // Double-check after acquiring lock
         if let Some(automation) = self.workflow_automation.get() {
             return Arc::clone(automation);
         }
-        
+
         debug!("Lazy initializing WorkflowAutomation");
-        let pattern_system = self.get_pattern_learning_system().await;
-        let suggestion_engine = self.get_suggestion_engine().await;
         let automation = Arc::new(WorkflowAutomation::new(pattern_system, suggestion_engine));
         
         let _ = self.workflow_automation.set(Arc::clone(&automation));
@@ -440,18 +455,19 @@ impl LazyComponents {
             return Arc::clone(system);
         }
         
+        // Dependencies resolved before the lock — see `get_entity_processor` for why.
+        let pattern_system = self.get_pattern_learning_system().await;
+        let suggestion_engine = self.get_suggestion_engine().await;
+        let workflow_automation = self.get_workflow_automation().await;
+
         let _guard = self.init_mutex.lock().await;
-        
+
         // Double-check after acquiring lock
         if let Some(system) = self.hot_reload_system.get() {
             return Arc::clone(system);
         }
-        
+
         debug!("Lazy initializing HotReloadSystem");
-        let pattern_system = self.get_pattern_learning_system().await;
-        let suggestion_engine = self.get_suggestion_engine().await;
-        let workflow_automation = self.get_workflow_automation().await;
-        
         let config = HotReloadConfig::default();
         let system = Arc::new(HotReloadSystem::new(
             config,

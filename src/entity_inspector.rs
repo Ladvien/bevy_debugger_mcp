@@ -648,6 +648,7 @@ mod tests {
                 memory_size: 0,
                 last_modified: None,
                 generation: 0,
+                index: 0,
                 component_types: Vec::new(),
                 modified_components: Vec::new(),
                 archetype_id: None,

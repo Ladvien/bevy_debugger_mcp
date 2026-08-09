@@ -740,9 +740,30 @@ mod tests {
         let permit2 = manager.acquire_operation_permit().await;
         assert!(permit2.is_ok());
 
-        // Third permit should still work since semaphore allows it
-        let permit3 = manager.acquire_operation_permit().await;
-        assert!(permit3.is_ok());
+        // The limit is 2 and both are still held, so a third must WAIT — that is the whole point of
+        // the semaphore. The original assertion claimed it would be granted ("semaphore allows it")
+        // and simply awaited forever, so this test could only ever hang.
+        let third = tokio::time::timeout(
+            Duration::from_millis(200),
+            manager.acquire_operation_permit(),
+        )
+        .await;
+        assert!(
+            third.is_err(),
+            "a third permit must not be granted while both of a limit of 2 are held"
+        );
+
+        // Releasing one frees a slot.
+        drop(permit1);
+        let permit3 = tokio::time::timeout(
+            Duration::from_secs(5),
+            manager.acquire_operation_permit(),
+        )
+        .await;
+        assert!(
+            permit3.is_ok_and(|inner| inner.is_ok()),
+            "releasing a permit must let a waiter through"
+        );
     }
 
     #[tokio::test]
