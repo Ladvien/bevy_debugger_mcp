@@ -1,9 +1,22 @@
 //! Headless input injection — drives keyboard and mouse without the OS.
 //!
-//! Writes into Bevy's own input resources and message queues inside the game process. Nothing here
-//! reaches the operating system: if the person at the machine is working in another window, injected
-//! keys do not go there. That is structural rather than careful — this crate depends on `bevy`,
-//! `bevy_remote`, `serde`, `serde_json` and `image`, none of which can synthesise an OS event.
+//! Writes into **the same message stream `bevy_winit` writes to**, inside the game process. Nothing
+//! here reaches the operating system: if the person at the machine is working in another window,
+//! injected keys do not go there. That is structural rather than careful — this crate depends on
+//! `bevy`, `bevy_remote`, `serde`, `serde_json` and `image`, none of which can synthesise an OS event.
+//!
+//! # Injected input *is* input, rather than a copy of its effects
+//!
+//! A real key produces exactly one thing: a [`KeyboardInput`] message. `ButtonInput<KeyCode>` and
+//! `ButtonInput<Key>` are Bevy's own **fold** of that stream, done by `keyboard_input_system` in
+//! [`InputSystems`](bevy::input::InputSystems).
+//!
+//! This module used to write the fold and not the source, and that is exactly one half of a key.
+//! Everything reading `ButtonInput` saw injected keys; everything reading the stream — **every text
+//! field in every Bevy application** — could not, so no agent could type, and could not press Enter or
+//! Escape in a field either, because those are read off `logical_key` too. Writing the source instead
+//! makes both halves land from one request, which is what "indistinguishable from a real key" has to
+//! mean.
 //!
 //! # Key names come from Bevy, not from a table here
 //!
@@ -17,12 +30,20 @@
 //! `Unknown key` at the moment you needed one. Deserializing has no drift by construction — a Bevy
 //! upgrade that adds a key adds it here.
 //!
+//! **The logical half comes from the same string through the same mechanism.** `KeyCode` has 194 unit
+//! variants and [`Key`] has 306, and **93 are spelled identically** — `Enter`, `Escape`, `Backspace`,
+//! `Space`, `Tab`, `Delete`, every arrow, every `F1`–`F35`. For those, [`logical_for`] hands the
+//! caller's own name to Bevy's `Key` deserializer and no table exists to go stale. For the rest —
+//! `KeyW`, `Numpad7`, `ShiftLeft` — the answer is `Key::Unidentified`, because `KeyW` is `w` on QWERTY
+//! and `,` on Dvorak, and guessing which is precisely the table that was deleted above.
+//!
 //! `MouseButton::Other(u16)` is reachable as `{"Other": 3}`, since that is how serde spells a
 //! newtype variant.
 
-use bevy::input::mouse::{MouseButton, MouseScrollUnit, MouseWheel};
+use bevy::input::keyboard::{Key, KeyCode, KeyboardInput, NativeKey, NativeKeyCode};
+use bevy::input::mouse::{MouseButton, MouseButtonInput, MouseScrollUnit, MouseWheel};
 use bevy::input::touch::TouchPhase;
-use bevy::input::keyboard::KeyCode;
+use bevy::input::ButtonState;
 use bevy::prelude::*;
 use bevy::remote::{error_codes, BrpError, BrpResult};
 use bevy::window::PrimaryWindow;
@@ -41,8 +62,20 @@ pub struct InputCommand {
     pub action: InputAction,
     /// Key name — any [`KeyCode`] variant, e.g. `"KeyW"`, `"Space"`, `"ArrowLeft"`, `"F5"`,
     /// `"Numpad7"`, `"ShiftLeft"`.
+    ///
+    /// **It carries its logical half whenever Bevy spells the same name in [`Key`]**, which covers
+    /// every named key a text field matches. So `"Escape"` leaves a tool *and* closes a name field
+    /// from one request, the way a real Escape does — see [`logical_for`].
     #[serde(default)]
     pub key: Option<String>,
+    /// **What to type**, one message per character. `"site_67"` is one call and one frame.
+    ///
+    /// Not an alternative spelling of `key`, and not the same request: `key` names a key **on the
+    /// keyboard**, `text` is **what should arrive**. Neither can express the other — `text` cannot say
+    /// which key produced a character, and `key` cannot produce `é`. Sending both is refused, because
+    /// there is no order between two intents.
+    #[serde(default)]
+    pub text: Option<String>,
     /// Mouse button — any [`MouseButton`] variant: `"Left"`, `"Right"`, `"Middle"`, `"Back"`,
     /// `"Forward"`, or `{"Other": 3}`.
     #[serde(default)]
@@ -96,10 +129,72 @@ fn invalid_params(message: String) -> BrpError {
 /// Parsing happens in the BRP handler so a malformed request still fails loudly and immediately;
 /// only the *application* is deferred. By the time a command reaches this enum it is known-good.
 enum Injected {
-    Key(KeyCode, InputAction),
-    Mouse(MouseButton, InputAction),
+    /// A key, named by its physical [`KeyCode`] and carrying the logical half Bevy spells for that
+    /// same name — see [`logical_for`].
+    Key { key_code: KeyCode, logical: Key, action: InputAction, window: Entity },
+    /// One typed character, **already built as the message it will be written as**.
+    ///
+    /// Whole rather than a `char`, because `Key::Character` and [`KeyboardInput::text`] both hold a
+    /// `SmolStr` and `smol_str` is not one of the five dependencies `tests/leaf.rs` allows. Bevy's own
+    /// deserializer builds it in [`typed`] and nothing here ever names the type.
+    Typed(KeyboardInput),
+    Mouse(MouseButton, InputAction, Entity),
     Scroll { unit: MouseScrollUnit, x: f32, y: f32, window: Entity },
     Cursor(Option<Vec2>),
+}
+
+/// **The logical half Bevy itself spells for a physical key's name**, or `Unidentified`.
+///
+/// Not a mapping table — a second deserialization of the *same string*. `KeyCode` and [`Key`] share
+/// 93 spellings, including every named key a text field matches (`Enter`, `Escape`, `Backspace`,
+/// `Space`, `Tab`), so for those this is exact and cannot drift: a Bevy upgrade that renames one
+/// renames it on both sides at once.
+///
+/// For the ~101 physical-only names it answers `Key::Unidentified`, and that is a statement rather
+/// than a gap. `KeyW` is `w` on QWERTY and `,` on Dvorak; a layout-independent answer does not exist,
+/// and inventing one is the twelve-key table this module's header records deleting.
+pub fn logical_for(key_code: KeyCode) -> Key {
+    match serde_json::to_value(key_code) {
+        // A unit variant serializes to its bare name; `KeyCode::Unidentified(..)` serializes to an
+        // object and falls through, which is the right answer for it anyway.
+        Ok(Value::String(name)) => serde_json::from_value::<Key>(Value::String(name))
+            .unwrap_or(Key::Unidentified(NativeKey::Unidentified)),
+        _ => Key::Unidentified(NativeKey::Unidentified),
+    }
+}
+
+/// **One typed character as the message a keyboard would have produced**, or `None` if Bevy will not
+/// build a `Key` from it.
+///
+/// `key_code` is `Unidentified` on purpose: a character that arrived has no physical origin this
+/// process can know, and naming one would be a guess that reads as a measurement.
+///
+/// **A space becomes `Key::Space`, not `Key::Character(" ")`.** It is the one character with a named
+/// variant, it is what a space bar produces on every layout, and five separate text handlers in
+/// `emerge-mapper` alone match `Key::Space` and would silently drop a `Character(" ")` — a name with a
+/// space in it would lose the space while the call reported success.
+pub fn typed(ch: char, window: Entity) -> Option<KeyboardInput> {
+    let logical_key = if ch == ' ' {
+        Key::Space
+    } else {
+        let mut buf = [0u8; 4];
+        // Bevy's deserializer builds the `SmolStr`; this crate never names the type.
+        serde_json::from_value::<Key>(json!({ "Character": ch.encode_utf8(&mut buf) })).ok()?
+    };
+    // Cloned out of the `Key` we just built, for the same reason.
+    let text = match &logical_key {
+        Key::Character(s) => Some(s.clone()),
+        _ => None,
+    };
+    Some(KeyboardInput {
+        key_code: KeyCode::Unidentified(NativeKeyCode::Unidentified),
+        logical_key,
+        state: ButtonState::Pressed,
+        text,
+        // An injected key is never an OS auto-repeat.
+        repeat: false,
+        window,
+    })
 }
 
 /// **Where an injected pointer is**, in logical window pixels — `None` when the real mouse owns it.
@@ -139,22 +234,27 @@ pub fn cursor_position(window: &Window, injected: &DebugCursor) -> Option<Vec2> 
 
 /// Injected input waiting to be applied in `PreUpdate`.
 ///
-/// # Why this queue exists — the bug it fixes
+/// # Why this queue exists
 ///
-/// BRP methods registered with `with_method_main` run in the **`Last`** schedule. Bevy's
-/// `keyboard_input_system` runs in **`PreUpdate`** and begins by clearing the just-pressed and
-/// just-released sets.
+/// BRP methods registered with `with_method_main` run in the **`Last`** schedule, and a message
+/// written there would be read a whole frame late by everything. More importantly, the deferral rules
+/// below — one edge per key per frame, cursor ordering, text behind an opening keystroke — have to
+/// live in exactly one place, and this is it.
 ///
-/// So a press written straight into `ButtonInput` from a handler had its `just_pressed` flag wiped by
-/// the very next `PreUpdate`, *before* any `Update` system could read it. **Every `just_pressed`-based
-/// action was therefore unreachable by injected input** — and the method still answered
-/// `success: true`, so it looked like the game was ignoring a key it never actually saw. Held
-/// `pressed` state survived the clear, which is what made the failure look intermittent: some actions
-/// responded and some silently did not.
+/// # The bug this shape was built around, which is worth not re-learning
 ///
-/// Queuing and applying in `PreUpdate` **after** [`InputSystems`](bevy::input::InputSystems) puts the
-/// write on the far side of the clear, so an injected key is indistinguishable from a real one. There
-/// is one path for input, not a special case for injected keys.
+/// Bevy's `keyboard_input_system` runs in **`PreUpdate`** and begins by clearing the just-pressed and
+/// just-released sets. A press written straight into `ButtonInput` from a `Last` handler therefore had
+/// its `just_pressed` flag wiped by the very next `PreUpdate`, *before* any `Update` system could read
+/// it. **Every `just_pressed`-based action was unreachable by injected input** while the method
+/// answered `success: true`. Held `pressed` state survived the clear, which is what made it look
+/// intermittent: some actions responded and some silently did not.
+///
+/// That was first fixed by writing `ButtonInput` **after** the clear. It is now fixed one level
+/// further down: [`apply_pending_input`] runs **before** [`InputSystems`](bevy::input::InputSystems)
+/// and writes the [`KeyboardInput`] / [`MouseButtonInput`] messages that the clear-then-fold reads, so
+/// the edge is produced by Bevy from the same stream a real key travels on. There is one path for
+/// input, and now that is literally true rather than true of one half.
 #[derive(Resource, Default)]
 pub struct PendingInput {
     queue: Vec<Injected>,
@@ -162,19 +262,48 @@ pub struct PendingInput {
     /// and releasing within a single frame leaves `pressed` false for the whole frame while both
     /// `just_pressed` and `just_released` are true — a state no physical key can produce, and one that
     /// silently skips every `pressed`-based reader.
-    release_next_keys: Vec<KeyCode>,
-    release_next_buttons: Vec<MouseButton>,
+    ///
+    /// **Whole messages, not key names.** `ButtonInput` is now derived rather than written, and
+    /// `ButtonInput::release` is the only thing that clears `pressed` — so a Pressed with no matching
+    /// Released leaves the key held forever.
+    release_next_keys: Vec<KeyboardInput>,
+    release_next_buttons: Vec<MouseButtonInput>,
 }
 
 impl PendingInput {
     /// Queue a keyboard action, applied on the next `PreUpdate`.
     ///
     /// The BRP handler is one caller; a host driving itself (a test, an example, a scripted demo) is
-    /// another. Both go through this queue rather than writing `ButtonInput` directly, because a
-    /// direct write is only correct if it happens after Bevy's clear — and there is exactly one place
-    /// that is guaranteed to.
+    /// another. Both go through this queue rather than writing messages directly, because the ordering
+    /// and deferral rules are only correct in one place.
+    ///
+    /// The logical half is derived by [`logical_for`], so a host driving `KeyCode::Escape` reaches a
+    /// text field exactly as the BRP path does. `window` is [`Entity::PLACEHOLDER`] — see
+    /// [`apply_pending_input`] for why nothing reads it.
     pub fn queue_key(&mut self, key: KeyCode, action: InputAction) {
-        self.queue.push(Injected::Key(key, action));
+        self.queue.push(Injected::Key {
+            key_code: key,
+            logical: logical_for(key),
+            action,
+            window: Entity::PLACEHOLDER,
+        });
+    }
+
+    /// Queue one already-built typed character — see [`typed`], which is how a caller gets one.
+    ///
+    /// Separate from [`queue_key`](Self::queue_key) because it is a different question, not a
+    /// different spelling: this says *a character arrived*, that says *a key went down*.
+    pub fn queue_typed(&mut self, message: KeyboardInput) {
+        self.queue.push(Injected::Typed(message));
+    }
+
+    /// Queue a whole string, one message per character. Returns the character it could not build a
+    /// `Key` from, if any — nothing is queued in that case.
+    pub fn queue_text(&mut self, text: &str, window: Entity) -> Result<(), char> {
+        let built: Result<Vec<_>, char> =
+            text.chars().map(|ch| typed(ch, window).ok_or(ch)).collect();
+        self.queue.extend(built?.into_iter().map(Injected::Typed));
+        Ok(())
     }
 
     /// Queue a one-frame tap: pressed on the next `PreUpdate`, released the frame after — the shape a
@@ -185,7 +314,7 @@ impl PendingInput {
 
     /// Queue a mouse-button action, applied on the next `PreUpdate`.
     pub fn queue_mouse(&mut self, button: MouseButton, action: InputAction) {
-        self.queue.push(Injected::Mouse(button, action));
+        self.queue.push(Injected::Mouse(button, action, Entity::PLACEHOLDER));
     }
 
     /// Queue a cursor move — logical window pixels, or `None` to hand the pointer back.
@@ -198,16 +327,27 @@ impl PendingInput {
     }
 }
 
-/// Applies queued injections, in `PreUpdate` after Bevy has cleared last frame's edges.
+/// Applies queued injections, in `PreUpdate` **before** Bevy reads input.
 ///
-/// Registered by [`DebuggerPlugin`](crate::DebuggerPlugin); a host that builds its own schedule must
-/// keep the `.after(InputSystems)` ordering or the clear will eat these writes exactly as before, and
-/// must `init_resource::<DebugCursor>()` — in Bevy 0.19 a missing `ResMut<T>` panics the system rather
-/// than skipping it, so the absence is loud rather than a cursor injection that quietly does nothing.
+/// # The ordering, and why it is the opposite of what it used to be
+///
+/// `keyboard_input_system` clears last frame's edges and *then* folds the [`KeyboardInput`] stream
+/// into `ButtonInput` (`bevy_input-0.19.0/src/keyboard.rs`). Writing the messages **ahead** of it
+/// therefore survives the clear that erased the old direct `ButtonInput` write — the same fact, used
+/// from the other side.
+///
+/// Registered by [`DebuggerPlugin`](crate::DebuggerPlugin). A host building its own schedule must keep
+/// `.before(InputSystems)` **and** must have added `InputPlugin`, or nothing folds these messages and
+/// the injection is silently inert. `DebuggerPlugin::finish` asserts the latter rather than leaving it
+/// to be discovered.
+///
+/// It must also `init_resource::<DebugCursor>()` — in Bevy 0.19 a missing `ResMut<T>` panics the system
+/// rather than skipping it, so the absence is loud rather than a cursor injection that quietly does
+/// nothing.
 pub fn apply_pending_input(
     mut pending: ResMut<PendingInput>,
-    mut keys: ResMut<ButtonInput<KeyCode>>,
-    mut mouse: ResMut<ButtonInput<MouseButton>>,
+    mut keyboard: MessageWriter<KeyboardInput>,
+    mut mouse: MessageWriter<MouseButtonInput>,
     mut wheel: MessageWriter<MouseWheel>,
     mut cursor: ResMut<DebugCursor>,
 ) {
@@ -216,12 +356,13 @@ pub fn apply_pending_input(
     let release_buttons = core::mem::take(&mut pending.release_next_buttons);
     let queue = core::mem::take(&mut pending.queue);
 
-    // Last frame's taps end here, one frame after they began.
-    for key in release_keys {
-        keys.release(key);
+    // Last frame's presses end here, one frame after they began. Not optional: `ButtonInput` is
+    // derived from this stream now, and `release` is the only thing that clears `pressed`.
+    for message in release_keys {
+        keyboard.write(message);
     }
-    for button in release_buttons {
-        mouse.release(button);
+    for message in release_buttons {
+        mouse.write(message);
     }
 
     // **At most one command per key per frame; the rest wait.**
@@ -240,6 +381,12 @@ pub fn apply_pending_input(
     // one key cannot be pressed twice in the same frame either. Relative order is preserved, because
     // the first command for a key marks it and every later one for that key falls through to
     // `deferred` behind it.
+    //
+    // **Typed characters are exempt, and that is a property of streams rather than a concession.** A
+    // burst of characters is a burst of messages, and every text field drains the whole stream once a
+    // frame — so `"site_67"` is seven messages in one frame and nothing is lost. There is no edge to
+    // destroy. (`ButtonInput<Key>` *does* collapse a repeated character — `wall` yields one `l` edge —
+    // which is why the stream is the right thing to read text from and that resource is not.)
     let mut keys_touched: Vec<KeyCode> = Vec::new();
     let mut buttons_touched: Vec<MouseButton> = Vec::new();
     let mut cursor_moved = false;
@@ -262,11 +409,26 @@ pub fn apply_pending_input(
             continue;
         }
         match &cmd {
-            Injected::Key(key, _) if keys_touched.contains(key) => {
+            Injected::Key { key_code, .. } if keys_touched.contains(key_code) => {
                 deferred.push(cmd);
                 continue;
             }
-            Injected::Mouse(button, _) if buttons_touched.contains(button) => {
+            Injected::Mouse(button, _, _) if buttons_touched.contains(button) => {
+                deferred.push(cmd);
+                continue;
+            }
+            // **Text waits for the frame after the keystroke that opened the field.**
+            //
+            // Measured against the host rather than invented: every text field in `emerge-mapper`
+            // drains the `KeyboardInput` stream *while shut*, so the key that opened it cannot become
+            // its first character — the `xseam` bug, which every field there now guards against. Its
+            // key phase runs before its dispatcher phase, so text sent in the same frame as the
+            // opening key is eaten by that very guard while this method reports success. That is the
+            // original bug's shape, and one frame is the same price the rule above already pays.
+            //
+            // **Nothing defers behind text**, deliberately: `text:"porch_a"` then `key:"Enter"` in one
+            // frame is correct and is the point — type and commit in one round trip.
+            Injected::Typed(_) if !keys_touched.is_empty() || !buttons_touched.is_empty() => {
                 deferred.push(cmd);
                 continue;
             }
@@ -288,25 +450,54 @@ pub fn apply_pending_input(
         }
 
         match cmd {
-            Injected::Key(key, action) => {
-                keys_touched.push(key);
+            Injected::Key { key_code, logical, action, window } => {
+                keys_touched.push(key_code);
+                let message = |state| KeyboardInput {
+                    key_code,
+                    logical_key: logical.clone(),
+                    state,
+                    // `None` for a named key, matching what a real one reports: `text` is the
+                    // character produced, and `Enter` produces none. A host reading `text` instead of
+                    // `logical_key` therefore sees nothing here — stated rather than papered over with
+                    // an invented `"\r"`.
+                    text: None,
+                    repeat: false,
+                    window,
+                };
                 match action {
-                    InputAction::Press => keys.press(key),
-                    InputAction::Release => keys.release(key),
+                    InputAction::Press => {
+                        keyboard.write(message(ButtonState::Pressed));
+                    }
+                    InputAction::Release => {
+                        keyboard.write(message(ButtonState::Released));
+                    }
                     InputAction::Tap => {
-                        keys.press(key);
-                        pending.release_next_keys.push(key);
+                        keyboard.write(message(ButtonState::Pressed));
+                        pending.release_next_keys.push(message(ButtonState::Released));
                     }
                 }
             }
-            Injected::Mouse(button, action) => {
+            // Never added to `keys_touched`: a character is consumed from a stream, and a stream has
+            // no edge for a second one to destroy.
+            Injected::Typed(message) => {
+                let mut released = message.clone();
+                released.state = ButtonState::Released;
+                keyboard.write(message);
+                pending.release_next_keys.push(released);
+            }
+            Injected::Mouse(button, action, window) => {
                 buttons_touched.push(button);
+                let message = |state| MouseButtonInput { button, state, window };
                 match action {
-                    InputAction::Press => mouse.press(button),
-                    InputAction::Release => mouse.release(button),
+                    InputAction::Press => {
+                        mouse.write(message(ButtonState::Pressed));
+                    }
+                    InputAction::Release => {
+                        mouse.write(message(ButtonState::Released));
+                    }
                     InputAction::Tap => {
-                        mouse.press(button);
-                        pending.release_next_buttons.push(button);
+                        mouse.write(message(ButtonState::Pressed));
+                        pending.release_next_buttons.push(message(ButtonState::Released));
                     }
                 }
             }
@@ -348,15 +539,77 @@ pub fn handle_input(
         None => return Err(invalid_params("Missing input parameters".to_string())),
     };
 
+    // **Not an error when absent, unlike `Scroll`.** A `MouseWheel` has to be addressed to a window;
+    // a `KeyboardInput` does not — `keyboard_input_system` never reads the field, and Bevy's focus
+    // dispatcher takes the window from its own query rather than from the message. Refusing here would
+    // make the crate untestable by its own tests, which run on `MinimalPlugins` with no window at all.
+    // Borrowed, not consumed: the `Scroll` arm below still needs the `Option` itself, because for a
+    // `MouseWheel` the absence genuinely is an error.
+    let addressed = window.as_ref().map_or(Entity::PLACEHOLDER, |w| **w);
+
     match cmd.kind {
         InputKind::Keyboard => {
-            let name = cmd
-                .key
-                .ok_or_else(|| invalid_params("Missing 'key' for keyboard input".to_string()))?;
-            // Bevy's own variant names, parsed by Bevy's own deserializer.
-            let keycode: KeyCode = serde_json::from_value(Value::String(name.clone()))
-                .map_err(|e| invalid_params(format!("unknown key `{name}`: {e}")))?;
-            pending.queue.push(Injected::Key(keycode, cmd.action));
+            // **One kind, two questions, and sending both is a refusal.** `key` names a key on the
+            // keyboard; `text` is what should arrive. There is no order between two intents, and
+            // picking one silently is how a caller learns a wrong model of the method.
+            if cmd.key.is_some() && cmd.text.is_some() {
+                return Err(invalid_params(
+                    "send `key` or `text`, not both: `key` names a key on the keyboard, `text` is \
+                     what should arrive, and there is no order between them"
+                        .to_string(),
+                ));
+            }
+            match (cmd.key, cmd.text) {
+                (Some(name), None) => {
+                    // Bevy's own variant names, parsed by Bevy's own deserializer.
+                    let keycode: KeyCode = serde_json::from_value(Value::String(name.clone()))
+                        .map_err(|e| invalid_params(format!("unknown key `{name}`: {e}")))?;
+                    pending.queue.push(Injected::Key {
+                        key_code: keycode,
+                        logical: logical_for(keycode),
+                        action: cmd.action,
+                        window: addressed,
+                    });
+                }
+                (None, Some(text)) => {
+                    // A held character is meaningless — a caller who wrote it believed something, and
+                    // swallowing it teaches that belief. `Cursor` ignores `action` because a position
+                    // has no press; this is the different case where one was *supplied* and is wrong.
+                    if cmd.action != InputAction::Tap {
+                        return Err(invalid_params(
+                            "`text` has no press and no release; drop `action`, or use `key` if you \
+                             meant to hold something down"
+                                .to_string(),
+                        ));
+                    }
+                    if text.is_empty() {
+                        return Err(invalid_params(
+                            "`text` is empty, which injects nothing — omit it or send a character"
+                                .to_string(),
+                        ));
+                    }
+                    if let Some(ch) = text.chars().find(|c| c.is_control()) {
+                        return Err(invalid_params(format!(
+                            "`text` contains the control character {ch:?}; a text field matches \
+                             `Key::Enter` and never `Key::Character(\"\\n\")`, so send \
+                             `key: \"Enter\"` (or \"Tab\", \"Backspace\", \"Escape\") instead"
+                        )));
+                    }
+                    pending.queue_text(&text, addressed).map_err(|ch| {
+                        invalid_params(format!("no logical key exists for the character {ch:?}"))
+                    })?;
+                }
+                (None, None) => {
+                    return Err(invalid_params(
+                        "keyboard input needs `key` (a key on the keyboard) or `text` (what should \
+                         arrive)"
+                            .to_string(),
+                    ))
+                }
+                // Refused above; the arm exists so the match is total without a catch-all that could
+                // swallow a future case.
+                (Some(_), Some(_)) => unreachable!("both-supplied is refused above"),
+            }
         }
         InputKind::Mouse => {
             let raw = cmd
@@ -364,7 +617,7 @@ pub fn handle_input(
                 .ok_or_else(|| invalid_params("Missing 'button' for mouse input".to_string()))?;
             let button: MouseButton = serde_json::from_value(raw.clone())
                 .map_err(|e| invalid_params(format!("unknown mouse button `{raw}`: {e}")))?;
-            pending.queue.push(Injected::Mouse(button, cmd.action));
+            pending.queue.push(Injected::Mouse(button, cmd.action, addressed));
         }
         InputKind::Scroll => {
             // This was a stub that returned success and wrote nothing — the worst of both, because a

@@ -2,7 +2,7 @@
 
 > ⚠️ **Vibe Coded** — written by an AI agent working from a human's direction. It is used against a shipping game and covered by tests, but it has had no line-by-line human audit. Read it before you trust it.
 
-Lets an agent inspect and drive a **running** Bevy game: query entities, components and resources live, capture frames from an offscreen render target, and inject keyboard and mouse input — including **cursor position**, so a click-drag is expressible — none of which touches your desktop, your window manager, or the OS input stack.
+Lets an agent inspect and drive a **running** Bevy game: query entities, components and resources live, capture frames from an offscreen render target, and inject keyboard and mouse input — including **cursor position**, so a click-drag is expressible, and **typed text**, so a text field can be filled and committed — none of which touches your desktop, your window manager, or the OS input stack.
 
 > **This repo is a read-only mirror.** It is split out of [`Ladvien/foundation_vs_slop`](https://github.com/Ladvien/foundation_vs_slop) at `crates/bevy_debugger_mcp/` with `git subtree split`, history intact. Issues and PRs belong upstream — changes made here cannot be pulled back.
 

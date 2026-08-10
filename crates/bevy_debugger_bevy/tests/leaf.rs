@@ -11,8 +11,11 @@
 //! another app in front.
 //!
 //! So the guarantee is structural rather than careful. `bevy_debugger/screenshot` reads an `Image` a
-//! camera rendered to, and `bevy_debugger/input` writes into Bevy's own `ButtonInput` resources. Neither
-//! can leak outside the process, *because there is nothing linked here that could do it*.
+//! camera rendered to, and `bevy_debugger/input` writes into the same in-process `Messages` buffer
+//! `bevy_winit` appends to. Neither can leak outside the process, *because there is nothing linked
+//! here that could do it* — and the input half got **stronger** when it moved from `ButtonInput` to
+//! the message stream, not weaker: a `Messages<KeyboardInput>` buffer is an ECS resource, and reaching
+//! a real event loop would take a dependency this file forbids.
 //!
 //! These two tests are that claim, made checkable. Widening either list is a design decision, so it
 //! should cost a deliberate edit in this file rather than passing silently in a build.
@@ -161,8 +164,8 @@ fn no_source_file_can_reach_the_operating_system() {
         offenders.is_empty(),
         "bevy_debugger_bevy must not be able to touch the OS, but {} line(s) reference something \
          that can.\n  {}\n\n\
-         Screenshots here read an offscreen `Image`, and input is written into Bevy's own \
-         `ButtonInput` resources. Both guarantees are structural — they hold because nothing linked \
+         Screenshots here read an offscreen `Image`, and input is written into Bevy's own in-process \
+         input message stream. Both guarantees are structural — they hold because nothing linked \
          into this crate is capable of synthesising an OS event. A capture that reads the window \
          needs the window raised, and a synthesised keystroke lands in whatever application actually \
          has focus. If you genuinely need one of these, it belongs in a different crate that a game \

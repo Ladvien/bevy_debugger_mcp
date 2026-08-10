@@ -1,14 +1,16 @@
 //! **Injected input behaves exactly like a real key press — shown in a terminal, no GPU.**
 //!
 //! This is the crate's least obvious guarantee, and the one that was broken. `bevy_debugger/input`
-//! does not write into `ButtonInput` when the BRP request arrives: BRP handlers run in `Last`, and
-//! Bevy clears the just-pressed/just-released edges at the top of the next `PreUpdate`. A write from
+//! does not write anything when the BRP request arrives: BRP handlers run in `Last`, and Bevy clears
+//! the just-pressed/just-released edges at the top of the next `PreUpdate`. A `ButtonInput` write from
 //! `Last` is therefore erased before any `Update` system can see it, so every `just_pressed`-based
 //! action was unreachable while the method still answered `success: true`.
 //!
-//! Instead the handler queues, and `apply_pending_input` writes in `PreUpdate` *after*
-//! `InputSystems`. This example drives that path directly — no MCP server, no network, no window —
-//! and prints what an ordinary `Update` system observes on each frame.
+//! Instead the handler queues, and `apply_pending_input` writes in `PreUpdate` **before**
+//! `InputSystems` — not into `ButtonInput`, but into the `KeyboardInput` message stream that
+//! `keyboard_input_system` clears-then-folds *into* `ButtonInput`. So Bevy produces the edge itself,
+//! from the same stream a real key travels on. This example drives that path directly — no MCP server,
+//! no network, no window — and prints what an ordinary `Update` system observes on each frame.
 //!
 //! Run it:
 //!
@@ -37,8 +39,9 @@ fn main() {
         .init_resource::<Observed>()
         .add_systems(
             PreUpdate,
-            // The ordering IS the fix. Drop the `.after` and this example prints "nothing" forever.
-            bevy_debugger_bevy::apply_pending_input.after(InputSystems),
+            // The ordering IS the fix. Flip this to `.after` and every edge below slides one frame
+            // later, because the fold has already run by the time the message is written.
+            bevy_debugger_bevy::apply_pending_input.before(InputSystems),
         )
         .add_systems(Update, observe);
 

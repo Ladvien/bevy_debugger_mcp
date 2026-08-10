@@ -5,19 +5,27 @@
 //! test that only calls `ButtonInput::press` directly — the bug this file guards against was invisible
 //! to exactly that kind of test for as long as it existed.
 //!
-//! Two properties are pinned here:
+//! Three properties are pinned here:
 //!
-//! 1. **Ordering.** `apply_pending_input` must run after [`InputSystems`], which clears last frame's
-//!    edges at the top of `PreUpdate`. Written before it, every `just_pressed` is erased before any
-//!    `Update` system runs — the original bug, where the BRP method answered `success: true` and the
-//!    game never moved.
+//! 1. **Ordering.** `apply_pending_input` must run **before** [`InputSystems`], because it writes the
+//!    `KeyboardInput`/`MouseButtonInput` messages that `keyboard_input_system` clears-then-folds into
+//!    `ButtonInput`. Written after, every edge arrives a frame late.
+//!
+//!    This reverses an earlier fix, and the fact underneath is unchanged: the clear happens at the top
+//!    of `PreUpdate`. When this module wrote `ButtonInput` **directly**, the write had to land after
+//!    the clear or it was erased — the original bug, where the BRP method answered `success: true` and
+//!    the game never moved. Now that it writes the *source* instead of the fold, it has to land before
+//!    the read. Same line in the engine, opposite side.
 //! 2. **One command per key per frame.** BRP drains a whole burst of requests into one handler run, and
 //!    `ButtonInput` can only show two transitions per frame, so applying a burst at once silently
 //!    destroys edges.
+//! 3. **Typing.** A whole string is one frame's worth of messages, every character releases, and text
+//!    waits a frame behind the keystroke that opened the field it is going into.
 
+use bevy::input::keyboard::{Key, KeyboardInput, NativeKey};
 use bevy::input::InputSystems;
 use bevy::prelude::*;
-use bevy_debugger_bevy::{apply_pending_input, DebugCursor, InputAction, PendingInput};
+use bevy_debugger_bevy::{apply_pending_input, typed, DebugCursor, InputAction, PendingInput};
 
 /// What an ordinary `Update` system saw, one entry per frame.
 #[derive(Resource, Default)]
@@ -42,6 +50,9 @@ fn observe(keys: Res<ButtonInput<KeyCode>>, mut seen: ResMut<Seen>) {
 fn app_correctly_ordered() -> App {
     let mut app = App::new();
     app.add_plugins(MinimalPlugins)
+        // Not optional, and no longer merely convenient: `ButtonInput` is now Bevy's fold of the
+        // message stream this crate writes, and `InputPlugin` owns the systems that do the folding.
+        // `DebuggerPlugin::finish` asserts its presence for the same reason.
         .add_plugins(bevy::input::InputPlugin)
         .init_resource::<PendingInput>()
         // `apply_pending_input` writes the injected pointer here, and in Bevy 0.19 a missing
@@ -49,9 +60,46 @@ fn app_correctly_ordered() -> App {
         // that registers the system by hand — as these tests do — has to init it too.
         .init_resource::<bevy_debugger_bevy::DebugCursor>()
         .init_resource::<Seen>()
-        .add_systems(PreUpdate, apply_pending_input.after(InputSystems))
+        .add_systems(PreUpdate, apply_pending_input.before(InputSystems))
         .add_systems(Update, observe);
     app
+}
+
+/// What an ordinary `Update` system read off the *stream*, one entry per frame.
+///
+/// Separate from [`Seen`] because it is a different question: `ButtonInput` is a state and this is the
+/// sequence, and text is only legible in the sequence — `ButtonInput<Key>` collapses a repeated
+/// character, so `wall` would show one `l`.
+#[derive(Resource, Default)]
+struct Heard(Vec<Vec<Key>>);
+
+fn listen(mut events: MessageReader<KeyboardInput>, mut heard: ResMut<Heard>) {
+    heard.0.push(
+        events
+            .read()
+            .filter(|e| e.state.is_pressed())
+            .map(|e| e.logical_key.clone())
+            .collect(),
+    );
+}
+
+/// [`app_correctly_ordered`] plus a reader of the message stream itself.
+fn app_listening() -> App {
+    let mut app = app_correctly_ordered();
+    app.init_resource::<Heard>().add_systems(Update, listen);
+    app
+}
+
+/// The characters a `Key::Character` sequence spells, for readable assertions.
+fn spelled(frame: &[Key]) -> String {
+    frame
+        .iter()
+        .map(|k| match k {
+            Key::Character(s) => s.to_string(),
+            Key::Space => " ".to_owned(),
+            other => format!("{other:?}"),
+        })
+        .collect()
 }
 
 fn queue_key(app: &mut App, key: KeyCode, action: InputAction) {
@@ -88,12 +136,20 @@ fn a_tap_presses_for_one_frame_and_releases_the_next() {
     );
 }
 
+/// **Misordered, an injected key now arrives a frame late rather than never** — and the difference
+/// between those two sentences is the whole change.
+///
+/// This test replaces `ordering_before_input_systems_erases_the_press_entirely`, which pinned the same
+/// engine fact from the other side: `keyboard_input_system` clears last frame's edges at the top of
+/// `PreUpdate` and *then* folds the message stream. While this crate wrote `ButtonInput` **directly**,
+/// a write placed before that clear was **destroyed** — the original bug. Now that it writes the
+/// **source**, a write placed after the fold is merely **read next frame**.
+///
+/// So the cost of getting the ordering wrong dropped from "every `just_pressed` action is unreachable
+/// while the method reports success" to "one frame of latency". Worth pinning precisely: if this ever
+/// starts reporting a *lost* press again, something has gone back to writing the fold.
 #[test]
-fn ordering_before_input_systems_erases_the_press_entirely() {
-    // The same app with the one ordering constraint inverted. This is the original bug, and it is
-    // the reason `.after(InputSystems)` is not a stylistic choice: `keyboard_input_system` clears the
-    // just-pressed set at the top of `PreUpdate`, so a write placed ahead of it is gone before any
-    // `Update` system can see it.
+fn ordering_after_input_systems_costs_a_frame() {
     let mut app = App::new();
     app.add_plugins(MinimalPlugins)
         .add_plugins(bevy::input::InputPlugin)
@@ -103,17 +159,24 @@ fn ordering_before_input_systems_erases_the_press_entirely() {
         // that registers the system by hand — as these tests do — has to init it too.
         .init_resource::<bevy_debugger_bevy::DebugCursor>()
         .init_resource::<Seen>()
-        .add_systems(PreUpdate, apply_pending_input.before(InputSystems))
+        // The one ordering constraint inverted.
+        .add_systems(PreUpdate, apply_pending_input.after(InputSystems))
         .add_systems(Update, observe);
 
     queue_key(&mut app, KeyCode::KeyQ, InputAction::Tap);
+    app.update();
     app.update();
 
     let frames = seen(&app);
     assert!(
         !frames[0].just_pressed,
-        "misordered, the press edge must be lost — if this ever starts passing, the clear has moved \
-         and the ordering guarantee needs rechecking: {frames:?}"
+        "misordered, the press cannot be visible on the frame it was written: {frames:?}"
+    );
+    assert!(
+        frames[1].just_pressed,
+        "but it must still arrive on the next frame — a message survives the clear, where a direct \
+         `ButtonInput` write did not. If this is false, the write has moved back to the fold: \
+         {frames:?}"
     );
 }
 
@@ -315,4 +378,215 @@ fn a_release_does_not_overtake_the_moves_queued_before_it() {
     app.update();
     assert_eq!(app.world().resource::<DebugCursor>().0, Some(Vec2::new(180.0, 160.0)));
     assert!(app.world().resource::<ButtonInput<MouseButton>>().just_released(MouseButton::Left));
+}
+
+// ------------------------------------------------------------------------------------------------
+// Typing — the half that was unreachable, and the reason FVS-R-12 existed
+// ------------------------------------------------------------------------------------------------
+
+fn queue_text(app: &mut App, text: &str) {
+    app.world_mut()
+        .resource_mut::<PendingInput>()
+        .queue_text(text, Entity::PLACEHOLDER)
+        .unwrap_or_else(|ch| panic!("no logical key for {ch:?}"));
+}
+
+fn heard(app: &App) -> Vec<Vec<Key>> {
+    app.world().resource::<Heard>().0.clone()
+}
+
+/// **A whole word is one frame**, because a stream is not a state.
+///
+/// This is the property the whole redesign turns on. `ButtonInput` shows two transitions per frame, so
+/// key edges have to be spread out; `Messages<KeyboardInput>` is append-only and every text field
+/// drains it whole once a frame, so seven characters written together are seven characters read
+/// together. Spreading them would have made naming a composition seven round trips.
+#[test]
+fn a_whole_word_lands_in_one_frame() {
+    let mut app = app_listening();
+    queue_text(&mut app, "site_67");
+    app.update();
+
+    let frames = heard(&app);
+    assert_eq!(
+        spelled(&frames[0]),
+        "site_67",
+        "the whole string must arrive in order, in one frame: {frames:?}"
+    );
+}
+
+/// **Every character releases, or it is held forever.**
+///
+/// `ButtonInput` is derived from the stream now, and `ButtonInput::release` is the only thing that
+/// clears `pressed` — nothing else would ever call it. A Pressed with no matching Released is a leak
+/// that no `just_pressed` assertion would notice.
+#[test]
+fn every_typed_character_is_released_and_nothing_stays_pressed() {
+    let mut app = app_listening();
+    queue_text(&mut app, "wall");
+    for _ in 0..3 {
+        app.update();
+    }
+
+    let world = app.world();
+    assert_eq!(
+        world.resource::<ButtonInput<Key>>().get_pressed().count(),
+        0,
+        "a typed character that is never released stays pressed for the life of the app"
+    );
+    assert_eq!(
+        world.resource::<ButtonInput<KeyCode>>().get_pressed().count(),
+        0,
+        "and the physical side must be clean too"
+    );
+}
+
+/// **One request, both halves** — the property a separate `Text` kind could not have.
+///
+/// `Escape` is spelled identically in `KeyCode` and `Key`. A real Escape leaves a tool *and* closes a
+/// text field, because it is one key producing one message that Bevy folds. Splitting the request in
+/// two would have made a caller choose based on which of the host's systems happened to be listening,
+/// which is not knowledge an agent can obtain.
+#[test]
+fn a_named_key_carries_both_halves() {
+    let mut app = app_listening();
+    queue_key(&mut app, KeyCode::Escape, InputAction::Tap);
+    app.update();
+
+    assert!(
+        app.world().resource::<ButtonInput<KeyCode>>().just_pressed(KeyCode::Escape),
+        "the physical half must reach a `ButtonInput` reader"
+    );
+    assert!(
+        heard(&app)[0].contains(&Key::Escape),
+        "and the logical half must reach the message stream, from the same request: {:?}",
+        heard(&app)
+    );
+}
+
+/// **A physical-only key says so, rather than guessing.**
+///
+/// `KeyW` is `w` on QWERTY and `,` on Dvorak. There is no layout-independent logical answer, and
+/// inventing one would be the twelve-key table this module's header records deleting — so it reports
+/// `Unidentified`, which is the enum's own word for it.
+#[test]
+fn a_physical_only_key_states_that_it_has_no_logical_value() {
+    let mut app = app_listening();
+    queue_key(&mut app, KeyCode::KeyW, InputAction::Tap);
+    app.update();
+
+    assert!(
+        app.world().resource::<ButtonInput<KeyCode>>().just_pressed(KeyCode::KeyW),
+        "the physical half is exact and must still land"
+    );
+    assert!(
+        heard(&app)[0].contains(&Key::Unidentified(NativeKey::Unidentified)),
+        "and the logical half must state the absence: {:?}",
+        heard(&app)
+    );
+}
+
+/// **A space is the space bar, not the character `" "`.**
+///
+/// The one character with a named variant. Five separate text handlers in `emerge-mapper` match
+/// `Key::Space` and none matches `Key::Character(" ")`, so the wrong choice would drop the space out
+/// of a typed name while the call reported success — a silent corruption of exactly the input this
+/// feature exists to deliver.
+#[test]
+fn a_space_is_the_space_bar_not_a_character() {
+    let mut app = app_listening();
+    queue_text(&mut app, "a b");
+    app.update();
+
+    let frame = &heard(&app)[0];
+    assert_eq!(frame.len(), 3, "three characters: {frame:?}");
+    assert_eq!(frame[1], Key::Space, "the middle one must be `Space`: {frame:?}");
+}
+
+/// **Text waits for the frame after the keystroke that opened the field.**
+///
+/// Every text field in `emerge-mapper` drains the stream *while shut*, so the key that opened it
+/// cannot become its first character — the `xseam` bug. Its key phase runs before its dispatcher
+/// phase, so text sent in the same frame as the opening key would be eaten by that very guard while
+/// this method reported success. One frame is the same price the one-edge-per-key rule already pays.
+#[test]
+fn text_waits_for_the_frame_after_the_key_that_opened_the_field() {
+    let mut app = app_listening();
+    {
+        let mut pending = app.world_mut().resource_mut::<PendingInput>();
+        pending.queue_key(KeyCode::KeyM, InputAction::Tap);
+        pending
+            .queue_text("porch", Entity::PLACEHOLDER)
+            .unwrap_or_else(|ch| panic!("no logical key for {ch:?}"));
+    }
+    app.update();
+    app.update();
+
+    let frames = heard(&app);
+    assert_eq!(
+        spelled(&frames[0]),
+        "Unidentified(Unidentified)",
+        "frame 0 carries the opening key and no characters: {frames:?}"
+    );
+    assert_eq!(
+        spelled(&frames[1]),
+        "porch",
+        "and the characters follow on the next frame: {frames:?}"
+    );
+}
+
+/// **Nothing defers behind text**, which is the point: type and commit in one round trip.
+///
+/// The inverse of the rule above, and deliberately not symmetric. A field is already open by the time
+/// text is being sent, so `Enter` in the same frame is read after the characters it is committing.
+#[test]
+fn an_enter_after_text_commits_in_the_same_frame() {
+    let mut app = app_listening();
+    {
+        let mut pending = app.world_mut().resource_mut::<PendingInput>();
+        pending
+            .queue_text("porch_a", Entity::PLACEHOLDER)
+            .unwrap_or_else(|ch| panic!("no logical key for {ch:?}"));
+        pending.queue_key(KeyCode::Enter, InputAction::Tap);
+    }
+    app.update();
+
+    let frame = &heard(&app)[0];
+    assert_eq!(
+        spelled(frame),
+        "porch_aEnter",
+        "the name and its commit must land together, in that order: {frame:?}"
+    );
+}
+
+/// Two text commands in one frame concatenate in order — a burst of BRP calls is still one string.
+#[test]
+fn two_text_commands_in_one_frame_concatenate_in_order() {
+    let mut app = app_listening();
+    queue_text(&mut app, "si");
+    queue_text(&mut app, "te");
+    app.update();
+
+    assert_eq!(spelled(&heard(&app)[0]), "site");
+}
+
+/// `typed` refuses nothing printable, and builds the message a keyboard would have.
+#[test]
+fn a_typed_character_is_shaped_like_a_real_one() {
+    let message = typed('q', Entity::PLACEHOLDER).unwrap_or_else(|| panic!("`q` must build"));
+    assert_eq!(message.logical_key, Key::Character("q".into()));
+    // Deliberately not naming the windowing backend here: `tests/leaf.rs` scans string literals as
+    // well as code, and it is right to — a marker in an error message is how a forbidden dependency
+    // would announce itself.
+    assert_eq!(
+        message.text.as_deref(),
+        Some("q"),
+        "`text` carries the character produced, matching what a real keyboard event reports"
+    );
+    assert!(!message.repeat, "an injected key is never an OS auto-repeat");
+    assert_eq!(
+        message.key_code,
+        KeyCode::Unidentified(bevy::input::keyboard::NativeKeyCode::Unidentified),
+        "a character that arrived has no physical origin this process can know"
+    );
 }

@@ -35,7 +35,8 @@ The whole reason this exists is that capturing a window requires raising it (ste
 So:
 
 - **Capture reads an `Image` a camera renders to, never the window surface.** `bevy_debugger/screenshot` fails loudly when `DebugCaptureTarget` is absent rather than falling back to window capture — the fallback *is* the focus-stealing path.
-- **Input writes into Bevy's own `ButtonInput` resources**, inside the game process.
+- **Input writes into Bevy's own input message stream**, inside the game process — the same
+  `Messages<KeyboardInput>` / `Messages<MouseButtonInput>` buffers `bevy_winit` appends to.
 
 `crates/bevy_debugger_bevy/tests/leaf.rs` is the ratchet: it pins the plugin's dependency list and fails on any source mentioning `enigo`, `xdotool`, `CGEvent`, `SendInput`, `winit` or `unsafe`. That test is the enforcement of the paragraph above — widening it is a design decision and should cost a deliberate edit.
 
@@ -44,6 +45,19 @@ So:
 `DebuggerPlugin::build` registers its methods with `RemotePlugin::with_method_main(..)`, so handlers execute in Bevy's `Last` schedule. Bevy's `keyboard_input_system` clears `just_pressed`/`just_released` in the **next** frame's `PreUpdate`.
 
 A press written in `Last` therefore has its `just_pressed` flag cleared before any `Update` system reads it, so **`just_pressed`-based actions could never be triggered by injected input** — the method returned `success: true` and the game did not move. Held `pressed` state survives the clear, which is why some actions appeared to work and others did not. See `input.rs` for how this is handled now; if you change the schedule or the action shape, re-verify against a real game rather than a unit test.
+
+## Injected input is the *source*, not the fold — and that is what lets an agent type
+
+`apply_pending_input` runs in `PreUpdate` **`.before(InputSystems)`** and writes `KeyboardInput` / `MouseButtonInput` **messages**. `ButtonInput<KeyCode>` and `ButtonInput<Key>` are Bevy's own fold of that stream, done by `keyboard_input_system`, which clears last frame's edges and *then* folds — so a message written ahead of it survives the clear that erased the old direct write.
+
+**This reverses the first fix, and the reversal is the point.** Writing `ButtonInput` directly reached everything that reads `ButtonInput` and nothing that reads the stream — which is **every text field in every Bevy app**, since they use `MessageReader<KeyboardInput>` and match `logical_key`. So an agent could press keys and not type into them, and could not press Enter or Escape *in a field* either. That was `FVS-R-12`, and it blocked three verifications in one day.
+
+Two consequences worth knowing before you touch this:
+
+- **`InputPlugin` is now required.** Without it nothing folds the stream and every injection is accepted and read by nobody. `DebuggerPlugin::finish` asserts it — `finish`, not `build`, so it holds whichever order the host adds plugins in.
+- **`kind: "Keyboard"` takes `key` *or* `text`, and sending both is refused.** `key` names a key on the keyboard and carries its logical half whenever Bevy spells the same name in `Key` (93 of them do, including `Enter`, `Escape`, `Backspace`, `Space`, `Tab`); `text` is what should arrive, one message per character, so `"site_67"` is one call and one frame. A separate `kind: "Text"` was designed and rejected: `Escape` is spelled identically in both enums, so an agent would have had to pick a kind based on which of the *host's* systems was listening — knowledge it cannot obtain — and each kind would produce only half of what a real key produces.
+
+`text` refuses control characters by name (`use key: "Enter"`), and a space becomes `Key::Space` rather than `Key::Character(" ")`, because that is what a space bar produces and text handlers match the former.
 
 ## The cursor is a resource, not the window's
 

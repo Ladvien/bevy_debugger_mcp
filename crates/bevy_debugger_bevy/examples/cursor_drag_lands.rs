@@ -68,7 +68,7 @@ fn main() {
         // **After `InputSystems`, and that is the whole fix.** Bevy clears last frame's
         // just-pressed/just-released edges at the top of `PreUpdate`; a write placed before it is
         // erased before any `Update` reader runs.
-        .add_systems(PreUpdate, apply_pending_input.after(InputSystems))
+        .add_systems(PreUpdate, apply_pending_input.before(InputSystems))
         .add_systems(Update, box_select);
 
     println!("\nQueuing a whole drag in one batch — move, press, move, move, release:\n");
