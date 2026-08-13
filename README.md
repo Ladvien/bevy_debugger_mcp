@@ -2,7 +2,7 @@
 
 > ⚠️ **Vibe Coded** — written by an AI agent working from a human's direction. It is used against a shipping game and covered by tests, but it has had no line-by-line human audit. Read it before you trust it.
 
-Lets an agent inspect and drive a **running** Bevy game: query entities, components and resources live, capture frames from an offscreen render target, and inject keyboard and mouse input — including **cursor position**, so a click-drag is expressible, and **typed text**, so a text field can be filled and committed — none of which touches your desktop, your window manager, or the OS input stack.
+Lets an agent inspect and drive a **running** Bevy game: query entities, components and resources live, capture frames from an offscreen render target, inject keyboard and mouse input — including **cursor position**, so a click-drag is expressible, and **typed text**, so a text field can be filled and committed — and **post a walkthrough the app renders one step at a time**, watching a named condition and recording what actually happened. None of it touches your desktop, your window manager, or the OS input stack.
 
 > **This repo is a read-only mirror.** It is split out of [`Ladvien/foundation_vs_slop`](https://github.com/Ladvien/foundation_vs_slop) at `crates/bevy_debugger_mcp/` with `git subtree split`, history intact. Issues and PRs belong upstream — changes made here cannot be pulled back.
 
@@ -18,22 +18,64 @@ Lets an agent inspect and drive a **running** Bevy game: query entities, compone
 | | What it is | Where it runs |
 |---|---|---|
 | `bevy_debugger_mcp` (this crate) | The MCP **server** binary, `bevy-debugger-mcp`. Speaks MCP to an agent and BRP to the game. | Its own process |
-| [`crates/bevy_debugger_bevy`](crates/bevy_debugger_bevy) | The companion **Bevy plugin**. Registers the custom BRP methods `bevy_debugger/screenshot` and `bevy_debugger/input`. | Inside the game |
+| [`crates/bevy_debugger_bevy`](crates/bevy_debugger_bevy) | The companion **Bevy plugin**. Registers the custom BRP methods `bevy_debugger/screenshot`, `bevy_debugger/input`, `bevy_debugger/guide` and `bevy_debugger/guide+watch`. | Inside the game |
 
 They are independent — the server does not depend on the plugin. The plugin is what a game links; the server is what an agent talks to.
 
+## Three directions
+
+| | Method | |
+|---|---|---|
+| app → agent | `bevy_debugger/screenshot` | offscreen frame capture, with a region and a zoom |
+| agent → app | `bevy_debugger/input` | keys, text, mouse, cursor position |
+| **agent → person** | `bevy_debugger/guide`, `…/guide+watch` | a walkthrough the app renders one step at a time |
+
+The third is the newest and the least obvious. An agent could already drive an app and look at it; what it could not do was **say a sentence to the person at the keyboard**, so every instruction went to a terminal they had to look away from their work to read, and every answer came back as prose the agent then had to guess its way from.
+
 ## Examples
 
-The two that demonstrate what this crate actually does — no window, no GPU, no mouse; both print to the terminal:
+The three that demonstrate what this crate actually does — no window, no GPU, no mouse; all print to the terminal:
 
 ```sh
 cargo run -p bevy_debugger_bevy --example injected_input_lands
 cargo run -p bevy_debugger_bevy --example cursor_drag_lands
+cargo run -p bevy_debugger_bevy --example guided_steps_land
 ```
 
 The first shows the property the plugin exists to provide: an injected key is visible to `just_pressed` for exactly one frame and `just_released` on the next, the same shape a physical key produces.
 
 The second shows a **click-drag** — `move, press, move, move, release` queued in one batch — and the property that makes it mean anything: **the press is read where it was aimed**. Apply the queued move and the queued press in the same frame and the game reads the press at the destination, so the drag starts wherever it ended and selects nothing. It earned its keep immediately: it caught a real ordering bug where a release overtook two still-pending moves and committed the box at the wrong corner.
+
+The third posts a three-step script and drives it to completion against a stand-in author, printing the transcript an agent would receive.
+
+## Guiding a person through an exercise
+
+Post a script; the app shows **one step**, never the list. Each step is a guided-exploration card — hints, a **checkpoint**, and **recovery**:
+
+```jsonc
+{"steps": [{
+  "label": "drop a floor and a wall",
+  "goal": "a tile needs two pieces before the solver has anything to match on",
+  "do": ["walk the library with up and down", "press Enter to bring the selected row in"],
+  "checkpoint": "tile has two members",
+  "recovery": "if nothing lands, the library filter is hiding every row: press Backspace"
+}]}
+```
+
+Then `curl -N` on `bevy_debugger/guide+watch` and get a frame each time something happens — nothing at all while the condition is unmet.
+
+**Checkpoints are the host's words.** This plugin cannot know what a tile is and must not learn, so a host registers one-shot systems answering `bool`:
+
+```rust
+let has_two = app.register_system(|tile: Res<Tile>| tile.members >= 2);
+app.world_mut().resource_mut::<Checkpoints>().register("tile has two members", has_two);
+```
+
+A step may have **no** checkpoint — *"does this look right?"* is not a machine question — and that is a supported state, not a gap: the stream says `waiting_on_a_person` and holds until an explicit `{"skip": true}`.
+
+What comes back is **`k/n` per step**, never a boolean, plus how long each took. A step nobody can complete shows up as a stall rather than a silence.
+
+The design is grounded rather than guessed, and two of the findings are negative: an on-demand help button *costs* completion, and restricting input to force the step buys nothing at all. See the [design notes](crates/bevy_debugger_bevy/src/guide.rs) for the citations.
 
 ## Injecting a cursor
 

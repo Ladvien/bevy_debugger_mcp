@@ -33,6 +33,7 @@
 
 use bevy::prelude::*;
 
+mod guide;
 mod screenshot;
 mod input;
 
@@ -41,6 +42,24 @@ pub use input::{
     apply_pending_input, cursor_position, logical_for, typed, DebugCursor, InputAction, InputCommand,
     InputKind, PendingInput,
 };
+pub use guide::{
+    Checkpoints, Guide, GuideOverlay, GuideOverlayPlugin, GuideParams, GuidePlacement, Step,
+    StepRecord, BEAT_SECONDS,
+};
+
+// **The handlers are exported so they can be tested.**
+//
+// They were `pub` in their modules and re-exported nowhere, so no integration test could name one —
+// and `tests/` is the only place this crate has tests. The cost was invisible and total: params
+// deserialisation, every refusal path (`key` and `text` together, control characters, a non-finite
+// coordinate) and all of `write_capture`'s crop-and-clamp arithmetic had no coverage at all, in a
+// crate whose whole job is to accept requests from somewhere else.
+//
+// A handler is an ordinary system taking `In<Option<Value>>`, so a test drives one with
+// `run_system_once_with` under `MinimalPlugins`. **No socket, no transport, no game.**
+pub use guide::{handle_guide, watch_guide};
+pub use input::handle_input;
+pub use screenshot::handle_screenshot;
 
 /// Plugin that registers all custom BRP methods for the debugger.
 ///
@@ -59,7 +78,21 @@ impl Plugin for DebuggerPlugin {
         app.add_plugins(bevy::remote::RemotePlugin::default()
             .with_method_main("bevy_debugger/screenshot", screenshot::handle_screenshot)
             .with_method_main("bevy_debugger/input", input::handle_input)
+            .with_method_main("bevy_debugger/guide", guide::handle_guide)
+            // **A watching method — the engine owns the waiting.** `RemotePlugin` re-runs this every
+            // frame in `RemoteLast`, parks the request while it answers `Ok(None)`, and reaps it when
+            // the caller goes away (`bevy_remote-0.19.0/src/lib.rs:1527`). So a condition-watcher with
+            // lifecycle management costs no new dependency, which is what keeps `tests/leaf.rs` green.
+            // The `+watch` suffix is Bevy's own naming (`world.get_components+watch`).
+            .with_watching_method_main("bevy_debugger/guide+watch", guide::watch_guide)
         )
+        // **The agent-to-human half of the channel.** Everything else here points inward — input goes
+        // into the app, frames come out of it. This is the only path that puts a sentence in front of
+        // the person at the keyboard, which is why the plugin carries an overlay at all.
+        .add_plugins(guide::GuideOverlayPlugin)
+        .init_resource::<guide::Guide>()
+        // The host's own words, registered by the host. This crate never learns what a tile is.
+        .init_resource::<guide::Checkpoints>()
         // The handler above runs in `Last` and only QUEUES; this is what actually writes the input
         // messages. See `input::PendingInput`.
         .init_resource::<input::PendingInput>()

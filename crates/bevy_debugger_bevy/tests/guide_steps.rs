@@ -1,0 +1,453 @@
+//! **The guide channel's contract, pinned.**
+//!
+//! The half of this crate that talks to a *person* has a failure mode the other two do not: it can be
+//! wrong in a way that still returns `success: true` and still renders. So what is checked here is
+//! mostly the behaviour over *time* — what the watch stream sends on the second frame, and the
+//! third — because that is where a condition-watcher goes wrong.
+//!
+//! Four properties:
+//!
+//! 1. **A checkpoint decides, and the host owns it.** A registered condition that answers false parks
+//!    the request; one that answers true advances the step and records the pass. A name nobody
+//!    registered is refused *by name*, listing what would have worked.
+//! 2. **Every non-advancing answer is sent once.** The handler re-runs every frame, so "this step has
+//!    no checkpoint" and "the script is done" would otherwise be pushed sixty times a second down a
+//!    stream whose entire contract is *something happened*.
+//! 3. **The transcript is `k/n`, and it survives a re-post.** Bryant, *Game Testing All in One* 4e:
+//!    a boolean pass is the thing a person reports and gets wrong. Counts that reset on every run
+//!    would be the same boolean wearing a fraction's clothes.
+//! 4. **The overlay shows one step, and only while there is one.** Never the script (Andersen et al.
+//!    2012: instructions given in context beat an up-front manual by 40% progress), and nothing at all
+//!    when idle.
+//!
+//! Every test here was verified by putting the bug back — the discipline the tiles contract records.
+//! Three of them exist *because* the bug was there. Two `announced_once` tests: the first draft of
+//! `watch_guide` answered both non-advancing cases unconditionally, at sixty frames a second.
+//!
+//! And `a_skipped_step_is_not_confirmed_as_a_pass`, which is the one worth reading twice — **a full
+//! green suite is not evidence the overlay is right.** Every test here passed while the card
+//! congratulated a person for reporting that a step made no sense, because both outcomes rendered
+//! text and nothing asserted which. A devshot capture of the real editor is what noticed. When the
+//! output is something a human reads, at some point somebody has to look at it.
+
+use bevy::prelude::*;
+use bevy_debugger_bevy::{
+    handle_guide, watch_guide, Checkpoints, Guide, GuideOverlayPlugin, BEAT_SECONDS,
+};
+use bevy::ecs::system::RunSystemOnce;
+use serde_json::{json, Value};
+
+/// Whether the host's condition is currently true. Stands in for `Build::open.members.len() >= 2`.
+#[derive(Resource, Default)]
+struct Ready(bool);
+
+/// An app with the guide's resources and one registered checkpoint, and **no transport** — the
+/// handlers are ordinary systems, so none of this needs a socket, a window or a GPU.
+fn app() -> App {
+    let mut app = App::new();
+    app.add_plugins(MinimalPlugins)
+        .init_resource::<Guide>()
+        .init_resource::<Checkpoints>()
+        .init_resource::<Ready>();
+    let id = app.register_system(|ready: Res<Ready>| ready.0);
+    app.world_mut().resource_mut::<Checkpoints>().register("ready", id);
+    app
+}
+
+fn post(app: &mut App, params: Value) -> Value {
+    match app.world_mut().run_system_once_with(handle_guide, Some(params)) {
+        Ok(Ok(v)) => v,
+        Ok(Err(e)) => panic!("handler refused: {}", e.message),
+        Err(e) => panic!("could not run handler: {e}"),
+    }
+}
+
+fn refusal(app: &mut App, params: Value) -> String {
+    match app.world_mut().run_system_once_with(handle_guide, Some(params)) {
+        Ok(Err(e)) => e.message,
+        Ok(Ok(v)) => panic!("expected a refusal, got {v}"),
+        Err(e) => panic!("could not run handler: {e}"),
+    }
+}
+
+/// One turn of the watch stream: `None` means *parked*, which is the answer under test as often as a
+/// value is.
+fn watch(app: &mut App) -> Option<Value> {
+    match app.world_mut().run_system_once_with(watch_guide, None) {
+        Ok(Ok(v)) => v,
+        Ok(Err(e)) => panic!("watch refused: {}", e.message),
+        Err(e) => panic!("could not run watch: {e}"),
+    }
+}
+
+fn watch_refusal(app: &mut App) -> String {
+    match app.world_mut().run_system_once_with(watch_guide, None) {
+        Ok(Err(e)) => e.message,
+        Ok(Ok(v)) => panic!("expected a refusal, got {v:?}"),
+        Err(e) => panic!("could not run watch: {e}"),
+    }
+}
+
+fn script(checkpoint: Value) -> Value {
+    json!({"steps": [
+        {"label": "drop a floor", "goal": "the tile needs something in it",
+         "do": ["press Enter"], "checkpoint": checkpoint,
+         "recovery": "if nothing lands, the library row is empty"},
+        {"label": "save it", "do": ["press Cmd+S"]}
+    ]})
+}
+
+// ── 1. the checkpoint decides ────────────────────────────────────────────────────────────────────
+
+#[test]
+fn a_checkpoint_that_is_not_met_parks_the_request() {
+    let mut app = app();
+    post(&mut app, script(json!("ready")));
+
+    // The host's condition is false, so there is nothing to say and the request stays open. This is
+    // the whole reason the method is `with_watching_method_main` rather than something that polls.
+    assert_eq!(watch(&mut app), None);
+    assert_eq!(watch(&mut app), None, "still parked on the next frame");
+
+    let report = post(&mut app, json!({"read": true}));
+    assert_eq!(report["guide"]["at"], 1, "still on the first step");
+}
+
+#[test]
+fn a_checkpoint_that_passes_advances_and_records_it() {
+    let mut app = app();
+    post(&mut app, script(json!("ready")));
+    app.world_mut().resource_mut::<Ready>().0 = true;
+
+    let answer = watch(&mut app).expect("the checkpoint passed, so the stream answers");
+    assert_eq!(answer["passed"], "drop a floor", "names the step that just completed");
+    assert_eq!(answer["guide"]["at"], 2, "and the app has moved on");
+
+    let rows = &answer["guide"]["steps"];
+    assert_eq!(rows[0]["passes"], 1);
+    assert_eq!(rows[0]["runs"], 1, "1/1");
+    assert_eq!(rows[1]["runs"], 1, "the next step is now being attempted");
+    assert_eq!(rows[1]["passes"], 0);
+}
+
+#[test]
+fn a_checkpoint_nobody_registered_is_refused_by_name() {
+    let mut app = app();
+    post(&mut app, script(json!("tile is saved")));
+
+    let message = watch_refusal(&mut app);
+    assert!(message.contains("tile is saved"), "names what was asked for: {message}");
+    assert!(
+        message.contains("ready"),
+        "and what would have worked, so the script can be fixed without reading this crate: {message}"
+    );
+    // The failure this prevents: a watching handler that answered `Ok(None)` for an unknown name
+    // would park for ever, and a script that never advances is indistinguishable from a person who
+    // has not got round to it.
+    assert!(message.contains("for ever") || message.contains("forever"));
+}
+
+// ── 2. every non-advancing answer is sent once ───────────────────────────────────────────────────
+
+#[test]
+fn a_step_with_no_checkpoint_is_announced_once_not_every_frame() {
+    let mut app = app();
+    // `checkpoint: null` is a real state: "does this look right?" is not a machine question.
+    post(&mut app, script(Value::Null));
+
+    let first = watch(&mut app).expect("says so once");
+    assert_eq!(first["waiting_on_a_person"], true);
+    assert_eq!(first["step"], "drop a floor");
+
+    assert_eq!(watch(&mut app), None, "and then parks");
+    assert_eq!(watch(&mut app), None);
+
+    // A skip moves the step on, which re-arms the announcement for the new one.
+    post(&mut app, json!({"skip": true}));
+    let second = watch(&mut app).expect("the next step announces itself in turn");
+    assert_eq!(second["step"], "save it");
+}
+
+#[test]
+fn the_end_of_the_script_is_announced_once_not_every_frame() {
+    let mut app = app();
+    post(&mut app, json!({"steps": [{"label": "the only step", "checkpoint": "ready"}]}));
+    app.world_mut().resource_mut::<Ready>().0 = true;
+
+    assert_eq!(watch(&mut app).expect("the step passes")["passed"], "the only step");
+
+    let done = watch(&mut app).expect("then the script reports itself finished");
+    assert_eq!(done["done"], true);
+    assert_eq!(done["guide"]["steps"][0]["passes"], 1);
+
+    assert_eq!(watch(&mut app), None, "once, not sixty times a second");
+    assert_eq!(watch(&mut app), None);
+}
+
+// ── 3. k/n, and it survives a re-post ────────────────────────────────────────────────────────────
+
+#[test]
+fn a_skip_is_an_attempt_that_did_not_pass() {
+    let mut app = app();
+    post(&mut app, script(json!("ready")));
+
+    let answer = post(&mut app, json!({"skip": true}));
+    assert_eq!(answer["skipped"], "drop a floor");
+
+    let rows = &answer["guide"]["steps"];
+    assert_eq!(rows[0]["runs"], 1);
+    assert_eq!(
+        rows[0]["passes"], 0,
+        "0/1 — the escape hatch Choong et al. found is needed, because 18 of 20 of their \
+         participants followed a suggestion that made no sense rather than say so"
+    );
+}
+
+#[test]
+fn re_running_the_same_script_accumulates_the_counts() {
+    let mut app = app();
+    post(&mut app, script(json!("ready")));
+    app.world_mut().resource_mut::<Ready>().0 = true;
+    watch(&mut app);
+
+    // The same script again — the tester having another go, which is the entire point of `k/n`.
+    post(&mut app, script(json!("ready")));
+    let after = post(&mut app, json!({"read": true}));
+    assert_eq!(after["guide"]["steps"][0]["runs"], 2, "n counts every attempt");
+    assert_eq!(after["guide"]["steps"][0]["passes"], 1, "k counts the ones that worked");
+
+    watch(&mut app);
+    let again = post(&mut app, json!({"read": true}));
+    assert_eq!(again["guide"]["steps"][0]["passes"], 2, "2/2");
+}
+
+#[test]
+fn a_different_script_starts_its_own_counts() {
+    let mut app = app();
+    post(&mut app, script(json!("ready")));
+    post(&mut app, json!({"skip": true}));
+
+    post(&mut app, json!({"steps": [{"label": "something else"}]}));
+    let report = post(&mut app, json!({"read": true}));
+    assert_eq!(report["guide"]["steps"][0]["step"], "something else");
+    assert_eq!(report["guide"]["steps"][0]["runs"], 1, "not carried over from a different script");
+}
+
+#[test]
+fn an_empty_script_is_refused_rather_than_posted() {
+    let mut app = app();
+    let message = refusal(&mut app, json!({"steps": []}));
+    assert!(message.contains("clear"), "and points at the verb that was meant: {message}");
+}
+
+#[test]
+fn clearing_takes_the_script_down_and_keeps_the_answer() {
+    let mut app = app();
+    post(&mut app, script(json!("ready")));
+    app.world_mut().resource_mut::<Ready>().0 = true;
+    watch(&mut app);
+
+    post(&mut app, json!({"clear": true}));
+    let report = post(&mut app, json!({"read": true}));
+    assert_eq!(
+        report["guide"]["steps"][0]["passes"], 1,
+        "the transcript survives, because it is what the exercise was for"
+    );
+}
+
+// ── 4. the overlay ───────────────────────────────────────────────────────────────────────────────
+
+/// What the overlay is currently saying, as the lines a person would read.
+fn on_screen(app: &mut App) -> Vec<String> {
+    let mut q = app.world_mut().query::<&Text>();
+    q.iter(app.world()).map(|t| t.0.clone()).collect()
+}
+
+fn shown(app: &mut App) -> bool {
+    let mut q = app.world_mut().query_filtered::<&Node, With<bevy_debugger_bevy::GuideOverlay>>();
+    q.iter(app.world()).any(|n| n.display != Display::None)
+}
+
+fn ui_app() -> App {
+    let mut app = app();
+    app.add_plugins(GuideOverlayPlugin);
+    app.update();
+    app
+}
+
+#[test]
+fn the_overlay_says_nothing_until_there_is_a_step() {
+    let mut app = ui_app();
+    assert!(!shown(&mut app), "an app with the plugin on and no script shows no card");
+    assert!(on_screen(&mut app).is_empty());
+}
+
+#[test]
+fn the_overlay_shows_one_step_and_not_the_script() {
+    let mut app = ui_app();
+    post(&mut app, script(json!("ready")));
+    app.update();
+
+    let lines = on_screen(&mut app).join("\n");
+    assert!(shown(&mut app));
+    assert!(lines.contains("STEP 1 OF 2"), "segmented, van der Meij: {lines}");
+    assert!(lines.contains("drop a floor"));
+    assert!(lines.contains("the tile needs something in it"), "the why — Choong, 13 of 20");
+    assert!(lines.contains("press Enter"));
+    assert!(lines.contains("the library row is empty"), "the recovery field 21 of 21 shipped \
+        tutorials did not have");
+    assert!(
+        !lines.contains("save it"),
+        "and NOT the next step. One at a time is the finding, not a layout preference: {lines}"
+    );
+}
+
+#[test]
+fn a_finished_step_is_confirmed_before_the_next_one_arrives() {
+    let mut app = ui_app();
+    post(&mut app, script(json!("ready")));
+    app.world_mut().resource_mut::<Ready>().0 = true;
+    watch(&mut app);
+    app.update();
+
+    let held = on_screen(&mut app).join("\n");
+    assert!(held.contains("OK"), "the beat: {held}");
+    assert!(held.contains("drop a floor"), "confirming the step that just passed: {held}");
+    assert!(!held.contains("save it"), "the next step has not arrived yet: {held}");
+
+    // Past the beat, the next step appears. Stepped in slices because `MinimalPlugins` advances
+    // `Time` by real elapsed time, so one long sleep is the only way to make this deterministic —
+    // and a loop of updates is cheaper than a sleep.
+    let start = std::time::Instant::now();
+    while start.elapsed().as_secs_f32() < BEAT_SECONDS + 0.2 {
+        app.update();
+    }
+    let next = on_screen(&mut app).join("\n");
+    assert!(next.contains("save it"), "then the next step: {next}");
+    assert!(!next.contains("OK"), "and the confirmation is gone: {next}");
+}
+
+#[test]
+fn hiding_the_overlay_keeps_the_script() {
+    let mut app = ui_app();
+    post(&mut app, script(json!("ready")));
+    app.update();
+    assert!(shown(&mut app));
+
+    // Iacovides et al. 2015: experts spend attention on an overlay merely because it is there, and
+    // removing it raised their sense of control. So a host can bind a dismiss key — and it must not
+    // cost the script.
+    post(&mut app, json!({"visible": false}));
+    app.update();
+    assert!(!shown(&mut app));
+
+    let report = post(&mut app, json!({"read": true}));
+    assert_eq!(report["guide"]["at"], 1, "still on step one, just not saying so");
+}
+
+/// **The step text has to be ASCII**, because Bevy's embedded default font is 95 codepoints and this
+/// crate cannot ship one without widening the dependency list `leaf.rs` pins. An em-dash in a step
+/// draws as tofu in any host that has not installed a font.
+///
+/// Checked on the **example**, because that is the only file in this crate that ships an actual
+/// script — not at the door, since refusing a caller's non-ASCII step would be this plugin deciding
+/// what font a host has installed. The example is what a reader copies, so it is what must be right.
+#[test]
+fn the_one_script_this_crate_ships_is_ascii() {
+    let rel = "examples/guided_steps_land.rs";
+    let root = std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR"));
+    let Ok(src) = std::fs::read_to_string(root.join(rel)) else {
+        panic!("{rel} is named by this test and must exist");
+    };
+    for (n, line) in src.lines().enumerate() {
+        // A doc comment is read in an editor, not rendered by Bevy.
+        let code = line.trim_start();
+        if code.starts_with("//") || code.starts_with('*') {
+            continue;
+        }
+        assert!(
+            code.is_ascii(),
+            "{rel}:{} has a non-ASCII character in code that may become step copy; Bevy's default \
+             font has 95 codepoints and would draw it as tofu:\n  {line}",
+            n + 1
+        );
+    }
+}
+
+/// **The host says where the card goes, and this is why.**
+///
+/// The plugin's default is 12 px from the top. In `emerge-mapper` that is exactly the tab bar, and
+/// the first devshot capture came back with ANIM reading through STEP 1 OF 8 at 0.92 alpha — the
+/// card sitting on the chrome it was supposed to sit beside. No test could have caught that, because
+/// the plugin cannot know a host has a tab bar; only a frame could.
+///
+/// What a test *can* pin is that the host's answer is honoured, and honoured **whichever order the
+/// plugins are added in**. `DebuggerPlugin` uses `init_resource`, which is insert-if-absent, so a
+/// host that `insert_resource`s its own value wins from either side. Getting that backwards would put
+/// the card back on the tab bar and nothing would say so.
+#[test]
+fn a_host_can_move_the_card_off_its_own_chrome() {
+    use bevy_debugger_bevy::GuidePlacement;
+
+    let mut app = app();
+    // The host speaks first, as `emerge-mapper`'s GuidePlugin does.
+    app.insert_resource(GuidePlacement { top: 58.0, width: 520.0 });
+    app.add_plugins(GuideOverlayPlugin);
+    app.update();
+
+    assert_eq!(
+        app.world().resource::<GuidePlacement>().top,
+        58.0,
+        "GuideOverlayPlugin's init_resource must not overwrite a host's value"
+    );
+
+    post(&mut app, script(json!("ready")));
+    app.update();
+
+    let mut q = app
+        .world_mut()
+        .query_filtered::<&Node, With<bevy_debugger_bevy::GuideOverlay>>();
+    let node = q.iter(app.world()).next().cloned().expect("the overlay exists");
+    assert_eq!(node.top, Val::Px(58.0), "the card moved to where the host asked");
+    assert_eq!(node.width, Val::Px(520.0));
+    assert_eq!(
+        node.margin.left,
+        Val::Px(-260.0),
+        "and stayed centred: the pull-back is half the width, not a constant that only matched the \
+         default"
+    );
+}
+
+/// **A skipped step is not an OK, and the card has to say so.**
+///
+/// It said `OK <step>` in green for both outcomes, and every test here passed while it did: both
+/// branches rendered text, and nothing asserted *which*. A devshot capture of the real editor is what
+/// caught it — three of four frames showed a green tick over a step the person had just told the
+/// script did not work.
+///
+/// Which is the failure the escape hatch exists to prevent, running backwards. Choong et al. found 18
+/// of 20 participants followed an AI suggestion that made no sense rather than report it; `skip` is
+/// how this channel lets them report it, and congratulating them for it is a way of teaching them not
+/// to bother.
+#[test]
+fn a_skipped_step_is_not_confirmed_as_a_pass() {
+    let mut app = ui_app();
+    post(&mut app, script(json!("ready")));
+
+    post(&mut app, json!({"skip": true}));
+    app.update();
+    let skipped = on_screen(&mut app).join("\n");
+    assert!(skipped.contains("SKIPPED"), "says what actually happened: {skipped}");
+    assert!(skipped.contains("drop a floor"), "and to which step: {skipped}");
+    assert!(!skipped.contains("OK"), "and does NOT congratulate them for it: {skipped}");
+
+    // The passing branch is unchanged, and asserted here too so the two cannot converge again.
+    let mut app = ui_app();
+    post(&mut app, script(json!("ready")));
+    app.world_mut().resource_mut::<Ready>().0 = true;
+    watch(&mut app);
+    app.update();
+    let passed = on_screen(&mut app).join("\n");
+    assert!(passed.contains("OK"), "a real pass still reads as one: {passed}");
+    assert!(!passed.contains("SKIPPED"), "{passed}");
+}
