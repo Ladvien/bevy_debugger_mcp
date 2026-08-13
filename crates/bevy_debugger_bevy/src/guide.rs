@@ -253,7 +253,28 @@ impl Guide {
             })
             .collect();
         let (step, of) = self.position();
-        json!({ "at": step, "of": of, "steps": rows })
+        // **What the current step needs, so a `read` is a complete answer.**
+        //
+        // Without this the watch stream was the only place `waiting_on_a_person` was ever said, and
+        // it is announced once per step — so a client that reconnected after the announcement (a
+        // dropped connection, a crashed watcher, a second tool attaching later) could not tell a step
+        // that needs a human call from one whose condition simply has not arrived. It waited on a
+        // machine that was waiting on it.
+        //
+        // The fix is not to re-announce on the stream: there is no per-request identity to key that
+        // on, and re-announcing per frame is the flood `announced` exists to stop. It is to make the
+        // state query answer the question. The stream stays a notification channel; this is the state.
+        let waiting = self
+            .current()
+            .map(|s| s.checkpoint.is_none())
+            .unwrap_or(false);
+        json!({
+            "at": step,
+            "of": of,
+            "step": self.current().map(|s| s.label.clone()),
+            "waiting_on_a_person": waiting,
+            "steps": rows,
+        })
     }
 }
 

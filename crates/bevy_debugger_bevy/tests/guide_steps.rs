@@ -451,3 +451,39 @@ fn a_skipped_step_is_not_confirmed_as_a_pass() {
     assert!(passed.contains("OK"), "a real pass still reads as one: {passed}");
     assert!(!passed.contains("SKIPPED"), "{passed}");
 }
+
+/// **A `read` has to answer what the stream announced once, or a reconnecting client is blind.**
+///
+/// `waiting_on_a_person` is sent on the watch stream exactly once per step — it has to be, or a step
+/// with no checkpoint pushes sixty frames a second. The consequence nobody noticed until it happened:
+/// a client that attaches *after* that announcement sees silence, and silence is also what an unmet
+/// checkpoint looks like. It waits on a machine that is waiting on it.
+///
+/// This was hit for real, driving a guided run: the watcher process died, the replacement attached
+/// mid-script, and the run looked stalled when it was in fact holding for a human call.
+///
+/// Re-announcing on the stream is not the fix — there is no per-request identity to key it on, and
+/// per-frame is the flood the latch exists to stop. The fix is that the *state* query answers it.
+#[test]
+fn a_read_says_when_the_current_step_is_waiting_on_a_person() {
+    let mut app = app();
+    post(&mut app, script(Value::Null));
+
+    // Consume the one announcement, the way a watcher that later dies would have.
+    assert_eq!(watch(&mut app).expect("announced once")["waiting_on_a_person"], true);
+    assert_eq!(watch(&mut app), None, "and the stream now says nothing at all");
+
+    // A client attaching now has only this to go on, and it has to be enough.
+    let report = post(&mut app, json!({"read": true}))["guide"].clone();
+    assert_eq!(report["waiting_on_a_person"], true, "the read still knows: {report}");
+    assert_eq!(report["step"], "drop a floor", "and which step it is: {report}");
+
+    // A step with a checkpoint is the other answer, and must not read as waiting.
+    post(&mut app, script(json!("ready")));
+    let report = post(&mut app, json!({"read": true}))["guide"].clone();
+    assert_eq!(
+        report["waiting_on_a_person"], false,
+        "this one is waiting on a condition, which is not the same thing: {report}"
+    );
+    assert_eq!(report["step"], "drop a floor");
+}
