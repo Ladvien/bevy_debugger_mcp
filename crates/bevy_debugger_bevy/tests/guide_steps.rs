@@ -49,7 +49,12 @@ fn app() -> App {
         .init_resource::<Guide>()
         .init_resource::<Checkpoints>()
         .init_resource::<Ready>();
-    let id = app.register_system(|ready: Res<Ready>| ready.0);
+    // Every checkpoint takes `In<Value>`. This one reads it, so the suite exercises the path that
+    // makes a condition as strong as the step claiming it: `{"want": false}` asks for the opposite.
+    let id = app.register_system(|args: In<Value>, ready: Res<Ready>| {
+        let want = args.0.get("want").and_then(|v| v.as_bool()).unwrap_or(true);
+        ready.0 == want
+    });
     app.world_mut().resource_mut::<Checkpoints>().register("ready", id);
     app
 }

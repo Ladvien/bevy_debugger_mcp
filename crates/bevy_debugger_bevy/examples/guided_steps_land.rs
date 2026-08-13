@@ -55,11 +55,17 @@ fn main() {
         .init_resource::<Tile>();
 
     // The seam: one-shot systems answering `bool`, registered under the host's own words.
-    let has_two = app.register_system(|tile: Res<Tile>| tile.members >= 2);
-    let is_saved = app.register_system(|tile: Res<Tile>| tile.saved);
+    // **Every checkpoint takes `In<Value>`, and a step supplies it with `with`.** One shape, so a
+    // condition can always be as specific as the step that claims it -- a checkpoint too vague for
+    // its step is how a transcript comes to report a pass for work nobody did.
+    let has_n = app.register_system(|args: In<Value>, tile: Res<Tile>| {
+        let n = args.0.get("n").and_then(|v| v.as_u64()).unwrap_or(1) as usize;
+        tile.members >= n
+    });
+    let is_saved = app.register_system(|_: In<Value>, tile: Res<Tile>| tile.saved);
     {
         let mut checkpoints = app.world_mut().resource_mut::<Checkpoints>();
-        checkpoints.register("tile has two members", has_two);
+        checkpoints.register("tile has members", has_n);
         checkpoints.register("tile is saved", is_saved);
     }
 
@@ -75,7 +81,8 @@ fn main() {
                 "press Enter to bring the selected row in",
                 "press Enter again for a second piece"
             ],
-            "checkpoint": "tile has two members",
+            "checkpoint": "tile has members",
+            "with": {"n": 2},
             "recovery": "if nothing lands, the library filter is hiding every row: press Backspace"
         },
         {

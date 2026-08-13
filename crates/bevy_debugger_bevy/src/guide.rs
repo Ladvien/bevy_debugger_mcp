@@ -94,6 +94,19 @@ pub struct Step {
     /// has no machine check and waits for an explicit advance.
     #[serde(default)]
     pub checkpoint: Option<String>,
+    /// Arguments for the checkpoint, handed to it as `In<Value>`.
+    ///
+    /// **This is what lets a condition be as strong as the step that claims it.** Without it every
+    /// checkpoint has to be a fixed sentence, so a host registers vague ones -- and a vague condition
+    /// is satisfied by things the step never asked for. That is not hypothetical: `the tile is saved`
+    /// was true whenever *any* already-saved tile was open, so a step reported a pass for a tile that
+    /// was never made, and the transcript recorded 1/1 for work that did not happen. The transcript
+    /// being trustworthy is the entire value of this module, so that is the worst thing it can do.
+    ///
+    /// Prefer arguments that make a condition **monotonic** -- "the kit has at least N tiles" cannot
+    /// be re-satisfied by revisiting old work, and "the open tile is saved" can.
+    #[serde(default)]
+    pub with: Option<Value>,
     /// What to do when the checkpoint does not happen. The field twenty-one shipped tutorials did
     /// not have.
     #[serde(default)]
@@ -291,23 +304,29 @@ impl Guide {
 /// ```rust,no_run
 /// # use bevy::prelude::*;
 /// # use bevy_debugger_bevy::Checkpoints;
+/// # use serde_json::Value;
 /// # #[derive(Resource, Default)] struct Tile { members: usize }
 /// # let mut app = App::new();
 /// # app.init_resource::<Tile>().init_resource::<Checkpoints>();
-/// let id = app.register_system(|tile: Res<Tile>| tile.members >= 2);
+/// // Every checkpoint takes `In<Value>`, whether or not it reads it: one shape, so a step can
+/// // always say what it means.
+/// let id = app.register_system(|args: In<Value>, tile: Res<Tile>| {
+///     let want = args.0.get("n").and_then(|n| n.as_u64()).unwrap_or(2) as usize;
+///     tile.members >= want
+/// });
 /// app.world_mut()
 ///     .resource_mut::<Checkpoints>()
 ///     .register("tile has two members", id);
 /// ```
 #[derive(Resource, Default)]
-pub struct Checkpoints(HashMap<String, SystemId<(), bool>>);
+pub struct Checkpoints(HashMap<String, SystemId<In<Value>, bool>>);
 
 impl Checkpoints {
-    pub fn register(&mut self, name: impl Into<String>, system: SystemId<(), bool>) {
+    pub fn register(&mut self, name: impl Into<String>, system: SystemId<In<Value>, bool>) {
         self.0.insert(name.into(), system);
     }
 
-    pub fn get(&self, name: &str) -> Option<SystemId<(), bool>> {
+    pub fn get(&self, name: &str) -> Option<SystemId<In<Value>, bool>> {
         self.0.get(name).copied()
     }
 
@@ -415,7 +434,11 @@ pub fn watch_guide(In(_params): In<Option<Value>>, world: &mut World) -> BrpResu
             });
         };
         match guide.current() {
-            Some(step) => (step.checkpoint.clone(), step.label.clone(), false),
+            Some(step) => (
+                step.checkpoint.clone().map(|n| (n, step.with.clone().unwrap_or(Value::Null))),
+                step.label.clone(),
+                false,
+            ),
             None => (None, String::new(), true),
         }
     };
@@ -432,7 +455,7 @@ pub fn watch_guide(In(_params): In<Option<Value>>, world: &mut World) -> BrpResu
 
     // No checkpoint: only a person can judge this one. Say so once, then park — the step is advanced
     // by an explicit `skip`, which moves `at` and re-arms this.
-    let Some(name) = name else {
+    let Some((name, args)) = name else {
         if !announce_once(world) {
             return Ok(None);
         }
@@ -452,7 +475,7 @@ pub fn watch_guide(In(_params): In<Option<Value>>, world: &mut World) -> BrpResu
         )));
     };
 
-    match world.run_system(system) {
+    match world.run_system_with(system, args) {
         Ok(true) => {
             let mut guide = world.resource_mut::<Guide>();
             guide.advance(true);
