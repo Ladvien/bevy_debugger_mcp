@@ -17,7 +17,7 @@ use tracing::{error, info, debug, warn};
 use schemars::JsonSchema;
 
 use crate::brp_client::BrpClient;
-use crate::tools::{observe, experiment, hypothesis, anomaly, stress, replay};
+use crate::tools::{observe, experiment, guide, hypothesis, anomaly, stress, replay};
 use crate::security::{SecurityManager, SecurityMiddleware, Role, Claims, SecurityAudit};
 // `Result` is NOT imported from `crate::error` here, deliberately. That alias takes one generic
 // argument, and `#[tool_handler]` expands to code naming `Result<CallToolResult, ErrorData>` — so
@@ -29,7 +29,7 @@ use crate::error::Result as DebugResult;
 
 // Re-export parameter structures from the original tools
 pub use crate::mcp_tools::{
-    ObserveRequest, ExperimentRequest, HypothesisRequest, 
+    ObserveRequest, ExperimentRequest, GuideRequest, HypothesisRequest, 
     AnomalyRequest, StressTestRequest, ReplayRequest
 };
 
@@ -122,6 +122,7 @@ macro_rules! impl_authed_request {
 
 impl_authed_request!(
     TokenOnlyRequest,
+    GuideRequest,
     CreateUserRequest,
     DeleteUserRequest,
     AuditLogRequest,
@@ -277,6 +278,48 @@ impl SecureMcpTools {
                 error!("Observe tool error for user {}: {}", claims.sub, e);
                 self.log_tool_failure("observe", &e.to_string()).await;
                 Err(McpError::internal_error(format!("Observe tool error: {}", e), None))
+            }
+        }
+    }
+
+    /// Guide the human through the running app (requires Developer role or higher)
+    #[tool(description = "Guide the HUMAN through something in the running app, and get back what actually happened. This is the only tool here that talks to the person rather than the game: you post a short script, the app draws ONE step at a time over their own window, and it advances itself when a named condition arrives. Use it to walk somebody through reproducing a bug, to hand over an acceptance test, or any time you would otherwise type a numbered list into the chat and hope they map it onto an interface you cannot see.\n\nHOW TO COLLABORATE (not optional -- getting it wrong strands them):\n1. Post steps, then TELL THEM IN CHAT that the guide is up and to look at the app window. Nothing pops up to get their attention.\n2. Poll with {read:true}. When it answers waiting_on_a_person:true, that step has NO machine check and will never advance on its own. STOP AND ASK THEM IN CHAT, by name, and wait for a real answer before calling {skip:true}. The card tells them 'tell the agent' -- you are the agent, and that promise is yours to keep.\n3. When they say a step made no sense or did not work, that is the FINDING, not a detour. Most people follow a confusing instruction rather than report it, so the reports you do get are worth more than a clean run.\n4. Never name a checkpoint the app has not registered: it is refused by name, but the person is already standing in front of it.\n\nWrite steps as you would brief a colleague: WHY before what, two to four short imperatives, and always fill in recovery. What comes back is k/n per step -- passes over attempts -- never a boolean, because 'it worked' is exactly the judgement people get wrong. Requires authentication token and Developer role or higher.")]
+    pub async fn guide(&self, Parameters(req): Parameters<GuideRequest>) -> std::result::Result<CallToolResult, McpError> {
+        let claims = match self.authorize_tool_call("guide", &req).await {
+            Ok(claims) => claims,
+            Err(e) => {
+                self.log_tool_failure("guide", &e.to_string()).await;
+                return Err(McpError::invalid_params(format!("Authorization failed: {}", e), None));
+            }
+        };
+
+        // Rebuilt field by field rather than forwarded, so the auth fields cannot reach the app --
+        // the same reason `observe` does it, and the reason these are named fields rather than a
+        // flattened `Value`.
+        let mut arguments = serde_json::Map::new();
+        if let Some(steps) = req.steps.clone() {
+            arguments.insert("steps".to_string(), serde_json::Value::Array(steps));
+        }
+        for (key, on) in [("read", req.read), ("skip", req.skip), ("clear", req.clear)] {
+            if on {
+                arguments.insert(key.to_string(), serde_json::Value::Bool(true));
+            }
+        }
+        if let Some(visible) = req.visible {
+            arguments.insert("visible".to_string(), serde_json::Value::Bool(visible));
+        }
+        let what = if req.steps.is_some() { "post" } else if req.skip { "skip" } else { "read" };
+        debug!("User {} guide: {what}", claims.sub);
+
+        match guide::handle(serde_json::Value::Object(arguments), self.brp_client.clone()).await {
+            Ok(result) => {
+                self.log_tool_success(&claims, "guide", Some(what)).await;
+                Ok(CallToolResult::success(vec![Content::text(result.to_string())]))
+            }
+            Err(e) => {
+                error!("Guide tool error for user {}: {}", claims.sub, e);
+                self.log_tool_failure("guide", &e.to_string()).await;
+                Err(McpError::internal_error(format!("Guide tool error: {}", e), None))
             }
         }
     }
@@ -635,7 +678,24 @@ impl ServerHandler for SecureMcpTools {
                 name: "bevy-debugger-mcp-secure".to_string(),
                 version: env!("CARGO_PKG_VERSION").to_string(),
             },
-            instructions: Some("Security-enhanced AI-assisted debugging tools for Bevy games. All operations require JWT authentication with role-based permissions.".to_string()),
+            // **The collaboration protocol lives here, because this is the one string every agent
+            // reads before it touches a tool.** It said what the server is, which a tool list
+            // already says. The half worth spending words on is the half agents get wrong.
+            //
+            // `guide` is the only tool here that involves a person, and the failure it invites is
+            // silence: post a script, go quiet, and somebody is left in front of a card that will
+            // never move. That happened during this tool's own development, to the person it was
+            // built for, who asked the reasonable question -- "how am I supposed to tell you whether
+            // it worked? Am I supposed to come back to the chat?" The answer is yes, and nothing
+            // anywhere said so.
+            // **The shared protocol, with this variant's one extra fact in front of it.**
+            // `crate::mcp_tools::COLLABORATION_PROTOCOL` is the single copy; duplicating it here is
+            // how the two server variants would drift into giving agents different rules.
+            instructions: Some(format!(
+                "All operations on this server require JWT authentication (`authenticate`) with \
+                 role-based permissions.\n\n{}",
+                crate::mcp_tools::COLLABORATION_PROTOCOL
+            )),
         }
     }
 }
