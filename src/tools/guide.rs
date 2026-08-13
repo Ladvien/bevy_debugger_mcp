@@ -29,7 +29,7 @@
 //! An agent that posts a script and goes quiet strands somebody in front of a card that will never
 //! move. That happened during this tool's own development, to the person it was built for.
 
-use serde_json::{json, Value};
+use serde_json::Value;
 use std::sync::Arc;
 use tokio::sync::RwLock;
 use tracing::debug;
