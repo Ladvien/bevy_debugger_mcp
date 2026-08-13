@@ -487,3 +487,46 @@ fn a_read_says_when_the_current_step_is_waiting_on_a_person() {
     );
     assert_eq!(report["step"], "drop a floor");
 }
+
+/// **The card says when the step is waiting on the person.**
+///
+/// A step with no checkpoint never advances on its own -- that is the whole point of it, the question
+/// no machine can answer. Until this line existed its card was indistinguishable from a card watching
+/// a condition, so the reasonable reading was "the editor has not noticed yet", and an author sat in
+/// front of a step that was sitting in front of them.
+///
+/// Found from the keyboard, mid-run, by somebody who had been told in advance that this step would
+/// need their call and *still* could not tell that it was the moment. The fact was on the wire the
+/// whole time; it was never anywhere a person looks. That is the same failure as
+/// `a_read_says_when_the_current_step_is_waiting_on_a_person`, one layer further out -- which is why
+/// it is worth pinning twice.
+#[test]
+fn the_card_says_when_a_step_is_waiting_on_the_person() {
+    let mut app = ui_app();
+    post(&mut app, script(Value::Null));
+    app.update();
+
+    let lines = on_screen(&mut app).join("\n");
+    assert!(lines.contains("drop a floor"), "the step is up: {lines}");
+    assert!(
+        lines.contains("yours to judge"),
+        "the card says it is waiting on a person, in words, on the screen: {lines}"
+    );
+    assert!(
+        lines.contains("Nothing here advances it"),
+        "and says no key will do it, because this crate binds none -- an author hunting for the \
+         key that does not exist is worse off than one told plainly: {lines}"
+    );
+
+    // A step with a checkpoint must NOT say it -- a prompt that appears on every step is one nobody
+    // reads by the third (docs/ui.md 3.4, the alert budget).
+    let mut app = ui_app();
+    post(&mut app, script(json!("ready")));
+    app.update();
+    let lines = on_screen(&mut app).join("\n");
+    assert!(lines.contains("drop a floor"));
+    assert!(
+        !lines.contains("yours to judge"),
+        "this one is watched, so saying otherwise would be a lie every third step: {lines}"
+    );
+}

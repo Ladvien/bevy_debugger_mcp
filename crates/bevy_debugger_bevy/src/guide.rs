@@ -648,6 +648,29 @@ fn paint_guide(
             }
             let Some(step) = current else { return };
             line(p, format!("STEP {step_no} OF {of}   {}", step.label), Color::srgb(0.92, 0.80, 0.35), 13.0);
+            // **Say when the step is waiting on the person, because it looks identical when it is
+            // not.** A step with no checkpoint never advances on its own -- that is what makes it the
+            // one a machine cannot judge -- and until this line existed the card for it was the same
+            // card as one watching a condition. So the reasonable reading was "the editor has not
+            // noticed yet", and the author sat in front of a step that was sitting in front of them.
+            //
+            // Found from the keyboard, mid-run, by somebody who had been told this would happen and
+            // still could not tell it was happening. The fact was on the wire the whole time
+            // (`waiting_on_a_person`); it was never anywhere a person looks.
+            //
+            // **It names the agent because this crate binds no key, and that is the host's call.**
+            // `Guide::advance` is public precisely so a host can wire "I am happy" and "this made no
+            // sense" to its own keys. Where one has not, saying "press something" would be a lie, and
+            // an author who presses everything looking for it is worse off than one who is told
+            // plainly that the answer goes back the way the question came.
+            if step.checkpoint.is_none() {
+                line(
+                    p,
+                    "-> yours to judge. Nothing here advances it: tell the agent.".to_owned(),
+                    Color::srgb(0.92, 0.80, 0.35),
+                    11.0,
+                );
+            }
             if !step.goal.is_empty() {
                 line(p, step.goal.clone(), Color::srgb(0.62, 0.60, 0.58), 11.0);
             }
