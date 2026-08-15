@@ -686,12 +686,18 @@ fn paint_guide(
             // sense" to its own keys. Where one has not, saying "press something" would be a lie, and
             // an author who presses everything looking for it is worse off than one who is told
             // plainly that the answer goes back the way the question came.
+            // **In a colour nothing else on the card uses, at the title's own size.** The first
+            // version rendered this in the title gold two points smaller, and an author sitting in
+            // front of exactly this step read the card as "the editor has not noticed yet" and
+            // reported being stuck — the line was there and did not land (2026-08-14 guided run).
+            // Camouflage is the failure mode of a warning that shares its palette.
             if step.checkpoint.is_none() {
                 line(
                     p,
-                    "-> yours to judge. Nothing here advances it: tell the agent.".to_owned(),
-                    Color::srgb(0.92, 0.80, 0.35),
-                    11.0,
+                    "-> yours to judge: no key advances this step. Answer the agent in chat."
+                        .to_owned(),
+                    Color::srgb(0.55, 0.78, 0.95),
+                    13.0,
                 );
             }
             if !step.goal.is_empty() {

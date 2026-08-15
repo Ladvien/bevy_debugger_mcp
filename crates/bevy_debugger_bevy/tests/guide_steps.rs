@@ -518,7 +518,7 @@ fn the_card_says_when_a_step_is_waiting_on_the_person() {
         "the card says it is waiting on a person, in words, on the screen: {lines}"
     );
     assert!(
-        lines.contains("Nothing here advances it"),
+        lines.contains("no key advances this step"),
         "and says no key will do it, because this crate binds none -- an author hunting for the \
          key that does not exist is worse off than one told plainly: {lines}"
     );
