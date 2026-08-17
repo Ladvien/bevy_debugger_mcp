@@ -86,3 +86,5 @@ cargo test -p bevy_debugger_bevy      # the plugin, including the dependency rat
 cargo test -p bevy_debugger_mcp       # the server
 cargo install --path .                # the bevy-debugger-mcp binary
 ```
+
+- Consult Bevy documentation often. It can be found at codex_fs/offline_reference_docs/bevy-0.19-book/
