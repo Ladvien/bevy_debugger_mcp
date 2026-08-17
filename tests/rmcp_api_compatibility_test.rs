@@ -28,8 +28,18 @@ async fn test_server_handler_implementation() {
     assert_eq!(server_info.server_info.name, "bevy-debugger-mcp");
     assert!(server_info.server_info.version.len() > 0);
     assert!(server_info.capabilities.tools.is_some());
-    assert!(server_info.instructions.is_some());
-    assert!(server_info.instructions.as_ref().unwrap().contains("AI-assisted debugging"));
+    // **The instructions carry the collaboration protocol, not a tagline.** This asserted a brand
+    // phrase ("AI-assisted debugging"), which pinned nothing an agent depends on -- a tool list
+    // already says what the server is. What matters is the part agents get wrong, and the part a
+    // person is harmed by when they get it wrong: a step only a human can judge never advances on
+    // its own, and an agent that posts a script and goes quiet has stranded them.
+    let instructions = server_info
+        .instructions
+        .as_ref()
+        .expect("the server must tell an agent how to work with a human");
+    assert!(instructions.contains("SAY SO IN CHAT"));
+    assert!(instructions.contains("NEVER ADVANCES ON ITS OWN"));
+    assert!(instructions.contains("k/n"));
 }
 
 /// Test that tool routing works correctly

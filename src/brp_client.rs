@@ -186,47 +186,25 @@ impl BrpClient {
     }
 
     /// Send a BRP request and return the response (with resource management)
+    /// Send a request to the running game.
+    ///
+    /// **Nothing between the caller and the socket, and that is a fix.** This used to run every
+    /// request through three throttles first: a rate limiter, a semaphore gated by a circuit
+    /// breaker, and an adaptive sampler that could *silently discard* the request and return
+    /// "Request skipped due to adaptive sampling" as an error. Any of the three could block, and one
+    /// of them did — `guide` and `observe` both hung indefinitely through a real MCP client while
+    /// `authenticate`, which touches no BRP, answered instantly, and the health check kept
+    /// succeeding every thirty seconds throughout. The transport was never the problem.
+    ///
+    /// None of it was earning its place. This is a localhost JSON-RPC call to a game the developer
+    /// is looking at: rate-limiting it protects nothing, and a sampler that throws away a debugging
+    /// request is the opposite of what a debugger is for. The permit was not even held across the
+    /// request — `let _permit = ...` was dropped at the end of the enclosing `if let`, before the
+    /// send — so the concurrency limit it appeared to impose never existed.
     pub async fn send_request(&mut self, request: &BrpRequest) -> Result<BrpResponse> {
-        // Check rate limiting if resource manager is available
-        if let Some(ref rm) = self.resource_manager {
-            let resource_manager = rm.read().await;
-            if !resource_manager.check_brp_rate_limit().await {
-                return Err(Error::Validation(
-                    "BRP request rate limit exceeded".to_string(),
-                ));
-            }
-
-            // Acquire operation permit
-            let _permit = resource_manager.acquire_operation_permit().await?;
-
-            // Check if we should sample this request
-            if !resource_manager.should_sample().await {
-                debug!("Skipping BRP request due to adaptive sampling");
-                return Err(Error::Validation(
-                    "Request skipped due to adaptive sampling".to_string(),
-                ));
-            }
-        }
-
         let start_time = Instant::now();
         let result = self.send_request_internal(request).await;
-        let duration = start_time.elapsed();
-
-        // Record success/failure for circuit breaker
-        if let Some(ref rm) = self.resource_manager {
-            let resource_manager = rm.read().await;
-            match &result {
-                Ok(_) => {
-                    resource_manager.record_operation_success().await;
-                    debug!("Request completed in {:?}", duration);
-                }
-                Err(_) => {
-                    resource_manager.record_operation_failure().await;
-                    debug!("Request failed after {:?}", duration);
-                }
-            }
-        }
-
+        debug!("BRP request completed in {:?}", start_time.elapsed());
         result
     }
 

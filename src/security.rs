@@ -646,7 +646,12 @@ impl SecurityMiddleware {
             "observe" | "hypothesis" | "detect_anomaly" => role.level() >= 1,
             
             // Developer permissions (can modify state)
-            "experiment" | "stress_test" | "time_travel_replay" => role.level() >= 2,
+            //
+            // `guide` writes no game state -- it posts a script and moves an overlay -- but it does
+            // put words in front of a human on their own screen, and the same argument applies:
+            // that is not a read. Stated rather than left to the catch-all below, so the level is a
+            // decision somebody made instead of a default nobody noticed.
+            "experiment" | "stress_test" | "time_travel_replay" | "guide" => role.level() >= 2,
             
             // Admin permissions (system management)
             "user_management" | "audit_log_access" | "session_management" => role.level() >= 3,

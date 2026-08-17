@@ -40,11 +40,29 @@ So:
 
 `crates/bevy_debugger_bevy/tests/leaf.rs` is the ratchet: it pins the plugin's dependency list and fails on any source mentioning `enigo`, `xdotool`, `CGEvent`, `SendInput`, `winit` or `unsafe`. That test is the enforcement of the paragraph above — widening it is a design decision and should cost a deliberate edit.
 
-## BRP handlers run in `Last`, and that has bitten input
+## BRP handlers run in `RemoteLast` — after everything — and that has bitten input
 
-`DebuggerPlugin::build` registers its methods with `RemotePlugin::with_method_main(..)`, so handlers execute in Bevy's `Last` schedule. Bevy's `keyboard_input_system` clears `just_pressed`/`just_released` in the **next** frame's `PreUpdate`.
+`DebuggerPlugin::build` registers its methods with `RemotePlugin::with_method_main(..)`, so handlers execute in **`RemoteLast`**, a schedule `RemotePlugin` inserts *after* `Last` (`bevy_remote-0.19.0/src/lib.rs:832-835`). It is the very end of the frame. Bevy's `keyboard_input_system` clears `just_pressed`/`just_released` in the **next** frame's `PreUpdate`.
 
-A press written in `Last` therefore has its `just_pressed` flag cleared before any `Update` system reads it, so **`just_pressed`-based actions could never be triggered by injected input** — the method returned `success: true` and the game did not move. Held `pressed` state survives the clear, which is why some actions appeared to work and others did not. See `input.rs` for how this is handled now; if you change the schedule or the action shape, re-verify against a real game rather than a unit test.
+A press written there therefore has its `just_pressed` flag cleared before any `Update` system reads it, so **`just_pressed`-based actions could never be triggered by injected input** — the method returned `success: true` and the game did not move. Held `pressed` state survives the clear, which is why some actions appeared to work and others did not. See `input.rs` for how this is handled now; if you change the schedule or the action shape, re-verify against a real game rather than a unit test.
+
+(This paragraph said `Last` for as long as it existed, and it was close enough to be useful and wrong enough to mislead anyone reasoning about ordering against another `Last` system.)
+
+## A watching method is how you wait, and the engine already owns it
+
+`with_watching_method_main` (`bevy_remote-0.19.0/src/lib.rs:629`) re-runs a handler **every frame** in `RemoteLast` with exclusive `World`. `Ok(None)` means *not yet* and parks the request in `RemoteWatchingRequests`; `Ok(Some(v))`/`Err` sends a frame to the client and **keeps** the request open; `remove_closed_watching_requests` reaps it when the client goes away. The HTTP transport serves it as a `BrpHttpResponse::Stream` of `application/json` chunks, so `curl -N` consumes it — refused only inside a batch.
+
+`bevy_debugger/guide+watch` is the first user of this, and it is why the guide channel needed **zero new dependencies**: a condition-watcher with lifecycle management, already written and tested by the engine.
+
+The trap it walked into first: **the handler runs every frame, so any answer that does not change state is re-sent sixty times a second.** Both non-advancing answers (`waiting_on_a_person`, `done`) now announce once per step index and then park. See `Guide::announced`, and `tests/guide_steps.rs` for the two tests that exist because the first draft did not.
+
+## The guide channel: the plugin talks to the *person*, not just the app
+
+`bevy_debugger/guide` posts a script and the host renders one step; `bevy_debugger/guide+watch` waits on a condition and records `k/n`. The design and its citations are in `docs/bevy_debugger_mcp.md`. The parts that constrain edits here:
+
+- **The plugin never learns the host's vocabulary.** Checkpoints are one-shot systems the host registers by name (`Checkpoints`), the same seam `PendingInput`'s public `queue_*` methods are. Anything that made this crate know what a tile is would be the mistake.
+- **The overlay spawns no camera**, because a second one silently breaks any host `Single<&Camera>` query — the trap the mirror camera already argues about.
+- **Step copy must be ASCII.** Bevy's embedded font is 95 codepoints and this crate cannot ship one without widening `leaf.rs`. `the_one_script_this_crate_ships_is_ascii` pins the example.
 
 ## Injected input is the *source*, not the fold — and that is what lets an agent type
 
