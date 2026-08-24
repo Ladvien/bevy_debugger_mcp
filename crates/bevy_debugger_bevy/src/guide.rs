@@ -69,7 +69,19 @@ pub const BEAT_SECONDS: f32 = 2.0;
 /// **Keep the text ASCII.** Bevy's embedded default font is 95 codepoints; an em-dash or a curly
 /// quote draws as tofu in any host that has not installed a font of its own, and this crate cannot
 /// ship one without widening the dependency list `tests/leaf.rs` pins.
+///
+/// # `deny_unknown_fields`, because every field here is `#[serde(default)]`
+///
+/// A misspelled key is otherwise **silent**: `crates/emerge-mapper/guides/label_a_mesh.json` shipped
+/// two steps whose checkpoint arguments were spelled `args` instead of `with`, so `with` came out
+/// `None`, the condition was handed `null`, and both steps could never pass — a guide that looked
+/// complete and could not be walked. There is nothing to weigh here: an unknown key in a script is
+/// always a mistake, and refusing it at the door is the only place the author is still watching.
+///
+/// [`GuideParams`] stays permissive on purpose — script files carry top-level keys that are not
+/// `Step` fields.
 #[derive(Debug, Clone, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct Step {
     /// The sub-goal, in a few words. van der Meij: labelling each step of a procedure *"effectively
     /// creat[es] a series of sub-goals"* and significantly improved knowledge development.
