@@ -1,166 +1,186 @@
-//! # Bevy Debugger Bevy Plugin
+//! The game-side half of `bevy_debugger_mcp`: a Bevy plugin that lets a coding agent
+//! drive a running game over BRP (JSON-RPC over HTTP), without a shared filesystem.
 //!
-//! Companion plugin for `bevy_debugger_mcp`. Register this plugin in your Bevy game
-//! to enable screenshot capture (with zoom/region selection), entity inspection,
-//! and headless input injection — keyboard, mouse, cursor position and **typed text**, none of it
-//! touching the OS.
+//! Adding [`DebuggerPlugin`] gives the game:
 //!
-//! ## Quick Start
+//! - **Game commands.** [`DebugCommandsAppExt::add_debug_command`] registers a typed
+//!   handler under a `<game>/<verb>` name. Its params are parsed, and its example is
+//!   checked at startup. Commands are discovered at run time through
+//!   `bevy_debugger/commands`, so an agent learns the vocabulary from the game itself.
+//! - **Readiness.** `bevy_debugger/status` says whether the game has finished loading.
+//!   Commands answer "not ready" until then. Use [`DebuggerPlugin::host_signals_ready`]
+//!   to take control of that signal.
+//! - **Captures.** `bevy_debugger/screenshot` starts a capture from the host's
+//!   offscreen image or from the primary window. `bevy_debugger/capture` returns the
+//!   PNG as base64 over BRP. Nothing is written to disk unless a path is given.
+//! - **Scenes.** Every recorded command call is logged. `bevy_debugger/scene` returns
+//!   that log as a replayable file. Setting `BEVY_DEBUGGER_SCENE` replays a file at
+//!   startup, one step per frame.
+//! - **Time and quit.** `bevy_debugger/time` pauses the virtual clock or changes its
+//!   speed. `bevy_debugger/quit` exits cleanly.
+//! - **Input.** `bevy_debugger/input` injects keys, clicks, drags and text as the
+//!   window would receive them.
 //!
-//! **Add [`DebuggerPlugin`] and a transport — never a second `RemotePlugin`.** This plugin builds its
-//! own `RemotePlugin` in order to register its methods, and Bevy rejects a duplicate plugin by name,
-//! so adding one alongside panics the moment the feature is switched on.
+//! Research behind the design: Gregory, *Game Engine Architecture* 3rd ed., §10.4–10.6
+//! (game-registered console commands, a debug camera and pause); Ostrowski & Aroudj,
+//! "Automated Regression Testing within Video Game Development", GSTF JoC 3:10 (2013),
+//! DOI 10.7603/s40601-013-0010-4 (the game is driven over a network connection, possibly
+//! on another machine); Yang et al., SWE-agent, DOI 10.48550/arXiv.2405.15793 (a small
+//! action set, concise feedback, guardrails that catch mistakes early); Mindermann, Keck
+//! & Wagner, QRS 2018, DOI 10.1109/QRS.2018.00028 (every parameter is explained, and each
+//! command ships a checked example); Matthews, *Idiomatic Rust* (2024) ch. 6 (few
+//! dependencies, few feature flags); Xu, "AI Agent Systems" (2026),
+//! DOI 10.48550/arXiv.2601.01743 (stable tool schemas that an agent can learn in context).
 //!
-//! **`InputPlugin` must be present** (`DefaultPlugins` includes it; `MinimalPlugins` does not).
-//! Injected input is written as `KeyboardInput`/`MouseButtonInput` messages and `InputPlugin` owns the
-//! systems that fold those into `ButtonInput`; without it every injection is accepted and read by
-//! nobody. [`DebuggerPlugin::finish`] asserts this rather than leaving it to be discovered.
+//! # Quick start
 //!
-//! ```rust,no_run
+//! ```ignore
 //! use bevy::prelude::*;
 //! use bevy::remote::http::RemoteHttpPlugin;
-//! use bevy_debugger_bevy::DebuggerPlugin;
+//! use bevy_debugger_bevy::{DebugCommandInfo, DebugCommandsAppExt, DebuggerPlugin};
 //!
-//! fn main() {
-//!     App::new()
-//!         .add_plugins(DefaultPlugins)
-//!         // `DebuggerPlugin` owns `RemotePlugin`; only the transport is yours to add.
-//!         .add_plugins(DebuggerPlugin)
-//!         .add_plugins(RemoteHttpPlugin::default())
-//!         .run();
-//! }
+//! App::new()
+//!     .add_plugins(DefaultPlugins)
+//!     // Owns the BRP RemotePlugin. Never add a second RemotePlugin next to it.
+//!     .add_plugins(DebuggerPlugin::default())
+//!     .add_plugins(RemoteHttpPlugin::default())
+//!     .add_debug_command(
+//!         DebugCommandInfo::new("demo/spawn_cube", "Spawn a unit cube at a point.")
+//!             .params("at: [x, y, z] in metres")
+//!             .example(serde_json::json!({"at": [0.0, 0.0, 0.0]})),
+//!         |In(p): In<SpawnCube>, mut commands: Commands| -> Result<serde_json::Value, String> {
+//!             commands.spawn(Transform::from_translation(Vec3::from(p.at)));
+//!             Ok(serde_json::json!({"spawned": true}))
+//!         },
+//!     )
+//!     .run();
+//! # #[derive(serde::Deserialize)] struct SpawnCube { at: [f32; 3] }
 //! ```
+//!
+//! `DebuggerPlugin` needs `bevy::input::InputPlugin` in the app. `DefaultPlugins`
+//! includes it; `MinimalPlugins` does not.
 
 use bevy::prelude::*;
+use bevy::remote::{BrpError, RemotePlugin};
+
+mod commands;
+mod input;
+mod quit;
+mod ready;
+mod scene;
+mod time;
 
 #[cfg(feature = "guide")]
 mod guide;
 #[cfg(feature = "screenshot")]
 mod screenshot;
-mod input;
 
-#[cfg(feature = "screenshot")]
-pub use screenshot::{DebugCaptureTarget, ScreenshotParams};
+pub use commands::{DebugCommandInfo, DebugCommands, DebugCommandsAppExt};
 pub use input::{
-    apply_pending_input, cursor_position, logical_for, typed, DebugCursor, InputAction, InputCommand,
-    InputKind, PendingInput,
+    apply_pending_input, cursor_position, logical_for, typed, DebugCursor, InputAction,
+    InputCommand, InputKind, PendingInput,
 };
+pub use ready::DebugReady;
+pub use scene::{SceneLog, ScenePlayback, SceneStep};
+
 #[cfg(feature = "guide")]
 pub use guide::{
-    Checkpoints, Guide, GuideOverlay, GuideOverlayPlugin, GuideParams, GuidePlacement, Step,
-    StepRecord, BEAT_SECONDS,
+    handle_guide, watch_guide, Checkpoints, Guide, GuideOverlay, GuideOverlayPlugin, GuideParams,
+    GuidePlacement, Step, StepRecord, BEAT_SECONDS,
+};
+#[cfg(feature = "screenshot")]
+pub use screenshot::{
+    handle_screenshot, CaptureState, Captures, DebugCaptureTarget, ScreenshotParams,
 };
 
-// **The handlers are exported so they can be tested.**
-//
-// They were `pub` in their modules and re-exported nowhere, so no integration test could name one —
-// and `tests/` is the only place this crate has tests. The cost was invisible and total: params
-// deserialisation, every refusal path (`key` and `text` together, control characters, a non-finite
-// coordinate) and all of `write_capture`'s crop-and-clamp arithmetic had no coverage at all, in a
-// crate whose whole job is to accept requests from somewhere else.
-//
-// A handler is an ordinary system taking `In<Option<Value>>`, so a test drives one with
-// `run_system_once_with` under `MinimalPlugins`. **No socket, no transport, no game.**
-#[cfg(feature = "guide")]
-pub use guide::{handle_guide, watch_guide};
+// The handlers above are public so that tests and examples can drive them directly.
+// `run_system_once_with` can run each one under `MinimalPlugins`, without a running
+// BRP server.
 pub use input::handle_input;
-#[cfg(feature = "screenshot")]
-pub use screenshot::handle_screenshot;
 
-/// Plugin that registers all custom BRP methods for the debugger.
+/// Builds the JSON-RPC error that every BRP handler in this crate returns.
+pub(crate) fn brp_error(code: i16, message: impl Into<String>) -> BrpError {
+    BrpError {
+        code,
+        message: message.into(),
+        data: None,
+    }
+}
+
+/// The game-side plugin. Add it before `RemoteHttpPlugin`, and do not add a second
+/// `RemotePlugin`: this plugin owns it and registers every `bevy_debugger/*` method.
 ///
-/// Methods registered:
-/// - `bevy_debugger/screenshot` — **offscreen** capture with optional zoom/region. Requires the host
-///   to insert [`DebugCaptureTarget`]; it never captures the window, because that needs the window
-///   raised and focused.
-/// - `bevy_debugger/input` — headless keyboard/mouse injection, including **cursor position**, so a
-///   drag is expressible: move, press, move, release. A host must read the pointer through
-///   [`cursor_position`] rather than [`Window::cursor_position`](bevy::window::Window::cursor_position)
-///   for that half to reach it — see [`DebugCursor`] for why the window's own cursor is not written.
-pub struct DebuggerPlugin;
+/// Requires `bevy::input::InputPlugin` in the app.
+#[derive(Default)]
+pub struct DebuggerPlugin {
+    host_signals_ready: bool,
+}
+
+impl DebuggerPlugin {
+    /// Stops the plugin from reporting ready on its own. The host sets
+    /// [`DebugReady`] to `true` when its scenes have loaded. Until then, every game
+    /// command answers "not ready yet".
+    pub fn host_signals_ready(mut self) -> Self {
+        self.host_signals_ready = true;
+        self
+    }
+}
 
 impl Plugin for DebuggerPlugin {
     fn build(&self, app: &mut App) {
-        let remote = bevy::remote::RemotePlugin::default()
-            .with_method_main("bevy_debugger/input", input::handle_input);
+        let remote = RemotePlugin::default()
+            .with_method_main("bevy_debugger/input", input::handle_input)
+            .with_method_main("bevy_debugger/status", ready::handle_status)
+            .with_method_main("bevy_debugger/commands", commands::handle_commands)
+            .with_method_main("bevy_debugger/scene", scene::handle_scene)
+            .with_method_main("bevy_debugger/quit", quit::handle_quit);
         #[cfg(feature = "screenshot")]
-        let remote = remote.with_method_main("bevy_debugger/screenshot", screenshot::handle_screenshot);
-        // **A watching method — the engine owns the waiting.** `RemotePlugin` re-runs this every
-        // frame in `RemoteLast`, parks the request while it answers `Ok(None)`, and reaps it when
-        // the caller goes away. So a condition-watcher with lifecycle management costs no new
-        // dependency, which is what keeps `tests/leaf.rs` green. The `+watch` suffix is Bevy's own
-        // naming (`world.get_components+watch`).
+        let remote = remote
+            .with_method_main("bevy_debugger/screenshot", screenshot::handle_screenshot)
+            .with_method_main("bevy_debugger/capture", screenshot::handle_capture);
         #[cfg(feature = "guide")]
         let remote = remote
             .with_method_main("bevy_debugger/guide", guide::handle_guide)
             .with_watching_method_main("bevy_debugger/guide+watch", guide::watch_guide);
         app.add_plugins(remote);
-        // **The agent-to-human half of the channel.** Everything else here points inward — input goes
-        // into the app, frames come out of it. This is the only path that puts a sentence in front of
-        // the person at the keyboard, which is why the plugin carries an overlay at all.
+
+        app.insert_resource(DebugReady(!self.host_signals_ready))
+            .init_resource::<DebugCommands>()
+            .init_resource::<SceneLog>()
+            .init_resource::<ready::FrameTicks>()
+            .add_systems(Last, ready::tick_frames)
+            .add_systems(Update, scene::replay_next_step);
+        #[cfg(feature = "screenshot")]
+        app.init_resource::<Captures>();
+
+        time::register(app);
+
+        if let Ok(path) = std::env::var(scene::SCENE_ENV) {
+            scene::start_playback(app, &path);
+        }
+
         #[cfg(feature = "guide")]
         app.add_plugins(guide::GuideOverlayPlugin)
             .init_resource::<guide::Guide>()
-            // The host's own words, registered by the host. This crate never learns what a tile is.
             .init_resource::<guide::Checkpoints>();
-        // The handler above runs in `Last` and only QUEUES; this is what actually writes the input
-        // messages. See `input::PendingInput`.
+
+        // Injected keys and clicks are written as messages. `apply_pending_input` runs
+        // before `InputSystems`, which folds those messages into `ButtonInput`.
         app.init_resource::<input::PendingInput>()
-        // **Claim the message queues this plugin writes.**
-        //
-        // `apply_pending_input` takes `MessageWriter`s for `KeyboardInput`, `MouseButtonInput` and
-        // `MouseWheel`, and in Bevy 0.19 a missing `Res<T>` **panics the system** rather than skipping
-        // it. `add_message` guards on `contains_resource::<Messages<T>>`
-        // (bevy_app-0.19.0/src/sub_app.rs:386), so a host that also adds `InputPlugin` is unaffected
-        // whichever order the plugins go in.
-        //
-        // The two `ButtonInput` resources that used to be claimed here are gone with the direct write:
-        // this plugin no longer touches them, because Bevy derives them from the stream above.
-        .add_message::<bevy::input::keyboard::KeyboardInput>()
-        .add_message::<bevy::input::mouse::MouseButtonInput>()
-        .add_message::<bevy::input::mouse::MouseWheel>()
-        // **The injected pointer.** Not the window's own cursor, and that is not a shortcut — writing
-        // `Window::set_cursor_position` makes Bevy's windowing backend move the *physical* mouse, so
-        // it would drag the pointer out from under whoever is at the machine. `input::DebugCursor`
-        // carries the full argument and the line number it was read from.
-        .init_resource::<input::DebugCursor>()
-        // **Before, not after, and the reversal is the fix rather than a tidy-up.**
-        //
-        // `keyboard_input_system` clears last frame's edges and *then* folds the `KeyboardInput`
-        // stream into `ButtonInput` (bevy_input-0.19.0/src/keyboard.rs). Writing messages ahead of it
-        // means Bevy produces the edge itself, from the same stream a real key travels on — so both
-        // `ButtonInput` readers and the ~ten `MessageReader<KeyboardInput>` text fields in a typical
-        // app see one injected key.
-        //
-        // The previous ordering was `.after(..)`, writing `ButtonInput` directly on the far side of
-        // the clear. That was correct for what it did and reached only half of the readers; the
-        // superseded test `ordering_after_input_systems_costs_a_frame` still pins the fact it rested
-        // on, from the other side.
-        .add_systems(
-            PreUpdate,
-            input::apply_pending_input.before(bevy::input::InputSystems),
-        );
+            .add_message::<bevy::input::keyboard::KeyboardInput>()
+            .add_message::<bevy::input::mouse::MouseButtonInput>()
+            .add_message::<bevy::input::mouse::MouseWheel>()
+            .init_resource::<input::DebugCursor>()
+            .add_systems(
+                PreUpdate,
+                input::apply_pending_input.before(bevy::input::InputSystems),
+            );
     }
 
-    /// **Injected input is inert without `InputPlugin`, so say so at startup.**
-    ///
-    /// `ButtonInput` is Bevy's fold of the message stream this plugin writes, and the system that
-    /// folds it belongs to `InputPlugin`. Without it, every injection is accepted, queued, written —
-    /// and read by nobody. A method that reports success while the game never moves is the precise
-    /// failure this crate exists to make impossible, and it is worth a panic at startup rather than a
-    /// silence at the moment somebody is depending on it.
-    ///
-    /// **`finish`, not `build`**, so it holds whichever order the host adds its plugins in
-    /// (bevy_app-0.19.0/src/plugin.rs:70). And it asserts rather than adding `InputPlugin` itself:
-    /// this plugin already owns `RemotePlugin`, and a second silently-added plugin is a
-    /// duplicate-name panic waiting on somebody else's add order.
     fn finish(&self, app: &mut App) {
         assert!(
             app.is_plugin_added::<bevy::input::InputPlugin>(),
-            "DebuggerPlugin needs bevy::input::InputPlugin: injected keys and clicks are written as \
-             KeyboardInput/MouseButtonInput messages, and InputPlugin owns the systems that fold \
-             those into ButtonInput. Without it every injection is accepted and read by nobody. Add \
-             InputPlugin (DefaultPlugins includes it; MinimalPlugins does not)."
+            "DebuggerPlugin needs bevy::input::InputPlugin: injected keys and clicks are written as KeyboardInput/MouseButtonInput messages, and InputPlugin owns the systems that fold those into ButtonInput. Without it every injection is accepted and read by nobody. Add InputPlugin (DefaultPlugins includes it; MinimalPlugins does not)."
         );
     }
 }

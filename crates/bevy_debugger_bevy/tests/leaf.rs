@@ -4,18 +4,19 @@
 //! cannot: the plugin's whole job is to live inside a Bevy `App`. What it must never do is reach the
 //! machine the game is running on.
 //!
-//! That property is the reason this crate exists at all. Capturing a window requires the window to be
-//! raised — stealing focus, possibly switching workspaces — and driving the OS keyboard sends
-//! keystrokes to whatever application actually has focus, which may be somebody's editor. Measured on
-//! the game this was built for: **7,188 distinct colours** captured with the window focused, **1** with
-//! another app in front.
+//! That property is the reason this crate exists at all. Driving the OS keyboard sends keystrokes to
+//! whatever application actually has focus, which may be somebody's editor, so input must stay in the
+//! process. Window capture reads the game's own swapchain and never raises or focuses the window, but
+//! a covered or minimised window can return a stale frame; measured on the game this was built for,
+//! **7,188 distinct colours** came back with the window focused and **1** with another app in front.
+//! Offscreen capture avoids that entirely, so it is the default.
 //!
 //! So the guarantee is structural rather than careful. `bevy_debugger/screenshot` reads an `Image` a
-//! camera rendered to, and `bevy_debugger/input` writes into the same in-process `Messages` buffer
-//! `bevy_winit` appends to. Neither can leak outside the process, *because there is nothing linked
-//! here that could do it* — and the input half got **stronger** when it moved from `ButtonInput` to
-//! the message stream, not weaker: a `Messages<KeyboardInput>` buffer is an ECS resource, and reaching
-//! a real event loop would take a dependency this file forbids.
+//! camera rendered to (offscreen) or the primary window's swapchain (window), and `bevy_debugger/input`
+//! writes into the same in-process `Messages` buffer `bevy_winit` appends to. None of these can leak
+//! outside the process, *because there is nothing linked here that could do it*. The input half got
+//! **stronger** when it moved from `ButtonInput` to the message stream: a `Messages<KeyboardInput>`
+//! buffer is an ECS resource, and reaching a real event loop would take a dependency this file forbids.
 //!
 //! These two tests are that claim, made checkable. Widening either list is a design decision, so it
 //! should cost a deliberate edit in this file rather than passing silently in a build.

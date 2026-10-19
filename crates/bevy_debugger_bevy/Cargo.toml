@@ -8,6 +8,7 @@ repository = "https://github.com/Ladvien/bevy_debugger_mcp"
 license = "MIT OR Apache-2.0"
 keywords = ["bevy", "debugging", "mcp", "brp", "gamedev"]
 categories = ["game-development", "development-tools"]
+readme = "README.md"
 
 [dependencies]
 # `serialize` is what makes `KeyCode`/`MouseButton` deserialize by name, which is how
@@ -32,3 +33,13 @@ guide = ["bevy/ui_api", "bevy/default_font", "bevy/bevy_picking"]
 [[example]]
 name = "guided_steps_land"
 required-features = ["guide"]
+
+[[example]]
+name = "agent_scene"
+required-features = ["screenshot"]
+
+[dev-dependencies]
+# Examples need `DefaultPlugins`, a Bevy feature set a host game picks for itself. Cargo's resolver 2
+# unifies dev-dependency features only into test and example builds, so `cargo build --lib` with
+# `--no-default-features` still compiles the crate with exactly the features above.
+bevy = { version = "0.20.0", features = ["3d"] }
