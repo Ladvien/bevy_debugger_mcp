@@ -468,7 +468,7 @@ impl BrpValidator {
 
         let sessions = self.user_sessions.read().await;
         let session = sessions.get(session_id).ok_or_else(|| {
-            Error::Validation("Session not found. Please authenticate first.".to_string())
+            Error::Validation("Session not found.".to_string())
         })?;
 
         if session.permission_level < required_permission {

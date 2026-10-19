@@ -369,8 +369,7 @@ async fn test_cache_functionality() {
     
     // Test cache stats
     let (total, expired) = inspector.get_cache_stats().await;
-    assert!(total >= 0);
-    assert!(expired >= 0);
+    // Both counts are unsigned, so only their relation can fail.
     assert!(expired <= total);
 }
 
@@ -402,7 +401,8 @@ async fn test_component_change_tracking() {
     
     // Basic structure test
     let (cache_total, _) = inspector.get_cache_stats().await;
-    assert!(cache_total >= 0);
+    // An unsigned count is always >= 0; reading it is the check that the stats are available.
+    let _ = cache_total;
 }
 
 #[tokio::test]

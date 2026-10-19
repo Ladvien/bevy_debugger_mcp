@@ -1,6 +1,6 @@
 [package]
 name = "bevy_debugger_mcp"
-version = "0.1.10"
+version = "0.2.0"
 edition = "2021"
 authors = ["ladvien <ladvien@example.com>"]
 description = "AI-assisted debugging for Bevy games through Claude Code using Model Context Protocol"
@@ -11,8 +11,6 @@ readme = "README.md"
 # Bevy ecosystem is unadoptable, and adoption is the whole point of mirroring these out; the GPL stays
 # with the `emerge-*` family and the game they were carved from.
 license = "MIT OR Apache-2.0"
-# Never reaches crates.io by accident, same as every other crate here.
-publish = false
 keywords = ["bevy", "debugging", "mcp", "claude", "gamedev"]
 categories = ["game-development", "development-tools", "command-line-utilities"]
 rust-version = "1.95"
@@ -37,6 +35,10 @@ exclude = [
     "docs/CLAUDE_SUBAGENT_GUIDE.md"
 ]
 
+[workspace]
+members = [".", "crates/bevy_debugger_bevy"]
+resolver = "2"
+
 [[bin]]
 name = "bevy-debugger-mcp"
 path = "src/main.rs"
@@ -48,7 +50,7 @@ rmcp-macros = "0.2.1"
 
 tokio = { version = "1", features = ["full"] }
 reqwest = { version = "0.12", default-features = false, features = ["json", "rustls-tls"] }
-bevy_remote = "0.19"
+bevy_remote = "0.20"
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
 thiserror = "2.0"
@@ -78,13 +80,8 @@ once_cell = "1.20"
 num_cpus = "1.16"
 rayon = "1.10"
 
-# Security and authentication
-jsonwebtoken = "9.0"
-ring = "0.17"
+# Screenshot captures come back over BRP as base64-encoded PNG
 base64 = "0.22"
-argon2 = "0.5"
-governor = "0.6"
-headers = "0.4"
 
 # Performance optimization dependencies
 ahash = "0.8"
@@ -102,14 +99,14 @@ metrics = "0.23"
 metrics-exporter-prometheus = "0.15"
 lazy_static = "1.5"
 
-# Web server dependencies (shared by security and observability)
+# Web server dependencies (shared by the observability endpoints)
 hyper = { version = "1.0", features = ["full"] }
 tower = { version = "0.5", features = ["full"] }
 tower-http = { version = "0.5", features = ["auth", "cors", "trace", "metrics"] }
 axum = { version = "0.7", features = ["macros", "json"] }
 
 # Optional Bevy dependency for visual overlays and reflection
-bevy = { version = "0.19", features = ["default", "bevy_remote"], optional = true }
+bevy = { version = "0.20", features = ["default", "bevy_remote"], optional = true }
 
 [features]
 # Default features - minimal overhead
@@ -156,31 +153,15 @@ profiling = ["performance-profiling"]
 # Legacy compatibility
 visual_overlays = ["visual-debugging"]
 
-# **No `[profile.*]` here on purpose — profiles come from the workspace root.**
-#
-# This crate is a member of the `foundation_vs_slop` workspace, and Cargo honours profiles only at the
-# workspace root: a `[profile.release]` in this file would be silently ignored except for a warning
-# printed on *every* cargo command in the monorepo. Deleting it is the honest version of what Cargo was
-# going to do anyway.
-#
-# The settings this file used to carry were `opt-level = 3`, `lto = true`, `codegen-units = 1`,
-# `panic = "abort"`, `strip = true`; the root already sets `opt-level = 3`, `lto = "thin"` and
-# `codegen-units = 1`, so the optimisation story is effectively unchanged.
-#
-# **`panic = "abort"` is a real behavioural difference, though**, and an earlier version of this
-# comment wrongly claimed otherwise. Under `abort` a panic anywhere — including inside a spawned
-# tokio task — takes the process down. Unwinding instead lets the runtime catch a panicking task and
-# keep serving, so a failure that used to be loud and terminal can now leave the server up in a
-# partially-failed state. That is a downgrade in fail-loud behaviour, noted here rather than papered
-# over; restoring it means setting `panic = "abort"` on the workspace root, which would also apply to
-# the game and is a separate decision.
-#
-# If you are reading this in the standalone mirror, this file is the repo root again and you can add
-# a `[profile.release]` back; nothing here depends on one.
+# **No `[profile.*]` on purpose.** The release settings this crate once carried (`opt-level = 3`, `lto`,
+# `codegen-units = 1`, `panic = "abort"`, `strip`) were dropped while it lived inside a game workspace, and
+# `panic = "abort"` is a real behavioural difference: under `abort` a panic in a spawned tokio task takes
+# the process down; with unwinding the runtime catches it and keeps serving. Set them in your own build
+# if you want the abort behaviour.
 
 [dev-dependencies]
 tokio-test = "0.4"
-bevy = { version = "0.19", features = ["default", "bevy_remote"] }
+bevy = { version = "0.20", features = ["default", "bevy_remote"] }
 nix = { version = "0.27", features = ["signal", "process"] }
 tempfile = "3.0"
 sha2 = "0.10.9"

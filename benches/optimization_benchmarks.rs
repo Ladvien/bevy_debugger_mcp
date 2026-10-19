@@ -4,7 +4,6 @@
 /// including comparative analysis and regression detection.
 
 use criterion::{black_box, criterion_group, criterion_main, Criterion, BenchmarkId, Throughput};
-use futures;
 use rand;
 use serde_json::{json, Value};
 use std::sync::Arc;
@@ -41,6 +40,7 @@ impl OptimizationBenchConfig {
             bevy_brp_host: "localhost".to_string(),
             bevy_brp_port: 15702,
             mcp_port: 3001,
+            ..Config::default()
         };
         
         // Baseline server without optimizations
@@ -67,6 +67,7 @@ fn benchmark_initialization_strategies(c: &mut Criterion) {
         bevy_brp_host: "localhost".to_string(),
         bevy_brp_port: 15702,
         mcp_port: 3001,
+        ..Config::default()
     };
     let brp_client = Arc::new(RwLock::new(BrpClient::new(&config)));
     
@@ -77,13 +78,13 @@ fn benchmark_initialization_strategies(c: &mut Criterion) {
                 // Setup - create fresh lazy components each time
                 LazyComponents::new(brp_client.clone())
             },
-            |lazy_components| async {
+            |lazy_components| async move {
                 // Force immediate initialization of all components
                 let _entity_inspector = black_box(lazy_components.get_entity_inspector().await);
                 let _system_profiler = black_box(lazy_components.get_system_profiler().await);
-                let _memory_profiler = black_box(lazy_components.get_memory_profiler().await);
-                let _session_manager = black_box(lazy_components.get_session_manager().await);
-                let _visual_overlay = black_box(lazy_components.get_visual_debug_overlay().await);
+                let _memory_profiler = black_box(lazy_components.get_memory_profiler_processor().await);
+                let _session_manager = black_box(lazy_components.get_session_processor().await);
+                let _visual_overlay = black_box(lazy_components.get_visual_overlay_processor().await);
                 let _debug_router = black_box(lazy_components.get_debug_command_router().await);
             },
         );
@@ -95,7 +96,7 @@ fn benchmark_initialization_strategies(c: &mut Criterion) {
             || {
                 LazyComponents::new(brp_client.clone())
             },
-            |lazy_components| async {
+            |lazy_components| async move {
                 // Only initialize the first component (most common case)
                 let _entity_inspector = black_box(lazy_components.get_entity_inspector().await);
             },
@@ -114,7 +115,7 @@ fn benchmark_initialization_strategies(c: &mut Criterion) {
                 });
                 lazy_components
             },
-            |lazy_components| async {
+            |lazy_components| async move {
                 // Access should be nearly instant
                 let _entity_inspector = black_box(lazy_components.get_entity_inspector().await);
             },
@@ -328,9 +329,10 @@ fn benchmark_e2e_optimization_impact(c: &mut Criterion) {
             BenchmarkId::new("e2e_baseline", op_name),
             &args,
             |b, args| {
-                b.to_async(&bench_config.runtime).iter(|| async {
+                let server = &bench_config.server_baseline;
+                b.to_async(&bench_config.runtime).iter(|| async move {
                     let _result = black_box(
-                        bench_config.server_baseline.handle_tool_call(op_name, args.clone()).await
+                        server.handle_tool_call(op_name, args.clone()).await
                     );
                 });
             },
@@ -341,9 +343,10 @@ fn benchmark_e2e_optimization_impact(c: &mut Criterion) {
             BenchmarkId::new("e2e_optimized", op_name),
             &args,
             |b, args| {
-                b.to_async(&bench_config.runtime).iter(|| async {
+                let server = &bench_config.server_optimized;
+                b.to_async(&bench_config.runtime).iter(|| async move {
                     let _result = black_box(
-                        bench_config.server_optimized.handle_tool_call(op_name, args.clone()).await
+                        server.handle_tool_call(op_name, args.clone()).await
                     );
                 });
             },
@@ -363,18 +366,18 @@ fn benchmark_concurrent_performance(c: &mut Criterion) {
             BenchmarkId::new("concurrent_operations", concurrency),
             &concurrency,
             |b, &concurrency| {
-                b.to_async(&bench_config.runtime).iter(|| async {
+                let server = &bench_config.server_optimized;
+                b.to_async(&bench_config.runtime).iter(|| async move {
                     let tasks = (0..concurrency).map(|i| {
-                        let server = &bench_config.server_optimized;
                         let operation = if i % 2 == 0 { "health_check" } else { "resource_metrics" };
                         let args = json!({"worker_id": i});
-                        
+
                         async move {
                             server.handle_tool_call(operation, args).await
                         }
                     });
-                    
-                    let results = futures::future::join_all(tasks).await;
+
+                    let results = futures_util::future::join_all(tasks).await;
                     black_box(results)
                 });
             },
@@ -406,9 +409,10 @@ fn benchmark_memory_efficiency(c: &mut Criterion) {
             BenchmarkId::new("memory_efficiency", scenario_name),
             &(iteration_count, query_args),
             |b, (iteration_count, query_args)| {
-                b.to_async(&bench_config.runtime).iter(|| async {
+                let server = &bench_config.server_optimized;
+                b.to_async(&bench_config.runtime).iter(|| async move {
                     // Simulate sustained load that could reveal memory issues
-                    for i in 0..iteration_count {
+                    for i in 0..*iteration_count {
                         let args = json!({
                             "query": query_args.get("query"),
                             "iteration": i,
@@ -418,7 +422,7 @@ fn benchmark_memory_efficiency(c: &mut Criterion) {
                                 .as_millis()
                         });
                         
-                        let _result = bench_config.server_optimized
+                        let _result = server
                             .handle_tool_call("observe", args)
                             .await;
                         
@@ -450,10 +454,11 @@ fn benchmark_stress_degradation(c: &mut Criterion) {
             BenchmarkId::new("stress_test", stress_name),
             &(op_count, delay_ms),
             |b, (op_count, delay_ms)| {
-                b.to_async(&bench_config.runtime).iter(|| async {
+                let server = &bench_config.server_optimized;
+                b.to_async(&bench_config.runtime).iter(|| async move {
                     let start_time = Instant::now();
                     
-                    for i in 0..op_count {
+                    for i in 0..*op_count {
                         let operation = match i % 4 {
                             0 => "health_check",
                             1 => "resource_metrics",
@@ -466,12 +471,12 @@ fn benchmark_stress_degradation(c: &mut Criterion) {
                             "stress_level": stress_name
                         });
                         
-                        let _result = bench_config.server_optimized
+                        let _result = server
                             .handle_tool_call(operation, args)
                             .await;
                         
-                        if delay_ms > 0 {
-                            tokio::time::sleep(Duration::from_millis(delay_ms)).await;
+                        if *delay_ms > 0 {
+                            tokio::time::sleep(Duration::from_millis(*delay_ms as u64)).await;
                         }
                     }
                     
@@ -575,6 +580,7 @@ mod tests {
                 bevy_brp_host: "localhost".to_string(),
                 bevy_brp_port: 15702,
                 mcp_port: 3001,
+                ..Config::default()
             };
             let brp_client = Arc::new(RwLock::new(BrpClient::new(&config)));
             McpServer::new(config, brp_client)
@@ -612,7 +618,7 @@ mod tests {
             }
         });
         
-        let concurrent_results = futures::future::join_all(concurrent_tasks).await;
+        let concurrent_results = futures_util::future::join_all(concurrent_tasks).await;
         let max_concurrent_duration = concurrent_results.iter().max().unwrap();
         
         println!("Max concurrent operation duration: {:?}", max_concurrent_duration);
@@ -634,6 +640,7 @@ mod tests {
                 bevy_brp_host: "localhost".to_string(),
                 bevy_brp_port: 15702,
                 mcp_port: 3001,
+                ..Config::default()
             };
             let brp_client = Arc::new(RwLock::new(BrpClient::new(&config)));
             McpServer::new(config, brp_client)

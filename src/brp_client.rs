@@ -145,6 +145,8 @@ impl BrpClient {
             }
         }
 
+        // Start the next round from zero, so a later call tries again instead of returning at once.
+        self.retry_count = 0;
         Err(Error::Connection(format!(
             "Failed to connect to BRP after {MAX_RETRIES} attempts"
         )))
@@ -152,7 +154,7 @@ impl BrpClient {
 
     /// HTTP "connect": probe the server with an `rpc.discover` request and
     /// accept any 2xx response as a healthy BRP endpoint.
-    async fn connect(&mut self) -> Result<()> {
+    async fn connect(&self) -> Result<()> {
         debug!("Attempting BRP health check (rpc.discover) at {}", self.url);
 
         let discover = BrpRequest {
@@ -185,15 +187,29 @@ impl BrpClient {
         self.connected.load(Ordering::Relaxed)
     }
 
-    /// Send a BRP request and return the response (with resource management)
+    /// The BRP endpoint this client talks to, for log messages.
+    pub fn url(&self) -> &str {
+        &self.url
+    }
+
+    /// One health check with no retry and no sleep. It takes `&self` (the state it sets is atomic), so
+    /// the background heartbeat calls it under the read lock and holds that lock for one HTTP request only.
+    pub async fn probe(&self) -> Result<()> {
+        let result = self.connect().await;
+        if result.is_err() {
+            self.connected.store(false, Ordering::Relaxed);
+        }
+        result
+    }
+
     /// Send a request to the running game.
     ///
     /// **Nothing between the caller and the socket, and that is a fix.** This used to run every
     /// request through three throttles first: a rate limiter, a semaphore gated by a circuit
     /// breaker, and an adaptive sampler that could *silently discard* the request and return
     /// "Request skipped due to adaptive sampling" as an error. Any of the three could block, and one
-    /// of them did — `guide` and `observe` both hung indefinitely through a real MCP client while
-    /// `authenticate`, which touches no BRP, answered instantly, and the health check kept
+    /// of them did — `guide` and `observe` both hung indefinitely through a real MCP client while a
+    /// tool that touches no BRP answered instantly, and the health check kept
     /// succeeding every thirty seconds throughout. The transport was never the problem.
     ///
     /// None of it was earning its place. This is a localhost JSON-RPC call to a game the developer

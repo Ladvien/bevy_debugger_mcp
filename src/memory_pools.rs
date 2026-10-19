@@ -365,7 +365,8 @@ mod tests {
         
         // Test pool stats
         let stats = pools.get_pool_stats().await;
-        assert!(stats.total_pooled_objects() >= 0);
+        // An unsigned count is always >= 0; reading it is the check that the stats are available.
+        let _ = stats.total_pooled_objects();
     }
 
     #[tokio::test]

@@ -83,6 +83,7 @@ impl RegressionBenchConfig {
             bevy_brp_host: "localhost".to_string(),
             bevy_brp_port: 15702,
             mcp_port: 3001,
+            ..Config::default()
         };
         let brp_client = Arc::new(RwLock::new(BrpClient::new(&config)));
         let server = McpServer::new(config, brp_client);
@@ -123,6 +124,8 @@ fn benchmark_mcp_operations_regression(c: &mut Criterion) {
     
     for (op_name, args, target_ms) in operations {
         c.bench_function(&format!("regression_mcp_{}", op_name), |b| {
+            let server = &bench_config.server;
+            let args = &args;
             b.to_async(&bench_config.runtime).iter_custom(|iters| async move {
                 let mut total_time = Duration::ZERO;
                 let mut max_time = Duration::ZERO;
@@ -130,7 +133,7 @@ fn benchmark_mcp_operations_regression(c: &mut Criterion) {
                 
                 for _ in 0..iters {
                     let start = Instant::now();
-                    let _result = bench_config.server.handle_tool_call(op_name, args.clone()).await;
+                    let _result = server.handle_tool_call(op_name, args.clone()).await;
                     let elapsed = start.elapsed();
                     
                     total_time += elapsed;
@@ -166,10 +169,12 @@ fn benchmark_lazy_init_regression(c: &mut Criterion) {
         bevy_brp_host: "localhost".to_string(),
         bevy_brp_port: 15702,
         mcp_port: 3001,
+        ..Config::default()
     };
     let brp_client = Arc::new(RwLock::new(BrpClient::new(&config)));
     
     c.bench_function("regression_lazy_init_first_access", |b| {
+        let brp_client = &brp_client;
         b.to_async(&bench_config.runtime).iter_custom(|iters| async move {
             let mut total_time = Duration::ZERO;
             let mut times = Vec::new();
@@ -214,7 +219,7 @@ fn benchmark_lazy_init_regression(c: &mut Criterion) {
                 });
                 components
             },
-            |components| async {
+            |components| async move {
                 let start = Instant::now();
                 let _inspector = components.get_entity_inspector().await;
                 let elapsed = start.elapsed();
@@ -413,6 +418,7 @@ fn benchmark_memory_regression(c: &mut Criterion) {
     
     // Test that repeated operations don't leak memory
     c.bench_function("regression_memory_stability", |b| {
+        let server = &bench_config.server;
         b.to_async(&bench_config.runtime).iter_custom(|iters| async move {
             let start_time = Instant::now();
             
@@ -423,7 +429,7 @@ fn benchmark_memory_regression(c: &mut Criterion) {
                     "iteration": i
                 });
                 
-                let _result = bench_config.server.handle_tool_call("observe", args).await;
+                let _result = server.handle_tool_call("observe", args).await;
                 
                 // Occasional cleanup hint
                 if i % 100 == 0 {
@@ -442,6 +448,7 @@ fn benchmark_throughput_regression(c: &mut Criterion) {
     
     // Test sustained throughput doesn't regress
     c.bench_function("regression_sustained_throughput", |b| {
+        let server = &bench_config.server;
         b.to_async(&bench_config.runtime).iter_custom(|iters| async move {
             let start_time = Instant::now();
             let operations_per_batch = 10;
@@ -449,7 +456,6 @@ fn benchmark_throughput_regression(c: &mut Criterion) {
             
             for batch in 0..batches {
                 let batch_tasks = (0..operations_per_batch).map(|i| {
-                    let server = &bench_config.server;
                     let op_id = batch * operations_per_batch as u64 + i as u64;
                     
                     async move {
@@ -465,7 +471,7 @@ fn benchmark_throughput_regression(c: &mut Criterion) {
                     }
                 });
                 
-                let _results = futures::future::join_all(batch_tasks).await;
+                let _results = futures_util::future::join_all(batch_tasks).await;
             }
             
             let total_time = start_time.elapsed();
@@ -495,12 +501,12 @@ fn benchmark_concurrency_regression(c: &mut Criterion) {
     
     for &concurrency in &concurrency_levels {
         c.bench_function(&format!("regression_concurrency_{}", concurrency), |b| {
+            let server = &bench_config.server;
             b.to_async(&bench_config.runtime).iter_custom(|iters| async move {
                 let start_time = Instant::now();
                 let ops_per_worker = (iters / concurrency as u64).max(1);
                 
                 let worker_tasks = (0..concurrency).map(|worker_id| {
-                    let server = &bench_config.server;
                     
                     async move {
                         for i in 0..ops_per_worker {
@@ -514,7 +520,7 @@ fn benchmark_concurrency_regression(c: &mut Criterion) {
                     }
                 });
                 
-                futures::future::join_all(worker_tasks).await;
+                futures_util::future::join_all(worker_tasks).await;
                 
                 let total_time = start_time.elapsed();
                 

@@ -62,6 +62,7 @@ fn create_test_server() -> McpServer {
         bevy_brp_host: "localhost".to_string(),
         bevy_brp_port: 15702,
         mcp_port: 3001,
+        ..Config::default()
     };
     let brp_client = Arc::new(RwLock::new(BrpClient::new(&config)));
     McpServer::new(config, brp_client)
@@ -226,6 +227,7 @@ fn benchmark_lazy_initialization(c: &mut Criterion) {
         bevy_brp_host: "localhost".to_string(),
         bevy_brp_port: 15702,
         mcp_port: 3001,
+        ..Config::default()
     };
     let brp_client = Arc::new(RwLock::new(BrpClient::new(&config)));
     
@@ -238,7 +240,7 @@ fn benchmark_lazy_initialization(c: &mut Criterion) {
     c.bench_function("lazy_component_first_access", |b| {
         b.to_async(&bench_config.runtime).iter_with_setup(
             || LazyComponents::new(brp_client.clone()),
-            |components| async {
+            |components| async move {
                 let _inspector = black_box(components.get_entity_inspector().await);
             },
         );
@@ -254,7 +256,7 @@ fn benchmark_lazy_initialization(c: &mut Criterion) {
                 });
                 components
             },
-            |components| async {
+            |components| async move {
                 let _inspector = black_box(components.get_entity_inspector().await);
             },
         );
@@ -458,7 +460,7 @@ criterion_group!(
     benchmark_performance_regression,
 );
 
-criterion_main!(benches)
+criterion_main!(benches);
 
 /// Performance test helper macros and utilities
 #[cfg(test)]

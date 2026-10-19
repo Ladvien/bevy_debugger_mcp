@@ -182,7 +182,8 @@ async fn test_memory_regression() {
     stats.log_stats();
     
     // Ensure pools are functioning
-    assert!(stats.total_pooled_objects() >= 0);
+    // An unsigned count is always >= 0; reading it is the check that the stats are available.
+    let _ = stats.total_pooled_objects();
 }
 
 /// Integration test for complete memory optimization pipeline

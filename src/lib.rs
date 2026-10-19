@@ -262,9 +262,6 @@ pub mod parallel_query_executor;
 pub mod query_optimization_guide;
 
 // Production features
-pub mod security_config;
-pub mod security;
-pub mod secure_mcp_tools;
 pub mod bevy_observability_integration;
 
 // Epic 6: Production features - Observability stack

@@ -171,7 +171,7 @@ pub fn logical_for(key_code: KeyCode) -> Key {
 ///
 /// **A space becomes `Key::Space`, not `Key::Character(" ")`.** It is the one character with a named
 /// variant, it is what a space bar produces on every layout, and five separate text handlers in
-/// `emerge-mapper` alone match `Key::Space` and would silently drop a `Character(" ")` — a name with a
+/// `bevy_emerge_mapper` alone match `Key::Space` and would silently drop a `Character(" ")` — a name with a
 /// space in it would lose the space while the call reported success.
 pub fn typed(ch: char, window: Entity) -> Option<KeyboardInput> {
     let logical_key = if ch == ' ' {
@@ -419,7 +419,7 @@ pub fn apply_pending_input(
             }
             // **Text waits for the frame after the keystroke that opened the field.**
             //
-            // Measured against the host rather than invented: every text field in `emerge-mapper`
+            // Measured against the host rather than invented: every text field in `bevy_emerge_mapper`
             // drains the `KeyboardInput` stream *while shut*, so the key that opened it cannot become
             // its first character — the `xseam` bug, which every field there now guards against. Its
             // key phase runs before its dispatcher phase, so text sent in the same frame as the

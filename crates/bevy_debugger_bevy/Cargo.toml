@@ -1,25 +1,34 @@
 [package]
 name = "bevy_debugger_bevy"
-version = "0.1.0"
+version = "0.2.0"
 edition = "2021"
 rust-version = "1.95"
-description = "Companion Bevy plugin for bevy_debugger_mcp — registers custom BRP methods for screenshot, inspection, and headless input injection"
+description = "Companion Bevy plugin for bevy_debugger_mcp: game-registered debug commands, offscreen or window capture, headless input, replayable scenes, over BRP"
+repository = "https://github.com/Ladvien/bevy_debugger_mcp"
 license = "MIT OR Apache-2.0"
-publish = false
 keywords = ["bevy", "debugging", "mcp", "brp", "gamedev"]
 categories = ["game-development", "development-tools"]
 
 [dependencies]
 # `serialize` is what makes `KeyCode`/`MouseButton` deserialize by name, which is how
 # `bevy_debugger/input` accepts every key Bevy knows instead of a hand-written table that goes
-# stale. See `input.rs`.
-bevy = { version = "0.19", features = ["default", "bevy_remote", "serialize"] }
-bevy_remote = "0.19"
+# stale. See `input.rs`. Bevy's `default` feature is never turned on here: a host game picks its
+# own Bevy features, and this crate adds only the few it cannot work without.
+bevy = { version = "0.20.0", default-features = false, features = ["bevy_remote", "serialize", "bevy_window", "bevy_log"] }
+bevy_remote = "0.20"
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
-image = { version = "0.25", default-features = false, features = ["png"] }
+image = { version = "0.25", default-features = false, features = ["png"], optional = true }
 
 [features]
-default = []
-input = []
-screenshot = []
+default = ["screenshot", "guide"]
+# `bevy_debugger/screenshot` and `bevy_debugger/capture`: offscreen or window capture, returned over BRP.
+screenshot = ["bevy/bevy_render", "bevy/png", "dep:image"]
+# `bevy_debugger/guide`: the agent-to-human overlay and the guided steps. It spawns a UI node, so a host
+# that keeps its UI behind its own surfaces turns this off. `bevy_picking` is only for `Pickable::IGNORE`,
+# so the overlay never eats a host's clicks.
+guide = ["bevy/ui_api", "bevy/default_font", "bevy/bevy_picking"]
+
+[[example]]
+name = "guided_steps_land"
+required-features = ["guide"]

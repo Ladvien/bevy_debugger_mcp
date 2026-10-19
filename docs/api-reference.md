@@ -242,15 +242,6 @@ screenshot_on_violation = false
 | `BEVY_DEBUGGER_CACHE_SIZE` | `1000` | Entity cache size |
 | `BEVY_DEBUGGER_HISTORY_SIZE` | `10000` | Performance history size |
 
-### Security Environment Variables
-
-| Variable | Default | Description |
-|----------|---------|-------------|
-| `BEVY_DEBUGGER_AUTH_ENABLED` | `false` | Enable authentication |
-| `BEVY_DEBUGGER_JWT_SECRET` | - | JWT signing secret |
-| `BEVY_DEBUGGER_TOKEN_EXPIRY` | `3600` | Token expiry (seconds) |
-| `BEVY_DEBUGGER_RATE_LIMIT` | `100` | Requests per minute |
-
 ## Response Formats
 
 ### Success Response Format

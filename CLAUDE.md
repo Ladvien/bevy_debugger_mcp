@@ -17,9 +17,7 @@ An MCP server plus a companion Bevy plugin that let an agent inspect and drive a
 
 ## Source of truth
 
-The source of truth is [`Ladvien/foundation_vs_slop`](https://github.com/Ladvien/foundation_vs_slop) at `crates/bevy_debugger_mcp/`. If you are reading this in a standalone `Ladvien/bevy_debugger_mcp` checkout, that is a read-only `git subtree split` mirror — **changes made here cannot be pulled back**. Make them upstream.
-
-This crate was vendored in with `git subtree add`, history intact, *because* it used to be a pinned git dependency and that pin made it unfixable: a bug found while driving the game could only be repaired by editing another repo, cutting a rev, and bumping. It is now an ordinary edit.
+This standalone repo, `Ladvien/bevy_debugger_mcp`, is the source of truth for both crates, on Bevy 0.20 (Sanctuary decision 0232, 2026-10-19). It was a pinned git dependency, then vendored into `Ladvien/foundation_vs_slop` with `git subtree add` and mirrored back out of it. The monorepo's `crates/bevy_debugger_mcp` is now a frozen Bevy 0.19 copy that is never mirrored again, and `Ladvien/bevy_emerge` depends on this repo by git. A bug found while driving a game is an ordinary edit here, followed by a push.
 
 ## Two independent halves
 
@@ -93,11 +91,11 @@ Ordering is load-bearing and is handled in `apply_pending_input`: a move *after*
 
 ## Profiles
 
-There is deliberately no `[profile.*]` in `Cargo.toml`. As a workspace member its profiles would be ignored anyway, with a warning on every cargo command; the monorepo root already sets `opt-level = 3`, `lto = "thin"`, `codegen-units = 1`. The manifest comment records what was removed.
+There is deliberately no `[profile.*]` in `Cargo.toml`; the manifest comment records what was removed and why `panic = "abort"` is a real difference.
 
 ## Build and test
 
-From the monorepo, both halves are workspace members, so `cargo test --workspace` covers them. Individually:
+Both halves are members of this workspace, so `cargo test --workspace` covers them. Individually:
 
 ```sh
 cargo test -p bevy_debugger_bevy      # the plugin, including the dependency ratchet
@@ -105,4 +103,4 @@ cargo test -p bevy_debugger_mcp       # the server
 cargo install --path .                # the bevy-debugger-mcp binary
 ```
 
-- Consult Bevy documentation often. It can be found at codex_fs/offline_reference_docs/bevy-0.19-book/
+- Consult Bevy documentation often. It can be found at codex_fs/offline_reference_docs/bevy-0.20-book/

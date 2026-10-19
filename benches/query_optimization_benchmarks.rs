@@ -21,7 +21,7 @@ use bevy_debugger_mcp::{
     query_optimization::{QueryOptimizer, QueryPerformanceMetrics},
     parallel_query_executor::{ParallelQueryExecutor, ParallelExecutionConfig},
     tools::{observe, observe_optimized},
-    brp_messages::{BrpRequest, QueryFilter},
+    brp_messages::{builtin_methods, query_params, BrpRequest, QueryFilter},
 };
 
 struct BenchConfig {
@@ -36,43 +36,44 @@ impl BenchConfig {
     }
 }
 
+fn query_request(with: &[&str], without: &[&str], limit: Option<u64>) -> BrpRequest {
+    let mut filter = QueryFilter::default();
+    filter.with = Some(with.iter().map(|c| c.to_string()).collect());
+    filter.without = Some(without.iter().map(|c| c.to_string()).collect());
+    let mut params = query_params(Some(&filter), false);
+    if let Some(limit) = limit {
+        params["limit"] = json!(limit);
+    }
+    BrpRequest {
+        method: builtin_methods::BRP_QUERY_METHOD.to_string(),
+        id: None,
+        params: Some(params),
+    }
+}
+
 /// Benchmark query optimization performance (BEVDBG-014)
 fn benchmark_query_optimization(c: &mut Criterion) {
     let bench_config = BenchConfig::new();
     
     // Create test queries with different complexity levels
     let test_queries = vec![
-        ("simple", BrpRequest::ListComponents),
-        ("single_entity", BrpRequest::Get { entity: 1, components: None }),
-        ("single_component_filter", BrpRequest::Query {
-            filter: Some(QueryFilter {
-                with: Some(vec!["Transform".to_string()]),
-                without: None,
-                where_clause: None,
-            }),
-            limit: None,
+        ("simple", BrpRequest {
+            method: builtin_methods::BRP_LIST_COMPONENTS_METHOD.to_string(),
+            id: None,
+            params: None,
         }),
-        ("multi_component_filter", BrpRequest::Query {
-            filter: Some(QueryFilter {
-                with: Some(vec!["Transform".to_string(), "Velocity".to_string()]),
-                without: Some(vec!["Inactive".to_string()]),
-                where_clause: None,
-            }),
-            limit: None,
+        ("single_entity", BrpRequest {
+            method: builtin_methods::BRP_GET_COMPONENTS_METHOD.to_string(),
+            id: None,
+            params: Some(json!({"entity": 1})),
         }),
-        ("complex_query", BrpRequest::Query {
-            filter: Some(QueryFilter {
-                with: Some(vec![
-                    "Transform".to_string(), 
-                    "Velocity".to_string(), 
-                    "Health".to_string(),
-                    "Collider".to_string()
-                ]),
-                without: Some(vec!["Inactive".to_string(), "Destroyed".to_string()]),
-                where_clause: None,
-            }),
-            limit: Some(500),
-        }),
+        ("single_component_filter", query_request(&["Transform"], &[], None)),
+        ("multi_component_filter", query_request(&["Transform", "Velocity"], &["Inactive"], None)),
+        ("complex_query", query_request(
+            &["Transform", "Velocity", "Health", "Collider"],
+            &["Inactive", "Destroyed"],
+            Some(500),
+        )),
     ];
 
     // Benchmark QueryOptimizer performance
@@ -81,7 +82,7 @@ fn benchmark_query_optimization(c: &mut Criterion) {
             BenchmarkId::new("query_optimizer", query_name),
             request,
             |b, request| {
-                b.to_async(&bench_config.runtime).iter(|| async {
+                b.to_async(&bench_config.runtime).iter(|| async move {
                     let optimizer = QueryOptimizer::new(50, 100, 1000);
                     let _optimized = black_box(optimizer.optimize_request(request).await.unwrap());
                 });
@@ -110,7 +111,7 @@ fn benchmark_parallel_scalability(c: &mut Criterion) {
             BenchmarkId::new("parallel_scalability", entity_count),
             &entity_count,
             |b, &entity_count| {
-                b.to_async(&bench_config.runtime).iter(|| async {
+                b.to_async(&bench_config.runtime).iter(|| async move {
                     // Simulate processing entities in batches
                     let batch_size = 250;
                     let num_batches = (entity_count + batch_size - 1) / batch_size;
@@ -126,9 +127,10 @@ fn benchmark_parallel_scalability(c: &mut Criterion) {
                     
                     // Parallel processing
                     let parallel_start = std::time::Instant::now();
-                    let batch_futures = (0..num_batches).map(|_| async {
-                        tokio::task::spawn_blocking(|| {
-                            for _entity in 0..batch_size.min(entity_count) {
+                    let per_batch = batch_size.min(entity_count);
+                    let batch_futures = (0..num_batches).map(|_| async move {
+                        tokio::task::spawn_blocking(move || {
+                            for _entity in 0..per_batch {
                                 let _work = simulate_entity_processing();
                             }
                         }).await.unwrap()
@@ -154,6 +156,7 @@ fn benchmark_observe_performance(c: &mut Criterion) {
         bevy_brp_host: "localhost".to_string(),
         bevy_brp_port: 15702,
         mcp_port: 3001,
+        ..Config::default()
     };
     let brp_client = Arc::new(RwLock::new(BrpClient::new(&config)));
 
@@ -170,10 +173,12 @@ fn benchmark_observe_performance(c: &mut Criterion) {
             BenchmarkId::new("observe_standard", test_name),
             &args,
             |b, args| {
-                b.to_async(&bench_config.runtime).iter(|| async {
-                    let _result = black_box(
-                        observe::handle(args.clone(), brp_client.clone()).await
-                    );
+                b.to_async(&bench_config.runtime).iter(|| {
+                    let args = args.clone();
+                    let brp_client = brp_client.clone();
+                    async move {
+                        let _result = black_box(observe::handle(args, brp_client).await);
+                    }
                 });
             },
         );
@@ -183,10 +188,12 @@ fn benchmark_observe_performance(c: &mut Criterion) {
             BenchmarkId::new("observe_optimized", test_name),
             &args,
             |b, args| {
-                b.to_async(&bench_config.runtime).iter(|| async {
-                    let _result = black_box(
-                        observe_optimized::handle_optimized(args.clone(), brp_client.clone()).await
-                    );
+                b.to_async(&bench_config.runtime).iter(|| {
+                    let args = args.clone();
+                    let brp_client = brp_client.clone();
+                    async move {
+                        let _result = black_box(observe_optimized::handle_optimized(args, brp_client).await);
+                    }
                 });
             },
         );
@@ -240,14 +247,7 @@ fn benchmark_bevdbg014_acceptance(c: &mut Criterion) {
         b.to_async(&bench_config.runtime).iter(|| async {
             let optimizer = QueryOptimizer::new(100, 1000, 500);
             
-            let request = BrpRequest::Query {
-                filter: Some(QueryFilter {
-                    with: Some(vec!["Transform".to_string(), "Velocity".to_string()]),
-                    without: None,
-                    where_clause: None,
-                }),
-                limit: None,
-            };
+            let request = query_request(&["Transform", "Velocity"], &[], None);
             
             // First optimization (cache miss)
             let start_first = std::time::Instant::now();
@@ -282,30 +282,9 @@ fn benchmark_query_cache(c: &mut Criterion) {
             
             // Create several different query patterns
             let queries = vec![
-                BrpRequest::Query {
-                    filter: Some(QueryFilter {
-                        with: Some(vec!["Transform".to_string()]),
-                        without: None,
-                        where_clause: None,
-                    }),
-                    limit: None,
-                },
-                BrpRequest::Query {
-                    filter: Some(QueryFilter {
-                        with: Some(vec!["Velocity".to_string()]),
-                        without: None,
-                        where_clause: None,
-                    }),
-                    limit: None,
-                },
-                BrpRequest::Query {
-                    filter: Some(QueryFilter {
-                        with: Some(vec!["Health".to_string()]),
-                        without: None,
-                        where_clause: None,
-                    }),
-                    limit: None,
-                },
+                query_request(&["Transform"], &[], None),
+                query_request(&["Velocity"], &[], None),
+                query_request(&["Health"], &[], None),
             ];
             
             // Prime the cache

@@ -4,30 +4,45 @@
 
 Lets an agent inspect and drive a **running** Bevy game: query entities, components and resources live, capture frames from an offscreen render target, inject keyboard and mouse input — including **cursor position**, so a click-drag is expressible, and **typed text**, so a text field can be filled and committed — and **post a walkthrough the app renders one step at a time**, watching a named condition and recording what actually happened. None of it touches your desktop, your window manager, or the OS input stack.
 
-> **This repo is a read-only mirror.** It is split out of [`Ladvien/foundation_vs_slop`](https://github.com/Ladvien/foundation_vs_slop) at `crates/bevy_debugger_mcp/` with `git subtree split`, history intact. Issues and PRs belong upstream — changes made here cannot be pulled back.
+> **This repo is the source of truth** for both crates, on Bevy 0.20. It began as a subtree of [`Ladvien/foundation_vs_slop`](https://github.com/Ladvien/foundation_vs_slop) and was mirrored out of it until 2026-10-19; that monorepo's copy is now a frozen Bevy 0.19 snapshot, and nothing is pulled back from it. Issues and PRs belong here.
 
-> **For agents working in the monorepo: this is first-party code, not a dependency.** It lives under `crates/` alongside everything else and is edited exactly the same way. A capability it lacks is a feature to add, not a constraint to design around — the cursor injection above was added precisely because two rounds of work had treated its absence as fixed. The one part that is not an ordinary change is the OS boundary below.
+> **The one part that is not an ordinary change is the OS boundary below.** Neither crate may reach the machine the game runs on: no OS screen capture of other windows, no OS input synthesis.
 
 [![Build Status](https://img.shields.io/badge/build-passing-brightgreen)](https://github.com/ladvien/bevy_debugger_mcp)
 [![License: MIT OR Apache-2.0](https://img.shields.io/badge/License-MIT%20OR%20Apache--2.0-blue.svg)](LICENSE-MIT)
 [![Rust](https://img.shields.io/badge/rust-1.95+-orange.svg)](https://www.rust-lang.org)
-[![Bevy](https://img.shields.io/badge/bevy-0.19-purple.svg)](https://bevyengine.org)
+[![Bevy](https://img.shields.io/badge/bevy-0.20-purple.svg)](https://bevyengine.org)
 
 ## Two halves
 
 | | What it is | Where it runs |
 |---|---|---|
-| `bevy_debugger_mcp` (this crate) | The MCP **server** binary, `bevy-debugger-mcp`. Speaks MCP to an agent and BRP to the game. | Its own process |
-| [`crates/bevy_debugger_bevy`](crates/bevy_debugger_bevy) | The companion **Bevy plugin**. Registers the custom BRP methods `bevy_debugger/screenshot`, `bevy_debugger/input`, `bevy_debugger/guide` and `bevy_debugger/guide+watch`. | Inside the game |
+| `bevy_debugger_mcp` (this crate) | The MCP **server** binary, `bevy-debugger-mcp`. Speaks MCP to an agent and BRP to the game. No login; it starts without a game and finds one when it appears. | Its own process |
+| [`crates/bevy_debugger_bevy`](crates/bevy_debugger_bevy) | The companion **Bevy plugin**. Registers `bevy_debugger/status`, `commands`, `screenshot`, `capture`, `scene`, `time`, `quit`, `input`, `guide` and `guide+watch`, and lets a game register its own typed commands (`add_debug_command`). | Inside the game |
 
 They are independent — the server does not depend on the plugin. The plugin is what a game links; the server is what an agent talks to.
+
+## Stage a scene and look at it
+
+The workflow the server's tools are built for: `status` (is the game ready?) → `commands` (what can this game do, with an example of each) → `run <command> <params>` … → `screenshot` → `scene save <path>` → `quit`. The game decides what its commands are, so the same seven tools drive any game that registers some; a mistyped command name is answered with the nearest real one. Every command that runs is recorded, and `scene save` writes the run to a file the game replays at startup (`BEVY_DEBUGGER_SCENE=<file>`), one step a frame, once it says it is ready. A capture comes back over BRP as a PNG, from the offscreen image the game renders to or from its window (`source: "window"`), so the game may run on another machine. `brp` is a raw passthrough for any BRP method.
+
+Wire a game in with the example in [`crates/bevy_debugger_bevy/README.md`](crates/bevy_debugger_bevy/README.md) (`examples/agent_scene.rs`), point the server at it with `BEVY_BRP_HOST` and `BEVY_BRP_PORT` (default `127.0.0.1:15702`), and set `BEVY_DEBUGGER_CAPTURE_DIR` for where captures are saved.
+
+### Why it looks like this
+
+- Gregory, *Game Engine Architecture* (3rd ed.), §10.4–10.6: game-registered console commands, a debug camera and pause are what make in-engine debugging tools useful (`add_debug_command`, `bevy_debugger/time`).
+- Ostrowski and Aroudj, "Automated Regression Testing within Video Game Development", GSTF Journal on Computing 3:10 (2013), DOI 10.7603/s40601-013-0010-4: the game under test processes calls over a network connection, possibly on another machine (BRP over HTTP, captures returned over the wire).
+- Yang et al., "SWE-agent: Agent-Computer Interfaces Enable Automated Software Engineering" (2024), DOI 10.48550/arXiv.2405.15793: a small set of simple actions, concise feedback and guardrails that catch mistakes early (the seven tools, `deny_unknown_fields` errors, unknown-command suggestions).
+- Mindermann, Keck and Wagner, "How Usable Are Rust Cryptography APIs?", QRS 2018, DOI 10.1109/QRS.2018.00028: explain every parameter and ship maintained example code (the required `example` on every command, validated at registration).
+- Matthews, *Idiomatic Rust* (2024), ch. 6: do one thing well, keep dependencies and feature flags few, follow semver (two cargo features, no forced Bevy default features).
+- Xu, "AI Agent Systems" (2026), DOI 10.48550/arXiv.2601.01743: stable, well-specified tool schemas with exemplars let agents learn new tools in context (commands discovered at run time through `bevy_debugger/commands`).
 
 ## Three directions
 
 | | Method | |
 |---|---|---|
-| app → agent | `bevy_debugger/screenshot` | offscreen frame capture, with a region and a zoom |
-| agent → app | `bevy_debugger/input` | keys, text, mouse, cursor position |
+| app → agent | `bevy_debugger/screenshot`, `bevy_debugger/capture` | a frame from the offscreen target or the window, with a region and a zoom, returned over BRP |
+| agent → app | `bevy_debugger/input`, the game's own commands | keys, text, mouse, cursor position; typed game verbs |
 | **agent → person** | `bevy_debugger/guide`, `…/guide+watch` | a walkthrough the app renders one step at a time |
 
 The third is the newest and the least obvious. An agent could already drive an app and look at it; what it could not do was **say a sentence to the person at the keyboard**, so every instruction went to a terminal they had to look away from their work to read, and every answer came back as prose the agent then had to guess its way from.

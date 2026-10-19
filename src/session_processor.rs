@@ -408,9 +408,8 @@ mod tests {
         assert!(result.is_ok());
         
         match result.unwrap() {
-            DebugResponse::Status { version, active_sessions, .. } => {
+            DebugResponse::Status { version, .. } => {
                 assert_eq!(version, "1.0.0");
-                assert!(active_sessions >= 0);
             }
             _ => panic!("Expected Status response"),
         }
