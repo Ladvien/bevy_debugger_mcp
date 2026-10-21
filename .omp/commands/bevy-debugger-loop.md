@@ -69,7 +69,7 @@ Then stop.
 
 ## Phase 0: Orient (keep it brief)
 
-1. **Check the host.** Check free memory and whether other heavy jobs are running (`free -g`, `uptime`, `ps -eo pid,rss,cmd --sort=-rss | head`). Run every cargo command in this iteration under a memory cap, for example `systemd-run --user --scope -p MemoryMax=10G cargo test -j 3`. If the host is under pressure, lower `-j`. If it is clearly overloaded, wait or stop and report.
+1. **Check the host.** Check free memory and whether other heavy jobs are running (`free -g`, `uptime`, `ps -eo pid,rss,cmd --sort=-rss | head`). Run every cargo command in this iteration under a capped scope, for example `systemd-run --user --scope -p MemoryMax=10G cargo test -j 3`. If the host is under pressure, lower `-j`. If it is clearly overloaded, wait or stop and report.
 2. **Read the repo.** Read `AGENTS.md` and `CLAUDE.md`. Treat their factual claims about behaviour as hypotheses to verify, not truth; this CLAUDE.md has been wrong before. Read `docs/loop/backlog.json`, the last 5 `LOG.md` entries, `docs/loop/metrics.json`, and `git log --oneline -20`. If the state files are missing, create them, and seed the backlog from "Seed backlog" at the end.
 3. **Run the baseline:**
    - build with default features and with each optional feature;
@@ -512,7 +512,7 @@ Must-fix: misleads <y/n>, blocks <y/n>, common/no workaround <y/n> — <evidence
 Fix: ... (root cause: ...) · Failing-first check: `path::test` (ground-truth | metamorphic | round-trip)
 
 ## Change: <title>
-Plan: <change> · Files: <...> · Goal: <one sentence> · Proof: <check or eval task>
+Plan: <change> · Files: <...> · Goal: <one sentence> · Proof: <check or eval task]
 Candidates considered: <the 2–3, one line each>
 
 ## Evidence
@@ -562,9 +562,21 @@ If `backlog.json` doesn't exist, seed it from the 2026-10-21 review. Confirm eac
    - Plugin comments cite 0.19 engine paths and `Last` instead of `RemoteLast`.
 10. **Old protocol.** rmcp 0.2.1 on MCP protocol 2024-11-05. The current spec is 2026-07-28. Make this its own iteration.
 11. **Ignored test.** `test_profiling_history` is ignored ("Frame history implementation needs refactoring"). Fix it or delete it along with the feature.
-12. **`observability` doesn't compile.** The ratchet measured 42 errors at `e93da67`, in `src/observability/`. `full-debugging` inherits it, so both features fail; the other 22 build. First check whether anything uses it; if not, delete it. Must-fix, ranked after items 1–3.
-13. **Clippy debt.** The ratchet measured 1462 warnings at `e93da67`, across 50 lints and 79 files: 937 `result_large_err`, 157 `unused_imports`, 72 `dead_code`, 52 `unused_variables`, 48 `field_reassign_with_default`. CI is red because it runs `-D warnings`. This is frozen in `known_red` in `metrics.json`; pay it down as files are touched.
+12. **`observability` doesn't compile.** `cargo build --all-features` fails with 48 errors at `e93da67`, 42 of them in `src/observability/`. First check whether anything uses it; if not, delete it. Must-fix, ranked after items 1–3.
+13. **Clippy debt.** About 707 default-level warnings at `e93da67`, 452 of them `result_large_err`. CI is red because it runs `-D warnings`. Freeze this in the ratchet and pay it down as files are touched.
 14. **Version drift.** The tree is at 0.2.0, crates.io at 0.1.8. `bevy_debugger_bevy` has never been published. Resolve with Phase 6, step 0.
+
+**Measured counts for items 12 and 13.** The seed text above is the 2026-10-21 review's wording and its
+numbers are rough. `scripts/ratchet.sh --record` measured the same tree at `e93da67`:
+
+- `observability`: **42** errors, not 48. `full-debugging` inherits the failure, so two features are
+  red and the other 22 build.
+- clippy: **1462** warnings across 50 lints and 79 files, not 707. 937 `result_large_err`,
+  157 `unused_imports`, 72 `dead_code`, 52 `unused_variables`, 48 `field_reassign_with_default`.
+
+The measured numbers are in `known_red` in `docs/loop/metrics.json`, and the ratchet compares against
+those. Trust `known_red` over the seed text when the two disagree, and record the difference in the
+iteration report.
 
 ## Before you stop: checklist
 
