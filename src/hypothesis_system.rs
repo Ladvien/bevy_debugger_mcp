@@ -7,7 +7,7 @@ use tracing::{debug, info, warn};
 // use rand_distr::{Distribution, Uniform}; // Currently unused, kept for future use
 
 use crate::brp_client::BrpClient;
-use crate::error::{Error, Result};
+use crate::error::{BoxedResult, Error, Result};
 use crate::experiment_system::{Action, ActionExecutor};
 
 /// Represents a testable hypothesis about game behavior
@@ -223,7 +223,7 @@ impl Assertion {
                     Ok(true)
                 }
                 Self::PerformanceWithin { metric, max_value } => {
-                    let current = metric.measure(brp_client).await?;
+                    let current = metric.measure(brp_client).await.map_err(Error::from)?;
                     Ok(current <= *max_value)
                 }
                 Self::ActionSucceeds { action } => {
@@ -293,7 +293,7 @@ impl PerformanceMetric {
     /// way to be observed from here, so they are refused with a reason rather than answered with
     /// a number. A number that was made up looks exactly like a measurement to the agent reading
     /// it, and the agent has no way to tell the difference.
-    pub async fn measure(&self, brp_client: &mut BrpClient) -> Result<f64> {
+    pub async fn measure(&self, brp_client: &mut BrpClient) -> BoxedResult<f64> {
         match self {
             Self::EntityCount | Self::ComponentCount => {
                 let entities = query_entities(brp_client).await?;
@@ -306,44 +306,46 @@ impl PerformanceMetric {
                     _ => unreachable!("the arm above is the only one that reaches here"),
                 })
             }
-            Self::FrameTime => Err(Error::Validation(
+            Self::FrameTime => Err(Box::new(Error::Validation(
                 "frame time cannot be measured over BRP: the protocol reports no timing. Use the \
                  game's own timing, or assert on a component value instead."
                     .to_string(),
-            )),
-            Self::MemoryUsage => Err(Error::Validation(
+            ))),
+            Self::MemoryUsage => Err(Box::new(Error::Validation(
                 "memory usage cannot be measured over BRP: the protocol reports no process \
                  statistics. Use the game's own resource, or assert on a component value instead."
                     .to_string(),
-            )),
-            Self::CpuUsage => Err(Error::Validation(
+            ))),
+            Self::CpuUsage => Err(Box::new(Error::Validation(
                 "CPU usage cannot be measured over BRP: the protocol reports no process \
                  statistics. Use the game's own resource, or assert on a component value instead."
                     .to_string(),
-            )),
+            ))),
         }
     }
 }
 
 /// Ask the game for its entities, so a count comes from the game rather than from a constant.
-async fn query_entities(brp_client: &mut BrpClient) -> Result<Vec<crate::brp::EntityData>> {
+async fn query_entities(
+    brp_client: &mut BrpClient,
+) -> BoxedResult<Vec<crate::brp::EntityData>> {
     let request = crate::brp::BrpRequest {
         method: crate::brp::builtin_methods::BRP_QUERY_METHOD.to_string(),
         id: None,
         params: Some(crate::brp::query_params(None, true)),
     };
-    let response = brp_client.send_request(&request).await?;
+    let response = brp_client.send_request(&request).await.map_err(Box::new)?;
     match response.payload {
         crate::brp::BrpPayload::Result(value) => {
             crate::brp::entity_data_from_query_result(&value).ok_or_else(|| {
-                Error::Validation(
+                Box::new(Error::Validation(
                     "the game answered world.query with a shape this server cannot read an \
                      entity list from"
                         .to_string(),
-                )
+                ))
             })
         }
-        crate::brp::BrpPayload::Error(error) => Err(Error::Brp(error.message)),
+        crate::brp::BrpPayload::Error(error) => Err(Box::new(Error::Brp(error.message))),
     }
 }
 

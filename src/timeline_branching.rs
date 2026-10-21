@@ -865,6 +865,7 @@ mod tests {
                 timestamp: Duration::from_secs(0),
                 entities: std::collections::HashMap::new(),
                 events: Vec::new(),
+                events_not_captured: None,
                 checksum: None,
             }],
             delta_frames: Vec::new(),

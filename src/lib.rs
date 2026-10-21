@@ -27,7 +27,12 @@
 //! ```
 //!
 //! 2. **Enable the debugger in your game:**
-//! ```rust,no_run
+//!
+//! This example belongs to the *game*, not to this crate: it uses `bevy` and
+//! `bevy_debugger_bevy`, neither of which this server crate depends on by default, so it is
+//! shown rather than compiled.
+//!
+//! ```text
 //! use bevy::prelude::*;
 //! use bevy::remote::http::RemoteHttpPlugin;
 //! use bevy_debugger_bevy::DebuggerPlugin;

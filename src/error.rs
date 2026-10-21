@@ -4,6 +4,19 @@ use std::time::{SystemTime, UNIX_EPOCH};
 
 pub type Result<T> = std::result::Result<T, Error>;
 
+/// A `Result` whose error is boxed by default.
+///
+/// `Error` carries `reqwest::Error`, which is large, so a function returning `Result<T, Error>`
+/// by value is a `clippy::result_large_err` site. Boxing keeps the returned error small without
+/// changing what the caller sees: the `Box` is transparent through `Display` and `Error`.
+pub type BoxedResult<T, E = Box<Error>> = std::result::Result<T, E>;
+
+impl From<Box<Error>> for Error {
+    fn from(boxed: Box<Error>) -> Self {
+        *boxed
+    }
+}
+
 /// Rich error context for debugging and recovery
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ErrorContext {

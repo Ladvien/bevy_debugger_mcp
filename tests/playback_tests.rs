@@ -21,6 +21,7 @@ async fn test_playback_controller_lifecycle() {
                 timestamp: Duration::from_secs(0),
                 entities: HashMap::new(),
                 events: Vec::new(),
+                events_not_captured: None,
                 checksum: None,
             },
             Frame {
@@ -28,6 +29,7 @@ async fn test_playback_controller_lifecycle() {
                 timestamp: Duration::from_secs(1),
                 entities: HashMap::new(),
                 events: Vec::new(),
+                events_not_captured: None,
                 checksum: None,
             },
         ],
@@ -120,6 +122,7 @@ async fn test_frame_interpolation() {
         timestamp: Duration::from_secs(0),
         entities: HashMap::new(),
         events: Vec::new(),
+        events_not_captured: None,
         checksum: None,
     };
 
@@ -128,6 +131,7 @@ async fn test_frame_interpolation() {
         timestamp: Duration::from_secs(10),
         entities: HashMap::new(),
         events: Vec::new(),
+        events_not_captured: None,
         checksum: None,
     };
 
@@ -195,6 +199,7 @@ async fn test_step_operations() {
             timestamp: Duration::from_secs(i as u64),
             entities: HashMap::new(),
             events: Vec::new(),
+            events_not_captured: None,
             checksum: None,
         });
     }
@@ -243,6 +248,7 @@ async fn test_seek_to_marker() {
             timestamp: Duration::from_secs(0),
             entities: HashMap::new(),
             events: Vec::new(),
+            events_not_captured: None,
             checksum: None,
         }],
         delta_frames: Vec::new(),
@@ -281,6 +287,7 @@ async fn test_interpolated_sync_strategy() {
         timestamp: Duration::from_secs(0),
         entities: HashMap::new(),
         events: Vec::new(),
+        events_not_captured: None,
         checksum: None,
     };
 

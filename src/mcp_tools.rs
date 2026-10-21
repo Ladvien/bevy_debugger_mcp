@@ -308,10 +308,6 @@ pub struct SceneRequest {
 }
 
 // Default value functions
-fn default_confidence() -> f32 { 0.8 }
-fn default_sensitivity() -> f32 { 0.7 }
-fn default_intensity() -> u8 { 5 }
-fn default_duration() -> f32 { 10.0 }
 fn default_speed() -> f32 { 1.0 }
 
 /// Centralized tool schema definitions for better discoverability
