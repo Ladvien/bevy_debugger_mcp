@@ -731,6 +731,7 @@ mod tests {
             timestamp: Duration::from_secs(0),
             entities: Default::default(),
             events: Vec::new(),
+            events_not_captured: None,
             checksum: None,
         };
 
@@ -739,6 +740,7 @@ mod tests {
             timestamp: Duration::from_secs(1),
             entities: Default::default(),
             events: Vec::new(),
+            events_not_captured: None,
             checksum: None,
         };
 

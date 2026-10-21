@@ -26,6 +26,14 @@ pub struct Frame {
     pub entities: HashMap<u64, EntityState>,
     /// Events that occurred in this frame
     pub events: Vec<RecordedEvent>,
+    /// Why the event list is empty, when it is empty because events were not captured.
+    ///
+    /// BRP has no method that reports the events a game has seen, so the event list is always
+    /// empty. Without this field a reader could not tell an empty list meaning "nothing happened"
+    /// from one meaning "we cannot see events", and would draw the wrong conclusion from a
+    /// recording.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub events_not_captured: Option<String>,
     /// Frame checksum for validation
     pub checksum: Option<String>,
 }
@@ -136,7 +144,10 @@ impl RecordingBuffer {
         info!("Starting recording with {} fps", self.config.sample_rate);
         self.recording = true;
         self.start_time = Some(Instant::now());
-        self.last_frame_time = Some(Instant::now());
+        // `last_frame_time` stays `None`, so the first frame is recorded straight away. Setting it
+        // here made the first frame skip itself as "too soon", and a recording that starts with no
+        // frame is a recording that starts with nothing.
+        self.last_frame_time = None;
         self.frame_counter = 0;
         self.frames.clear();
         self.delta_frames.clear();
@@ -188,6 +199,9 @@ impl RecordingBuffer {
             timestamp,
             entities,
             events,
+            events_not_captured: Some(
+                "BRP reports no events, so this recording holds entity states only".to_string(),
+            ),
             checksum: None,
         };
 
@@ -213,8 +227,10 @@ impl RecordingBuffer {
             self.frames.push_back(frame.clone());
         }
 
-        // Store every Nth frame as full frame for seeking
-        if self.frame_counter % 30 == 0 {
+        // Store every Nth frame as full frame for seeking. The first frame is already stored
+        // above, so it is not stored twice: a recording that starts with one frame should hold one
+        // frame, not two copies of it.
+        if self.frame_counter > 0 && self.frame_counter % 30 == 0 {
             if self.frames.len() >= self.config.max_buffer_size / 30 {
                 self.frames.pop_front();
             }
@@ -324,28 +340,59 @@ impl RecordingBuffer {
         })
     }
 
-    /// Fetch current entity states from the game
+    /// Fetch current entity states from the game.
+    ///
+    /// The entity list comes from `world.query`, so what is recorded is what the game holds at
+    /// that moment.
     async fn fetch_entities(
         &self,
-        _brp_client: &mut BrpClient,
+        brp_client: &mut BrpClient,
     ) -> Result<HashMap<u64, EntityState>> {
-        // This would query the game for all entities and their components
-        // For now, return a placeholder
         debug!("Fetching entity states");
 
-        // TODO: Implement actual entity fetching from BRP
-        // This requires implementing entity query in BRP messages
-        Ok(HashMap::new())
+        let request = crate::brp::BrpRequest {
+            method: crate::brp::builtin_methods::BRP_QUERY_METHOD.to_string(),
+            id: None,
+            params: Some(crate::brp::query_params(None, true)),
+        };
+        let response = brp_client.send_request(&request).await?;
+        let entities = match response.payload {
+            crate::brp::BrpPayload::Result(value) => crate::brp::entity_data_from_query_result(&value)
+                .ok_or_else(|| {
+                    Error::Validation(
+                        "the game answered world.query with a shape this server cannot read an \
+                         entity list from"
+                            .to_string(),
+                    )
+                })?,
+            crate::brp::BrpPayload::Error(error) => {
+                return Err(Error::Brp(error.message));
+            }
+        };
+
+        Ok(entities
+            .into_iter()
+            .map(|entity| {
+                (
+                    entity.id,
+                    EntityState {
+                        entity_id: entity.id,
+                        components: entity.components,
+                        active: true,
+                    },
+                )
+            })
+            .collect())
     }
 
-    /// Fetch recent events from the game
+    /// Fetch recent events from the game.
+    ///
+    /// BRP has no method that reports the events a game has seen, so there is nothing to fetch.
+    /// The recording keeps an empty event list, and says so in the frame it produces, rather than
+    /// leaving the caller to believe the events were captured and there were none.
     async fn fetch_events(&self, _brp_client: &mut BrpClient) -> Result<Vec<RecordedEvent>> {
-        // This would query the game for recent events
-        // For now, return empty
         debug!("Fetching events");
 
-        // TODO: Implement actual event fetching from BRP
-        // This requires implementing event query in BRP messages
         Ok(Vec::new())
     }
 
@@ -411,6 +458,15 @@ impl RecordingBuffer {
         hasher.update(&frame_bytes);
 
         format!("{:x}", hasher.finalize())
+    }
+
+    /// The frames recorded so far, oldest first.
+    ///
+    /// Without this, nothing outside the buffer can see what a recording holds: the `replay` tool
+    /// reports a frame count but cannot say what was in the frames, and a caller has no way to
+    /// check that the recording captured anything.
+    pub fn get_frames(&self) -> Vec<Frame> {
+        self.frames.iter().cloned().collect()
     }
 
     /// Get current recording statistics
@@ -678,6 +734,7 @@ mod tests {
             timestamp: Duration::from_secs(0),
             entities: HashMap::new(),
             events: Vec::new(),
+            events_not_captured: None,
             checksum: None,
         };
 
@@ -696,6 +753,7 @@ mod tests {
             timestamp: Duration::from_secs(1),
             entities: HashMap::new(),
             events: Vec::new(),
+            events_not_captured: None,
             checksum: None,
         };
 
@@ -746,6 +804,7 @@ mod tests {
                 timestamp: Duration::from_secs(0),
                 entities: HashMap::new(),
                 events: Vec::new(),
+                events_not_captured: None,
                 checksum: None,
             }],
             delta_frames: Vec::new(),

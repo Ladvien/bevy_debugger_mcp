@@ -149,6 +149,11 @@ async fn handle_record(arguments: Value, brp_client: Arc<RwLock<BrpClient>>) -> 
             "compression": compression,
             "checksums": checksums,
         },
+        "captures": ["entity states"],
+        "not_captured": {
+            "events": "BRP reports no events, so the recording holds entity states only. An empty \
+                       event list in a frame means \"not observable\", not \"nothing happened\"."
+        },
         "timestamp": chrono::Utc::now().to_rfc3339()
     }))
 }
@@ -167,6 +172,11 @@ async fn handle_stop(_arguments: Value, _brp_client: Arc<RwLock<BrpClient>>) -> 
 
     buffer.stop_recording();
     let stats = buffer.get_stats();
+    let frames = buffer.get_frames();
+    // What the recording actually holds, so a caller can see it is not empty and can see what it
+    // left out.
+    let entities_recorded: usize = frames.iter().map(|frame| frame.entities.len()).sum();
+    let frames_with_entities = frames.iter().filter(|frame| !frame.entities.is_empty()).count();
 
     Ok(json!({
         "success": true,
@@ -175,6 +185,13 @@ async fn handle_stop(_arguments: Value, _brp_client: Arc<RwLock<BrpClient>>) -> 
             "frame_count": stats.frame_count,
             "duration_seconds": stats.duration.as_secs(),
             "marker_count": stats.marker_count,
+            "entities_recorded": entities_recorded,
+            "frames_with_entities": frames_with_entities,
+        },
+        "captures": ["entity states"],
+        "not_captured": {
+            "events": "BRP reports no events, so the recording holds entity states only. An empty \
+                       event list in a frame means \"not observable\", not \"nothing happened\"."
         },
         "timestamp": chrono::Utc::now().to_rfc3339()
     }))
