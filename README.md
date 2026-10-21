@@ -355,51 +355,61 @@ lsof -i :3001  # or your configured port
 
 ### Setup Your Bevy Game
 
-Add the RemotePlugin to your Bevy app:
+Add the `DebuggerPlugin` to your Bevy app. It owns the BRP `RemotePlugin`, so **never add a
+second `RemotePlugin` next to it** — Bevy rejects a duplicate plugin by name, and the game panics
+on start. Add a transport instead, such as `RemoteHttpPlugin`.
 
 ```rust
 use bevy::prelude::*;
-use bevy::remote::{RemotePlugin, BrpResult};
-use bevy::render::view::screenshot::{save_to_disk, Screenshot};
-use serde_json::Value;
+use bevy::remote::http::RemoteHttpPlugin;
+use bevy_debugger_bevy::DebuggerPlugin;
 
 fn main() {
     App::new()
         .add_plugins(DefaultPlugins)
-        .add_plugins(
-            RemotePlugin::default()
-                .with_method("bevy_debugger/screenshot", screenshot_handler)
-        )
+        // Owns the BRP RemotePlugin. Never add a second RemotePlugin next to it.
+        .add_plugins(DebuggerPlugin::default())
+        .add_plugins(RemoteHttpPlugin::default())
         .run();
 }
-
-// Enable screenshot functionality
-fn screenshot_handler(
-    In(params): In<Option<Value>>, 
-    mut commands: Commands,
-) -> BrpResult {
-    let path = params
-        .as_ref()
-        .and_then(|p| p.get("path"))
-        .and_then(|p| p.as_str())
-        .unwrap_or("./screenshot.png")
-        .to_string();
-
-    commands
-        .spawn(Screenshot::primary_window())
-        .observe(save_to_disk(path.clone()));
-    
-    Ok(serde_json::json!({
-        "path": path,
-        "success": true
-    }))
-}
 ```
+
+`DebuggerPlugin` needs `bevy::input::InputPlugin` in the app. `DefaultPlugins` includes it;
+`MinimalPlugins` does not.
 
 ```toml
 # Cargo.toml
 [dependencies]
-bevy = { version = "0.16", features = ["default", "bevy_remote"] }
+bevy = { version = "0.20", features = ["default"] }
+bevy_debugger_bevy = "0.2"
+```
+
+The plugin registers the BRP methods itself: `bevy_debugger/status`, `bevy_debugger/commands`,
+`bevy_debugger/screenshot`, `bevy_debugger/capture`, `bevy_debugger/input`, `bevy_debugger/scene`,
+`bevy_debugger/time` and `bevy_debugger/quit`. Do not register them by hand.
+
+To let an agent drive the game, register your own commands with `add_debug_command` — the game
+tells the agent what they are, with their parameters and an example:
+
+```rust
+use bevy_debugger_bevy::{DebugCommandInfo, DebugCommandsAppExt, DebuggerPlugin};
+
+fn main() {
+    App::new()
+        .add_plugins(DefaultPlugins)
+        .add_plugins(DebuggerPlugin::default())
+        .add_plugins(RemoteHttpPlugin::default())
+        .add_debug_command(
+            DebugCommandInfo::new("demo/spawn_cube", "Spawn a unit cube at a point.")
+                .params("at: [x, y, z] in metres")
+                .example(serde_json::json!({"at": [0.0, 0.0, 0.0]})),
+            |In(p): In<SpawnCube>, mut commands: Commands| -> Result<serde_json::Value, String> {
+                commands.spawn(Transform::from_translation(Vec3::from(p.at)));
+                Ok(serde_json::json!({"spawned": true}))
+            },
+        )
+        .run();
+}
 ```
 
 ### Start Debugging

@@ -19,21 +19,25 @@
 //!
 //! ## Quick Start
 //!
-//! 1. **Add BRP to your Bevy game:**
+//! 1. **Add the debugger plugin to your Bevy game:**
 //! ```toml
 //! [dependencies]
-//! bevy = { version = "0.12", features = ["bevy_remote_protocol"] }
+//! bevy = { version = "0.20", features = ["default"] }
+//! bevy_debugger_bevy = "0.2"
 //! ```
 //!
-//! 2. **Enable BRP in your game:**
+//! 2. **Enable the debugger in your game:**
 //! ```rust,no_run
 //! use bevy::prelude::*;
-//! use bevy::remote::RemotePlugin;
+//! use bevy::remote::http::RemoteHttpPlugin;
+//! use bevy_debugger_bevy::DebuggerPlugin;
 //!
 //! fn main() {
 //!     App::new()
 //!         .add_plugins(DefaultPlugins)
-//!         .add_plugins(RemotePlugin::default())
+//!         // Owns the BRP RemotePlugin. Never add a second RemotePlugin next to it.
+//!         .add_plugins(DebuggerPlugin::default())
+//!         .add_plugins(RemoteHttpPlugin::default())
 //!         .run();
 //! }
 //! ```

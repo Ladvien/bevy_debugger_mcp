@@ -42,7 +42,15 @@ The whole reason this exists is that capturing a window requires raising it (ste
 
 So:
 
-- **Capture reads an `Image` a camera renders to, never the window surface.** `bevy_debugger/screenshot` fails loudly when `DebugCaptureTarget` is absent rather than falling back to window capture — the fallback *is* the focus-stealing path.
+- **Capture never reaches outside the game.** It reads either an `Image` a camera renders to
+  (`offscreen`) or the game's own swapchain (`window`) — both are the game's own pixels, and
+  neither raises, focuses or captures the screen the way a window manager would. `bevy_debugger/
+  screenshot` asks for `offscreen` when a `DebugCaptureTarget` is present, and falls back to
+  `window` when it is not; an explicit `source: "offscreen"` with no target fails loudly. The
+  fallback is not a focus-stealing path, but it is a weaker one: the OS keeps a window's surface
+  current only while the window is on screen, so a covered or minimised window can give a stale
+  frame, and on macOS an unfocused window has been measured to give one flat colour. A host that
+  wants a capture that is always fresh inserts the target and lets the default stand.
 - **Input writes into Bevy's own input message stream**, inside the game process — the same
   `Messages<KeyboardInput>` / `Messages<MouseButtonInput>` buffers `bevy_winit` appends to.
 

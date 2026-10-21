@@ -1,241 +1,111 @@
 # Screenshot Setup Guide
 
-The Bevy Debugger MCP now supports taking window-specific screenshots of your Bevy game, perfect for visual debugging and documentation.
+The Bevy Debugger MCP captures what your Bevy game renders, without reaching outside the game.
 
-## Why Use Game Window Screenshots?
+## What it captures
 
-Instead of capturing the entire screen (which includes your IDE, browser, and other windows), the MCP screenshot tool captures exactly what your Bevy game is rendering. This provides:
+There are two sources, and the plugin picks between them:
 
-- **Precise capture**: Only the game window, no desktop clutter
-- **Works when occluded**: Captures even if the window is covered or minimized
-- **Consistent results**: Always captures the same content regardless of screen setup
+- **offscreen** — an `Image` that one of your cameras renders to. This is the default when you
+  insert a `DebugCaptureTarget`, and it is the source to use. It works while the game is behind
+  other windows, on another Space, or minimised, and it never touches the screen.
+- **window** — the game's own primary window surface. This is the default when there is no
+  `DebugCaptureTarget`. It includes the UI drawn to the window, and it does not raise or focus
+  the window, but the operating system only keeps a window's surface current while the window is
+  on screen. A covered or minimised window can give a stale frame, and on macOS an unfocused
+  window has been measured to give a single flat colour.
+
+Neither source is a screen capture. There is no window manager, no focus change, and no
+screenshot of your desktop.
 
 ## Setup Instructions
 
-### 1. Update Your Bevy Dependencies
-
-Make sure you're using Bevy 0.16+ with the `bevy_remote` feature:
+### 1. Update your Bevy dependencies
 
 ```toml
 # Cargo.toml
 [dependencies]
-bevy = { version = "0.16", features = ["default", "bevy_remote"] }
+bevy = { version = "0.20", features = ["default"] }
+bevy_debugger_bevy = "0.2"
 ```
 
-### 2. Add Screenshot Support to Your Game
+### 2. Add the plugin to your game
 
-Update your Bevy app to include the screenshot handler:
+`DebuggerPlugin` owns the BRP `RemotePlugin`, so **never add a second `RemotePlugin` next to it** —
+Bevy rejects a duplicate plugin by name, and the game panics on start. Add a transport instead.
 
 ```rust
 use bevy::prelude::*;
-use bevy::remote::{RemotePlugin, BrpResult};
-use bevy::render::view::screenshot::{save_to_disk, Screenshot};
-use serde_json::Value;
+use bevy::remote::http::RemoteHttpPlugin;
+use bevy_debugger_bevy::DebuggerPlugin;
 
 fn main() {
     App::new()
         .add_plugins(DefaultPlugins)
-        .add_plugins(
-            RemotePlugin::default()
-                // Add the custom screenshot method
-                .with_method("bevy_debugger/screenshot", screenshot_handler)
-        )
-        // Your existing systems...
+        // Owns the BRP RemotePlugin. Never add a second RemotePlugin next to it.
+        .add_plugins(DebuggerPlugin::default())
+        .add_plugins(RemoteHttpPlugin::default())
         .run();
 }
-
-/// Custom BRP handler for screenshot requests from the debugger
-fn screenshot_handler(
-    In(params): In<Option<Value>>, 
-    mut commands: Commands,
-) -> BrpResult {
-    // Parse the path parameter from MCP request
-    let path = params
-        .as_ref()
-        .and_then(|p| p.get("path"))
-        .and_then(|p| p.as_str())
-        .unwrap_or("./screenshot.png")
-        .to_string();
-
-    println!("Screenshot requested via BRP: {}", path);
-    
-    // Use Bevy's built-in screenshot system
-    commands
-        .spawn(Screenshot::primary_window())
-        .observe(save_to_disk(path.clone()));
-    
-    // Return success response
-    Ok(serde_json::json!({
-        "path": path,
-        "success": true
-    }))
-}
 ```
 
-### 3. Restart Your Game
+The plugin registers `bevy_debugger/screenshot` and `bevy_debugger/capture` itself. Do not
+register them by hand: adding them again adds a second `RemotePlugin`, and the game panics.
 
-After adding the screenshot handler, restart your Bevy game for the changes to take effect.
+### 3. Give the plugin something to capture
 
-## Usage Examples
-
-### Basic Screenshot
-
-```
-Human: Take a screenshot of the current game state
-
-Claude: I'll take a screenshot of your game window now.
-```
-
-This saves a screenshot as `./screenshot.png` in your project directory.
-
-### Custom Path Screenshot
-
-```
-Human: Take a screenshot and save it as "debug/player-position.png"
-
-Claude: I'll take a screenshot and save it to debug/player-position.png
-```
-
-This saves the screenshot to the specified path.
-
-### Screenshot for Bug Reports
-
-```
-Human: I'm seeing a visual glitch with the UI. Can you take a screenshot so I can include it in a bug report?
-
-Claude: I'll take a screenshot to help document the visual issue you're seeing.
-```
-
-Perfect for capturing bugs, unexpected behavior, or documenting features.
-
-## Technical Details
-
-### How It Works
-
-1. **MCP Request**: When you ask for a screenshot, Claude sends a request to the MCP server
-2. **BRP Communication**: The MCP server sends a custom BRP request to your Bevy game
-3. **Bevy Screenshot**: Your game uses Bevy's built-in screenshot system to capture the primary window
-4. **File Save**: The screenshot is saved to the specified path using Bevy's `save_to_disk` observer
-5. **Response**: The MCP server confirms the screenshot was saved successfully
-
-### Supported Formats
-
-The screenshot system saves images in PNG format by default. The filename extension determines the format:
-
-- `.png` - PNG format (default)
-- `.jpg` or `.jpeg` - JPEG format  
-- `.bmp` - Bitmap format
-- `.tga` - Targa format
-
-### Error Handling
-
-If the screenshot fails (e.g., invalid path, permission issues), you'll receive a detailed error message explaining what went wrong.
-
-## Troubleshooting
-
-### "BRP client not connected" Error
-
-This means your Bevy game isn't running or the RemotePlugin isn't properly configured. Make sure:
-
-1. Your game is running with `cargo run`
-2. You've added `RemotePlugin` to your app
-3. The `bevy_remote` feature is enabled in Cargo.toml
-
-### "Screenshot request failed" Error
-
-This indicates an issue with the Bevy screenshot system. Check:
-
-1. The file path is valid and writable
-2. The directory exists (create it if needed)
-3. Your game has a primary window
-
-### Permission Errors
-
-If you get permission errors:
-
-1. Check that the target directory is writable
-2. Use an absolute path if having issues with relative paths
-3. Make sure the directory exists before taking the screenshot
-
-## Example: Complete Setup
-
-Here's a complete example showing how to set up a basic Bevy game with screenshot support:
+Without a `DebugCaptureTarget`, a capture falls back to the window source. To capture the game's
+own image, insert the target with the `Image` your camera renders to:
 
 ```rust
-use bevy::{
-    prelude::*,
-    remote::{RemotePlugin, BrpResult},
-    render::view::screenshot::{save_to_disk, Screenshot},
-};
-use serde_json::Value;
+use bevy::prelude::*;
+use bevy::render::view::RenderTarget;
+use bevy_debugger_bevy::{DebugCaptureTarget, DebuggerPlugin};
 
 fn main() {
     App::new()
         .add_plugins(DefaultPlugins)
-        // Enable remote debugging with screenshot support
-        .add_plugins(
-            RemotePlugin::default()
-                .with_method("bevy_debugger/screenshot", screenshot_handler)
-        )
+        .add_plugins(DebuggerPlugin::default())
+        .add_plugins(RemoteHttpPlugin::default())
         .add_systems(Startup, setup)
-        .add_systems(Update, rotate_cube)
         .run();
 }
 
 fn setup(
     mut commands: Commands,
-    mut meshes: ResMut<Assets<Mesh>>,
-    mut materials: ResMut<Assets<StandardMaterial>>,
+    mut images: ResMut<Assets<Image>>,
+    mut cameras: Query<&mut Camera>,
 ) {
-    // Camera
-    commands.spawn((
-        Camera3d::default(),
-        Transform::from_xyz(0.0, 0.0, 5.0),
-    ));
+    let size = Extent3d {
+        width: 1280,
+        height: 720,
+        depth_or_array_layers: 1,
+    }..;
+    let format = TextureFormat::Rgba8UnormSrgb;
+    let mut image = Image::new_fill(size, TextureDimension::D2, &[0; 4], format, RenderAssetUsages::default());
+    let handle = images.add(image);
 
-    // Cube
-    commands.spawn((
-        Mesh3d(meshes.add(Cuboid::new(1.0, 1.0, 1.0))),
-        MeshMaterial3d(materials.add(Color::srgb(0.8, 0.7, 0.6))),
-        Transform::default(),
-    ));
-
-    // Light
-    commands.spawn((
-        PointLight::default(),
-        Transform::from_xyz(4.0, 8.0, 4.0),
-    ));
-}
-
-fn rotate_cube(
-    time: Res<Time>,
-    mut query: Query<&mut Transform, With<Mesh3d>>,
-) {
-    for mut transform in &mut query {
-        transform.rotate_y(time.delta_secs() * 0.5);
+    for mut camera in &mut cameras {
+        camera.target = RenderTarget::Image(handle.clone());
     }
-}
-
-fn screenshot_handler(
-    In(params): In<Option<Value>>, 
-    mut commands: Commands,
-) -> BrpResult {
-    let path = params
-        .as_ref()
-        .and_then(|p| p.get("path"))
-        .and_then(|p| p.as_str())
-        .unwrap_or("./screenshot.png")
-        .to_string();
-
-    commands
-        .spawn(Screenshot::primary_window())
-        .observe(save_to_disk(path.clone()));
-    
-    Ok(serde_json::json!({
-        "path": path,
-        "success": true
-    }))
+    commands.insert_resource(DebugCaptureTarget { image: handle });
 }
 ```
 
-This creates a simple rotating cube that you can screenshot for testing the functionality.
+A camera that renders to an offscreen image draws no UI, because the UI is drawn to the window.
+Use the window source when the UI is what you need to see.
+
+## Using it from an agent
+
+The MCP server exposes this as the `screenshot` tool:
+
+```
+screenshot { "save_to": "shot.png", "source": "offscreen" }
+```
+
+`source` is `offscreen` or `window`. `region` crops, and `zoom` magnifies. The server polls
+`bevy_debugger/capture` until the PNG is ready and writes it to `save_to`.
+
+A capture that goes to the window is not flagged as possibly stale, because the server cannot know
+whether the window was on screen at the time. If that matters, insert a `DebugCaptureTarget` and
+use the offscreen source.
