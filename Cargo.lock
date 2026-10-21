@@ -1010,6 +1010,7 @@ dependencies = [
  "rmcp",
  "rmcp-macros",
  "rustc_version_runtime",
+ "schemars",
  "serde",
  "serde_json",
  "sha2",

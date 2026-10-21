@@ -97,7 +97,7 @@ impl HypothesisBuilder {
 }
 
 /// Testable assertion types
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, schemars::JsonSchema)]
 #[serde(tag = "type", rename_all = "snake_case")]
 pub enum Assertion {
     /// Entity exists with specific components
@@ -254,7 +254,7 @@ impl Assertion {
 }
 
 /// Predicate for matching component values
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, schemars::JsonSchema)]
 #[serde(tag = "type", rename_all = "snake_case")]
 pub enum Predicate {
     GreaterThan {
@@ -276,7 +276,7 @@ pub enum Predicate {
 }
 
 /// Performance metrics that can be measured
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, schemars::JsonSchema)]
 #[serde(rename_all = "snake_case")]
 pub enum PerformanceMetric {
     FrameTime,
@@ -301,7 +301,7 @@ impl PerformanceMetric {
 }
 
 /// Strategy for generating test variations
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, schemars::JsonSchema)]
 #[serde(tag = "type", rename_all = "snake_case")]
 pub enum VariationStrategy {
     /// No variations - run base test only

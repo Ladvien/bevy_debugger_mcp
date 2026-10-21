@@ -47,6 +47,10 @@ path = "src/main.rs"
 # MCP SDK for proper protocol implementation
 rmcp = { version = "0.2.1", features = ["server"] }
 rmcp-macros = "0.2.1"
+# The `JsonSchema` derive, so a handler's own types can be the source of a tool's advertised
+# schema. `rmcp` re-exports `schemars`, but a derive path needs the crate by name, and the
+# version here is the one `rmcp` already resolves (0.8.22) -- no second copy.
+schemars = "0.8"
 
 tokio = { version = "1", features = ["full"] }
 reqwest = { version = "0.12", default-features = false, features = ["json", "rustls-tls"] }

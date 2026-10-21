@@ -18,6 +18,7 @@ use schemars::JsonSchema;
 
 use crate::brp_client::BrpClient;
 use crate::tools::{observe, experiment, guide, hypothesis, anomaly, stress, replay};
+use crate::experiment_system::Action;
 use crate::brp::{BrpPayload, BrpRequest};
 use base64::Engine;
 use std::path::{Path, PathBuf};
@@ -68,40 +69,151 @@ pub struct GuideRequest {
     pub visible: Option<bool>,
 }
 
+/// `experiment`: run actions against the game. The fields here are the ones the handler reads.
+/// `action` picks the operation, `actions` is what it acts on. Before this struct was written the
+/// tool advertised `type`/`params`/`duration` and the handler read `action`/`actions`, so every
+/// call ran the default branch and the caller's intent was dropped.
 #[derive(Debug, Deserialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
 pub struct ExperimentRequest {
-    #[serde(rename = "type")]
-    pub experiment_type: String,
+    /// The operation to run. One of `execute`, `undo`, `redo`, `history`, `clear_history`,
+    /// `archetypes`.
+    pub action: String,
+    /// The actions to carry out. Required by `execute`; ignored by the other operations.
     #[serde(default)]
-    pub params: Value,
-    pub duration: Option<f32>,
+    pub actions: Vec<Action>,
 }
 
+/// `hypothesis`: state a claim and check it against the game. The handler reads `description` and
+/// `success_condition`; the tool used to send `hypothesis`/`confidence`/`context`, so the handler
+/// fell through to its default and then failed on a `description` the schema never advertised.
 #[derive(Debug, Deserialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
 pub struct HypothesisRequest {
-    pub hypothesis: String,
-    #[serde(default = "default_confidence")]
-    pub confidence: f32,
-    pub context: Option<Value>,
+    /// The operation to run. One of `test`, `quick_test`, `stress_test`, `validate`.
+    pub action: String,
+    /// What the claim is, in words. `test` and `quick_test` require it.
+    #[serde(default)]
+    pub description: Option<String>,
+    /// The condition that decides whether the claim held. `test` and `quick_test` require it.
+    #[serde(default)]
+    pub success_condition: Option<Value>,
+    /// The actions to try while testing the claim.
+    #[serde(default)]
+    pub actions: Vec<Action>,
+    /// How to vary the test between iterations. One of `none`, `random`, `parameter`, `scenario`.
+    #[serde(default)]
+    pub variation_type: Option<String>,
+    /// For `random`: the low end of the numeric range to vary over.
+    #[serde(default)]
+    pub numeric_min: Option<f64>,
+    /// For `random`: the high end of the numeric range to vary over.
+    #[serde(default)]
+    pub numeric_max: Option<f64>,
+    /// For `random`: the strings to vary over.
+    #[serde(default)]
+    pub string_pool: Option<Vec<String>>,
+    /// For `parameter`: which parameter to vary.
+    #[serde(default)]
+    pub parameter_name: Option<String>,
+    /// For `parameter`: the values to vary over.
+    #[serde(default)]
+    pub parameter_values: Option<Vec<Value>>,
+    /// How many times to run the test.
+    #[serde(default)]
+    pub iterations: Option<u64>,
+    /// How long the test may run, in seconds.
+    #[serde(default)]
+    pub timeout: Option<u64>,
+    /// The seed, so a run can be repeated exactly.
+    #[serde(default)]
+    pub seed: Option<u64>,
+    /// The confidence a result needs before it counts as confirmed.
+    #[serde(default)]
+    pub threshold: Option<f64>,
 }
 
+/// `detect_anomaly`: look for anomalies in the running game. The handler reads the thresholds below;
+/// the tool used to send `type`/`sensitivity`/`window`, none of which the handler reads, so every
+/// call ran with the default configuration and the caller's intent was dropped.
 #[derive(Debug, Deserialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
 pub struct AnomalyRequest {
-    #[serde(rename = "type")]
-    pub detection_type: String,
-    #[serde(default = "default_sensitivity")]
-    pub sensitivity: f32,
-    pub window: Option<f32>,
+    /// The operation to run. One of `detect`, `configure`, `start_monitoring`, `stop_monitoring`,
+    /// `status`.
+    pub action: String,
+    /// How many samples the window covers.
+    #[serde(default)]
+    pub window_size: Option<u64>,
+    /// The z-score above which a sample counts as anomalous.
+    #[serde(default)]
+    pub z_score_threshold: Option<f64>,
+    /// The IQR multiplier above which a sample counts as anomalous.
+    #[serde(default)]
+    pub iqr_multiplier: Option<f64>,
+    /// The fewest samples needed before a verdict is possible.
+    #[serde(default)]
+    pub min_samples: Option<u64>,
+    /// The frame time, in milliseconds, above which performance counts as anomalous.
+    #[serde(default)]
+    pub performance_threshold: Option<f64>,
+    /// The entity growth per sample above which the count counts as anomalous.
+    #[serde(default)]
+    pub entity_growth_threshold: Option<f64>,
+    /// The lowest severity to report. The handler reads this as a number.
+    #[serde(default)]
+    pub min_severity: Option<f64>,
+    /// How many anomalies to report at most.
+    #[serde(default)]
+    pub limit: Option<u64>,
 }
 
+/// `stress_test`: push the game until something breaks. The handler reads `test_type` as a string
+/// and `intensity` as a level; the tool sent `type` and a number, so every run was the default
+/// `spawn_many` at an intensity the handler could not read.
 #[derive(Debug, Deserialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
 pub struct StressTestRequest {
-    #[serde(rename = "type")]
-    pub test_type: String,
-    #[serde(default = "default_intensity")]
-    pub intensity: u8,
-    #[serde(default = "default_duration")]
-    pub duration: f32,
+    /// The operation to run. One of `run`, `quick`, `spawn_many`, `rapid_changes`,
+    /// `memory_pressure`, `combined`.
+    pub action: String,
+    /// The kind of stress to apply.
+    #[serde(default)]
+    pub test_type: Option<String>,
+    /// How hard to push. One of `low`, `medium`, `high`, `extreme`.
+    #[serde(default)]
+    pub intensity: Option<String>,
+    /// How long to push for, in seconds.
+    #[serde(default)]
+    pub duration: Option<f32>,
+    /// Whether to ramp the load up over the run instead of applying it at once.
+    #[serde(default)]
+    pub ramp_up: Option<bool>,
+    /// For `spawn_many`: the type of entity to spawn.
+    #[serde(default)]
+    pub entity_type: Option<String>,
+    /// For `spawn_many`: how many entities to spawn per second.
+    #[serde(default)]
+    pub spawn_rate: Option<u64>,
+    /// For `spawn_many`: the ceiling on live entities.
+    #[serde(default)]
+    pub max_entities: Option<u64>,
+    /// For `rapid_changes`: how many changes to make per second.
+    #[serde(default)]
+    pub change_rate: Option<u64>,
+    /// For `rapid_changes`: which components to change.
+    #[serde(default)]
+    pub component_types: Option<Vec<String>>,
+    /// For `rapid_changes`: which entities to change. All of them when absent.
+    #[serde(default)]
+    pub target_entities: Option<Vec<u64>>,
+    /// For `memory_pressure`: how much memory to aim for.
+    #[serde(default)]
+    pub target_memory_mb: Option<u64>,
+    /// For `memory_pressure`: how complex the spawned entities are.
+    #[serde(default)]
+    pub complexity: Option<String>,
+    /// Whether to report the per-step metrics as well as the summary.
     #[serde(default)]
     pub detailed_metrics: bool,
 }
@@ -446,16 +558,15 @@ impl BevyDebuggerTools {
     }
 
     /// Run controlled experiments on game state
-    #[tool(description = "Run controlled experiments on your Bevy game to test behavior and performance. Useful for reproducing bugs, testing edge cases, and validating fixes.")]
+    #[tool(description = "Run controlled experiments on your Bevy game: spawn, modify or delete entities and read back what changed. `action` picks the operation; `execute` carries the `actions` to run.")]
     pub async fn experiment(&self, Parameters(req): Parameters<ExperimentRequest>) -> Result<CallToolResult, McpError> {
-        debug!("Running experiment: {}", req.experiment_type);
-        
+        debug!("Running experiment action: {}", req.action);
+
         let arguments = serde_json::json!({
-            "type": req.experiment_type,
-            "params": req.params,
-            "duration": req.duration,
+            "action": req.action,
+            "actions": req.actions,
         });
-        
+
         match experiment::handle(arguments, self.brp_client.clone()).await {
             Ok(result) => Ok(CallToolResult::success(vec![Content::text(result.to_string())])),
             Err(e) => {
@@ -466,16 +577,27 @@ impl BevyDebuggerTools {
     }
 
     /// Test hypotheses about game behavior
-    #[tool(description = "Test hypotheses about game behavior and state. Helps validate assumptions and understand why certain behaviors occur.")]
+    #[tool(description = "Test a claim about your game against the running game. `action` picks the operation; `test` needs a `description` of the claim and a `success_condition` that decides it.")]
     pub async fn hypothesis(&self, Parameters(req): Parameters<HypothesisRequest>) -> Result<CallToolResult, McpError> {
-        debug!("Testing hypothesis: {}", req.hypothesis);
-        
+        debug!("Testing hypothesis action: {}", req.action);
+
         let arguments = serde_json::json!({
-            "hypothesis": req.hypothesis,
-            "confidence": req.confidence,
-            "context": req.context,
+            "action": req.action,
+            "description": req.description,
+            "success_condition": req.success_condition,
+            "actions": req.actions,
+            "variation_type": req.variation_type,
+            "numeric_min": req.numeric_min,
+            "numeric_max": req.numeric_max,
+            "string_pool": req.string_pool,
+            "parameter_name": req.parameter_name,
+            "parameter_values": req.parameter_values,
+            "iterations": req.iterations,
+            "timeout": req.timeout,
+            "seed": req.seed,
+            "threshold": req.threshold,
         });
-        
+
         match hypothesis::handle(arguments, self.brp_client.clone()).await {
             Ok(result) => Ok(CallToolResult::success(vec![Content::text(result.to_string())])),
             Err(e) => {
@@ -486,16 +608,22 @@ impl BevyDebuggerTools {
     }
 
     /// Detect anomalies in game behavior
-    #[tool(description = "Detect anomalies in game behavior, performance, and state. Automatically identifies issues like memory leaks, performance drops, and inconsistent state.")]
+    #[tool(description = "Detect anomalies in game behavior, performance, and state. `action` picks the operation; `detect` looks for the kind named in `detection_type`, with the thresholds below.")]
     pub async fn detect_anomaly(&self, Parameters(req): Parameters<AnomalyRequest>) -> Result<CallToolResult, McpError> {
-        debug!("Running anomaly detection: {}", req.detection_type);
-        
+        debug!("Running anomaly action: {}", req.action);
+
         let arguments = serde_json::json!({
-            "type": req.detection_type,
-            "sensitivity": req.sensitivity,
-            "window": req.window,
+            "action": req.action,
+            "window_size": req.window_size,
+            "z_score_threshold": req.z_score_threshold,
+            "iqr_multiplier": req.iqr_multiplier,
+            "min_samples": req.min_samples,
+            "performance_threshold": req.performance_threshold,
+            "entity_growth_threshold": req.entity_growth_threshold,
+            "min_severity": req.min_severity,
+            "limit": req.limit,
         });
-        
+
         match anomaly::handle(arguments, self.brp_client.clone()).await {
             Ok(result) => Ok(CallToolResult::success(vec![Content::text(result.to_string())])),
             Err(e) => {
@@ -506,17 +634,27 @@ impl BevyDebuggerTools {
     }
 
     /// Run stress tests
-    #[tool(description = "Run stress tests to find performance limits and bottlenecks. Helps identify when and why your game starts to lag or consume excessive resources.")]
+    #[tool(description = "Run stress tests to find performance limits and bottlenecks. `action` picks the operation; `run` applies the kind named in `test_type` at the `intensity` level.")]
     pub async fn stress_test(&self, Parameters(req): Parameters<StressTestRequest>) -> Result<CallToolResult, McpError> {
-        info!("Starting stress test: {} at intensity {}", req.test_type, req.intensity);
-        
+        info!("Starting stress test action: {}", req.action);
+
         let arguments = serde_json::json!({
-            "type": req.test_type,
+            "action": req.action,
+            "test_type": req.test_type,
             "intensity": req.intensity,
             "duration": req.duration,
+            "ramp_up": req.ramp_up,
+            "entity_type": req.entity_type,
+            "spawn_rate": req.spawn_rate,
+            "max_entities": req.max_entities,
+            "change_rate": req.change_rate,
+            "component_types": req.component_types,
+            "target_entities": req.target_entities,
+            "target_memory_mb": req.target_memory_mb,
+            "complexity": req.complexity,
             "detailed_metrics": req.detailed_metrics,
         });
-        
+
         match stress::handle(arguments, self.brp_client.clone()).await {
             Ok(result) => Ok(CallToolResult::success(vec![Content::text(result.to_string())])),
             Err(e) => {

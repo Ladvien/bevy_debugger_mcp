@@ -11,7 +11,7 @@ use crate::error::Result;
 use crate::experiment_system::{Action, ActionExecutor, ComponentSpec};
 
 /// Types of stress tests available
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, schemars::JsonSchema)]
 #[serde(rename_all = "snake_case")]
 pub enum StressTestType {
     /// Spawn many entities rapidly
@@ -36,7 +36,7 @@ pub enum StressTestType {
 }
 
 /// Complexity level for memory pressure tests
-#[derive(Debug, Clone, Copy, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, schemars::JsonSchema)]
 #[serde(rename_all = "snake_case")]
 pub enum ComplexityLevel {
     Low,
@@ -58,7 +58,7 @@ impl ComplexityLevel {
 }
 
 /// Intensity level for stress tests
-#[derive(Debug, Clone, Copy, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, schemars::JsonSchema)]
 #[serde(rename_all = "snake_case")]
 pub enum IntensityLevel {
     Low,

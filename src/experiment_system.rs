@@ -11,7 +11,7 @@ use crate::brp_messages::{
 use crate::error::{Error, Result};
 
 /// Action types for state manipulation
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, schemars::JsonSchema)]
 #[serde(tag = "type", rename_all = "snake_case")]
 pub enum Action {
     /// Spawn a new entity with specified components
@@ -36,7 +36,7 @@ pub enum Action {
 }
 
 /// Component specification for spawn/modify actions
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, schemars::JsonSchema)]
 pub struct ComponentSpec {
     pub type_id: ComponentTypeId,
     pub value: ComponentValue,
