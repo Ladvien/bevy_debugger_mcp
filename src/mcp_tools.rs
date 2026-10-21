@@ -323,10 +323,22 @@ pub struct BevyDebuggerTools {
 
 impl BevyDebuggerTools {
     pub fn new(brp_client: Arc<RwLock<BrpClient>>) -> Self {
-        Self { 
+        Self {
             brp_client,
             tool_router: Self::tool_router(),
         }
+    }
+
+    /// The names of the tools this server registers.
+    ///
+    /// The instructions and the docs name tools, and a name that is not registered sends an agent
+    /// to nothing. This is how a check finds out.
+    pub fn tool_names() -> Vec<String> {
+        Self::tool_router()
+            .list_all()
+            .into_iter()
+            .map(|tool| tool.name.to_string())
+            .collect()
     }
 }
 
@@ -478,8 +490,15 @@ pub const COLLABORATION_PROTOCOL: &str =
                  `run` for each step. `screenshot` saves a PNG on this machine, `scene save` writes the \
                  commands you ran to a replayable file, `brp` calls any Bevy Remote Protocol method, and \
                  `quit` closes the game.\n\n\
-                 INSPECTING THE GAME: `observe`/`hypothesis`/`detect_anomaly` inspect it, `experiment`/\
-                 `stress_test` poke it, `replay` re-runs it.\n\n\
+                 INSPECTING THE GAME: `observe` reads the game's state. `detect_anomaly` looks for \
+                 anomalies in it. `hypothesis` tests a claim about it -- it needs a `description` of \
+                 the claim and a `success_condition` that decides it, or it cannot run. \
+                 `experiment` changes it (spawn, modify, delete) and needs the `actions` to carry \
+                 out. `stress_test` pushes it until something breaks. `replay` records and replays \
+                 what it holds.\n\n\
+                 Every one of these takes an `action` that picks what to do, and each has its own \
+                 action names -- read them from the tool's schema. A tool asked for something it \
+                 cannot do says so; it does not answer with a default.\n\n\
                  WORKING WITH THE PERSON AT THE KEYBOARD:\n\
                  `guide` is different from the rest -- it talks to the human, not the game. It \
                  draws one instruction at a time on their own window and watches for the state it \
