@@ -1,0 +1,1 @@
+- 2026-10-21 e93da67 seed: loop state created from the 2026-10-21 crate review and literature critique — no release — [critique](2026-10-21-bevy-debugger-mcp-loop-literature-critique.md)
