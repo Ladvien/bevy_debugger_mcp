@@ -105,7 +105,7 @@ The loop began with `main` already red:
 Fixing all of that first would hold back the tools that actively mislead agents. So old debt is frozen and ratcheted down, not used to block every iteration.
 
 **Recording the baseline.** `scripts/ratchet.sh` (or an equivalent `xtask`) records in `metrics.json`, under `known_red`:
-- per feature: does it build, and how many errors (`cargo check --features <f> --message-format=json`);
+- per feature: does it build, and how many errors (`cargo build --features <f> --message-format=json`);
 - clippy warnings, counted per lint and per file (`--message-format=json`);
 - failing or ignored tests, by name.
 
@@ -117,6 +117,12 @@ scripts/ratchet.sh --record     # measure, then write the known_red block of met
 scripts/ratchet.sh               # gate: fail when anything got worse
 scripts/ratchet.sh src/a.rs ...  # gate, and require the named files to be clippy-clean
 ```
+
+**One deviation from the description above, and why.** The per-feature sweep uses
+`cargo check --features <f>` rather than `cargo build --features <f>`. Both report the same compile
+errors, so the recorded counts are the same, but `check` skips codegen and linking. Building all
+24 features was OOM-killed twice on this shared host; checking them fits. If a feature ever fails
+only at link time, `check` would miss it, and no feature in this workspace gates on linking.
 
 With no file arguments the touched-file check uses the `.rs` files changed in the working tree
 against `HEAD`, which is the right default for an iteration that has not committed yet.
@@ -556,8 +562,8 @@ If `backlog.json` doesn't exist, seed it from the 2026-10-21 review. Confirm eac
    - Plugin comments cite 0.19 engine paths and `Last` instead of `RemoteLast`.
 10. **Old protocol.** rmcp 0.2.1 on MCP protocol 2024-11-05. The current spec is 2026-07-28. Make this its own iteration.
 11. **Ignored test.** `test_profiling_history` is ignored ("Frame history implementation needs refactoring"). Fix it or delete it along with the feature.
-12. **`observability` doesn't compile.** `cargo build --all-features` fails with 48 errors at `e93da67`, 42 of them in `src/observability/`. First check whether anything uses it; if not, delete it. Must-fix, ranked after items 1–3.
-13. **Clippy debt.** About 707 default-level warnings at `e93da67`, 452 of them `result_large_err`. CI is red because it runs `-D warnings`. Freeze this in the ratchet and pay it down as files are touched.
+12. **`observability` doesn't compile.** The ratchet measured 42 errors at `e93da67`, in `src/observability/`. `full-debugging` inherits it, so both features fail; the other 22 build. First check whether anything uses it; if not, delete it. Must-fix, ranked after items 1–3.
+13. **Clippy debt.** The ratchet measured 1462 warnings at `e93da67`, across 50 lints and 79 files: 937 `result_large_err`, 157 `unused_imports`, 72 `dead_code`, 52 `unused_variables`, 48 `field_reassign_with_default`. CI is red because it runs `-D warnings`. This is frozen in `known_red` in `metrics.json`; pay it down as files are touched.
 14. **Version drift.** The tree is at 0.2.0, crates.io at 0.1.8. `bevy_debugger_bevy` has never been published. Resolve with Phase 6, step 0.
 
 ## Before you stop: checklist

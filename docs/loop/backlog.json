@@ -5,7 +5,12 @@
       "kind": "bug",
       "area": "experiment",
       "title": "experiment tool sends `type`; handler dispatches on `action`, so the requested operation is ignored",
-      "must_fix": { "misleads": true, "blocks": false, "common_no_workaround": true, "evidence": "src/mcp_tools.rs:453-517 sends `type`; src/tools/experiment.rs:45-48 reads `action`" },
+      "must_fix": {
+        "misleads": true,
+        "blocks": false,
+        "common_no_workaround": true,
+        "evidence": "src/mcp_tools.rs:453-517 sends `type`; src/tools/experiment.rs:45-48 reads `action`"
+      },
       "status": "open",
       "evidence": "Verified 2026-10-21 by reading both sites. The tool always falls through to the `execute` default.",
       "last_failure": "",
@@ -16,7 +21,12 @@
       "kind": "bug",
       "area": "hypothesis",
       "title": "hypothesis tool sends no `action`; handler dispatches on `action` and falls through to `test`",
-      "must_fix": { "misleads": true, "blocks": false, "common_no_workaround": true, "evidence": "src/mcp_tools.rs:473-477 sends `hypothesis`/`confidence`/`context`; src/tools/hypothesis.rs:18-21 reads `action`" },
+      "must_fix": {
+        "misleads": true,
+        "blocks": false,
+        "common_no_workaround": true,
+        "evidence": "src/mcp_tools.rs:473-477 sends `hypothesis`/`confidence`/`context`; src/tools/hypothesis.rs:18-21 reads `action`"
+      },
       "status": "open",
       "evidence": "Verified 2026-10-21 by reading both sites.",
       "last_failure": "",
@@ -27,7 +37,12 @@
       "kind": "bug",
       "area": "anomaly",
       "title": "detect_anomaly tool sends `type`; handler dispatches on `action` and falls through to `detect`",
-      "must_fix": { "misleads": true, "blocks": false, "common_no_workaround": true, "evidence": "src/mcp_tools.rs:493-497 sends `type`; src/tools/anomaly.rs:63-66 reads `action`" },
+      "must_fix": {
+        "misleads": true,
+        "blocks": false,
+        "common_no_workaround": true,
+        "evidence": "src/mcp_tools.rs:493-497 sends `type`; src/tools/anomaly.rs:63-66 reads `action`"
+      },
       "status": "open",
       "evidence": "Verified 2026-10-21 by reading both sites.",
       "last_failure": "",
@@ -38,7 +53,12 @@
       "kind": "bug",
       "area": "stress",
       "title": "stress_test tool sends `type`; handler dispatches on `action` and falls through to `run`",
-      "must_fix": { "misleads": true, "blocks": false, "common_no_workaround": true, "evidence": "src/mcp_tools.rs:513-518 sends `type`; src/tools/stress.rs:34-37 reads `action`" },
+      "must_fix": {
+        "misleads": true,
+        "blocks": false,
+        "common_no_workaround": true,
+        "evidence": "src/mcp_tools.rs:513-518 sends `type`; src/tools/stress.rs:34-37 reads `action`"
+      },
       "status": "open",
       "evidence": "Verified 2026-10-21 by reading both sites.",
       "last_failure": "",
@@ -49,7 +69,12 @@
       "kind": "bug",
       "area": "hypothesis",
       "title": "hypothesis measures hard-coded constants: 16.67 ms frame time, 100 entities, 500 components, 1024 MB, 50% CPU",
-      "must_fix": { "misleads": true, "blocks": false, "common_no_workaround": true, "evidence": "src/hypothesis_system.rs:291-300, `PerformanceMetric::measure` returns constants" },
+      "must_fix": {
+        "misleads": true,
+        "blocks": false,
+        "common_no_workaround": true,
+        "evidence": "src/hypothesis_system.rs:291-300, `PerformanceMetric::measure` returns constants"
+      },
       "status": "open",
       "evidence": "Verified 2026-10-21 by reading src/hypothesis_system.rs:291-300. Every metric is a literal.",
       "last_failure": "",
@@ -60,7 +85,12 @@
       "kind": "bug",
       "area": "replay",
       "title": "replay record captures nothing: entity and event fetching are TODO and return empty",
-      "must_fix": { "misleads": true, "blocks": false, "common_no_workaround": true, "evidence": "src/recording_system.rs:328-350, both fetchers return an empty collection" },
+      "must_fix": {
+        "misleads": true,
+        "blocks": false,
+        "common_no_workaround": true,
+        "evidence": "src/recording_system.rs:328-350, both fetchers return an empty collection"
+      },
       "status": "open",
       "evidence": "Verified 2026-10-21 by reading src/recording_system.rs:328-350.",
       "last_failure": "",
@@ -71,7 +101,12 @@
       "kind": "bug",
       "area": "instructions",
       "title": "server instructions tell agents to use `hypothesis`/`experiment`/`stress_test`/`replay` for inspecting and re-running the game, but those tools mislead",
-      "must_fix": { "misleads": true, "blocks": false, "common_no_workaround": true, "evidence": "src/mcp_tools.rs:369-370, the COLLABORATION_PROTOCOL string" },
+      "must_fix": {
+        "misleads": true,
+        "blocks": false,
+        "common_no_workaround": true,
+        "evidence": "src/mcp_tools.rs:369-370, the COLLABORATION_PROTOCOL string"
+      },
       "status": "open",
       "evidence": "Verified 2026-10-21 by reading src/mcp_tools.rs:362-393.",
       "last_failure": "",
@@ -82,7 +117,12 @@
       "kind": "bug",
       "area": "docs",
       "title": "CLAUDE.md says a screenshot fails loudly without DebugCaptureTarget; the code silently falls back to window capture",
-      "must_fix": { "misleads": true, "blocks": false, "common_no_workaround": true, "evidence": "CLAUDE.md 'The non-negotiable' section vs crates/bevy_debugger_bevy/src/screenshot.rs:152-158" },
+      "must_fix": {
+        "misleads": true,
+        "blocks": false,
+        "common_no_workaround": true,
+        "evidence": "CLAUDE.md 'The non-negotiable' section vs crates/bevy_debugger_bevy/src/screenshot.rs:152-158"
+      },
       "status": "open",
       "evidence": "Verified 2026-10-21: `None if target.is_some() => Offscreen, None => Window`. Window capture can be stale or a single flat colour when the window is not in front.",
       "last_failure": "",
@@ -93,7 +133,12 @@
       "kind": "bug",
       "area": "input",
       "title": "injected cursor emits no CursorMoved, so bevy_picking and bevy_ui never see it",
-      "must_fix": { "misleads": false, "blocks": true, "common_no_workaround": false, "evidence": "crates/bevy_debugger_bevy/src/input.rs writes DebugCursor only; bevy_picking-0.20.0/src/input.rs:133 tracks the pointer from WindowEvent::CursorMoved" },
+      "must_fix": {
+        "misleads": false,
+        "blocks": true,
+        "common_no_workaround": false,
+        "evidence": "crates/bevy_debugger_bevy/src/input.rs writes DebugCursor only; bevy_picking-0.20.0/src/input.rs:133 tracks the pointer from WindowEvent::CursorMoved"
+      },
       "status": "unconfirmed",
       "evidence": "Static reading on 2026-10-21. Not yet proven: needs a round-trip test against the fixture (click a bevy_ui button, confirm Interaction changed).",
       "last_failure": "",
@@ -104,7 +149,12 @@
       "kind": "bug",
       "area": "server",
       "title": "no input tool and no watch tool; the plugin's core capabilities are reachable only through raw `brp`",
-      "must_fix": { "misleads": false, "blocks": true, "common_no_workaround": false, "evidence": "src/mcp_tools.rs registers 15 tools, none of them input or watch; BrpClient parses one JSON response at src/brp_client.rs:263 so streaming methods fail" },
+      "must_fix": {
+        "misleads": false,
+        "blocks": true,
+        "common_no_workaround": false,
+        "evidence": "src/mcp_tools.rs registers 15 tools, none of them input or watch; BrpClient parses one JSON response at src/brp_client.rs:263 so streaming methods fail"
+      },
       "status": "open",
       "evidence": "Verified 2026-10-21 by reading the tool router and the BRP client.",
       "last_failure": "",
@@ -115,7 +165,12 @@
       "kind": "bug",
       "area": "dead-code",
       "title": "src/cli.rs is never declared as a module, so it is never compiled",
-      "must_fix": { "misleads": false, "blocks": false, "common_no_workaround": true, "evidence": "`grep -n 'mod cli' src/lib.rs src/main.rs` finds nothing" },
+      "must_fix": {
+        "misleads": false,
+        "blocks": false,
+        "common_no_workaround": true,
+        "evidence": "`grep -n 'mod cli' src/lib.rs src/main.rs` finds nothing"
+      },
       "status": "open",
       "evidence": "Verified 2026-10-21.",
       "last_failure": "",
@@ -126,7 +181,12 @@
       "kind": "bug",
       "area": "dead-code",
       "title": "`--tcp`/`--server` binds a port, accepts a connection, logs capabilities and drops it without reading anything",
-      "must_fix": { "misleads": false, "blocks": true, "common_no_workaround": true, "evidence": "src/main.rs:60 advertises the flag; src/mcp_server.rs:170-189 handle_connection" },
+      "must_fix": {
+        "misleads": false,
+        "blocks": true,
+        "common_no_workaround": true,
+        "evidence": "src/main.rs:60 advertises the flag; src/mcp_server.rs:170-189 handle_connection"
+      },
       "status": "open",
       "evidence": "Verified 2026-10-21 by reading the code. A dead end that also holds a port open.",
       "last_failure": "",
@@ -137,7 +197,12 @@
       "kind": "bug",
       "area": "dead-code",
       "title": "about 60 public modules are unreachable from the 15 registered tools; three BRP clients, two replay tools, two observe tools",
-      "must_fix": { "misleads": false, "blocks": false, "common_no_workaround": true, "evidence": "src/lib.rs:158-276 exports them; brp_client_v2, brp_client_refactored, tools/replay_v2.rs are unused" },
+      "must_fix": {
+        "misleads": false,
+        "blocks": false,
+        "common_no_workaround": true,
+        "evidence": "src/lib.rs:158-276 exports them; brp_client_v2, brp_client_refactored, tools/replay_v2.rs are unused"
+      },
       "status": "open",
       "evidence": "Verified 2026-10-21 by reading the tool router and the module exports.",
       "last_failure": "",
@@ -148,7 +213,12 @@
       "kind": "bug",
       "area": "docs",
       "title": "lib.rs crate docs say Bevy 0.12 with feature `bevy_remote_protocol`; the crate is on Bevy 0.20",
-      "must_fix": { "misleads": true, "blocks": false, "common_no_workaround": true, "evidence": "src/lib.rs:25" },
+      "must_fix": {
+        "misleads": true,
+        "blocks": false,
+        "common_no_workaround": true,
+        "evidence": "src/lib.rs:25"
+      },
       "status": "open",
       "evidence": "Verified 2026-10-21.",
       "last_failure": "",
@@ -159,7 +229,12 @@
       "kind": "bug",
       "area": "docs",
       "title": "README and book/SCREENSHOT_SETUP.md tell users to hand-register `bevy_debugger/screenshot`, which now double-adds RemotePlugin and panics",
-      "must_fix": { "misleads": true, "blocks": true, "common_no_workaround": false, "evidence": "README.md:371, book/SCREENSHOT_SETUP.md:41 and :178" },
+      "must_fix": {
+        "misleads": true,
+        "blocks": true,
+        "common_no_workaround": false,
+        "evidence": "README.md:371, book/SCREENSHOT_SETUP.md:41 and :178"
+      },
       "status": "open",
       "evidence": "Verified 2026-10-21. The plugin registers the method itself (crates/bevy_debugger_bevy/src/lib.rs:122-134).",
       "last_failure": "",
@@ -170,7 +245,12 @@
       "kind": "bug",
       "area": "docs",
       "title": "plugin comments cite Bevy 0.19 engine paths and say handlers run in `Last`; they run in `RemoteLast`",
-      "must_fix": { "misleads": false, "blocks": false, "common_no_workaround": true, "evidence": "crates/bevy_debugger_bevy/src/input.rs:235, :263, :340; guide.rs:430" },
+      "must_fix": {
+        "misleads": false,
+        "blocks": false,
+        "common_no_workaround": true,
+        "evidence": "crates/bevy_debugger_bevy/src/input.rs:235, :263, :340; guide.rs:430"
+      },
       "status": "open",
       "evidence": "Verified 2026-10-21.",
       "last_failure": "",
@@ -181,7 +261,12 @@
       "kind": "bug",
       "area": "protocol",
       "title": "rmcp 0.2.1 speaks MCP protocol 2024-11-05; the current spec is 2026-07-28 (stateless, server/discover, tasks extension)",
-      "must_fix": { "misleads": false, "blocks": false, "common_no_workaround": false, "evidence": "src/mcp_tools.rs:722, ProtocolVersion::V_2024_11_05; Cargo.toml rmcp 0.2.1" },
+      "must_fix": {
+        "misleads": false,
+        "blocks": false,
+        "common_no_workaround": false,
+        "evidence": "src/mcp_tools.rs:722, ProtocolVersion::V_2024_11_05; Cargo.toml rmcp 0.2.1"
+      },
       "status": "deferred",
       "evidence": "Its own iteration per the loop's priority order. A watch or burst-capture design has to fit the 2026-07-28 task model, so do it before those.",
       "last_failure": "",
@@ -192,7 +277,12 @@
       "kind": "bug",
       "area": "tests",
       "title": "`test_profiling_history` is ignored: 'Frame history implementation needs refactoring'",
-      "must_fix": { "misleads": false, "blocks": false, "common_no_workaround": true, "evidence": "cargo test -p bevy_debugger_mcp output: 4 ignored, one is test_profiling_history" },
+      "must_fix": {
+        "misleads": false,
+        "blocks": false,
+        "common_no_workaround": true,
+        "evidence": "cargo test -p bevy_debugger_mcp output: 4 ignored, one is test_profiling_history"
+      },
       "status": "open",
       "evidence": "Verified 2026-10-21 by running the suite: 463 passed, 0 failed, 4 ignored.",
       "last_failure": "",
@@ -202,10 +292,15 @@
       "id": "B-019",
       "kind": "bug",
       "area": "build",
-      "title": "`cargo build --all-features` fails: the `observability` feature does not compile (48 errors in src/observability/)",
-      "must_fix": { "misleads": false, "blocks": true, "common_no_workaround": false, "evidence": "cargo clippy --workspace --all-targets --all-features: 48 errors; 42 of them in src/observability/metrics.rs, health.rs, tracing.rs" },
+      "title": "`observability` does not compile: 42 errors, and `full-debugging` inherits the failure",
+      "must_fix": {
+        "misleads": false,
+        "blocks": true,
+        "common_no_workaround": false,
+        "evidence": "scripts/ratchet.sh --record at e93da67: features observability=42, full-debugging=42; the errors are in src/observability/metrics.rs, health.rs, tracing.rs"
+      },
       "status": "open",
-      "evidence": "Verified 2026-10-21. The default build is clean; only the `observability` feature is broken. CI runs `cargo clippy --all-targets --all-features -- -D warnings`, so CI is red on main.",
+      "evidence": "Verified 2026-10-21 by the ratchet. The default build is clean and the other 22 features build. CI's `cargo build --all-features` is red because of this. Earlier notes said 48 errors; the ratchet counts 42.",
       "last_failure": "",
       "first_seen": "2026-10-21"
     },
@@ -213,10 +308,15 @@
       "id": "B-020",
       "kind": "bug",
       "area": "build",
-      "title": "clippy is red on main: ~700 warnings at default level, dominated by 452 `result_large_err`",
-      "must_fix": { "misleads": false, "blocks": true, "common_no_workaround": false, "evidence": "cargo clippy --workspace --all-targets: 452 `result_large_err`, 48 `field_reassign_with_default`, plus unused imports and variables" },
+      "title": "clippy is red on main: 1462 warnings, dominated by 937 `result_large_err`",
+      "must_fix": {
+        "misleads": false,
+        "blocks": true,
+        "common_no_workaround": false,
+        "evidence": "scripts/ratchet.sh --record at e93da67: 1462 warnings across 50 lints and 79 files; 937 result_large_err, 157 unused_imports, 72 dead_code, 52 unused_variables, 48 field_reassign_with_default"
+      },
       "status": "open",
-      "evidence": "Verified 2026-10-21. The loop's gate demands `clippy -D warnings`, so this blocks every iteration until it is addressed. It is a size-and-complexity ratchet item as well as a gate item.",
+      "evidence": "Verified 2026-10-21 by the ratchet. CI ran `cargo clippy --all-targets --all-features -- -D warnings` and was red. An earlier note said 707 warnings / 452 result_large_err; that came from grepping distinct warning lines and undercounted. The ratchet counts lint occurrences.",
       "last_failure": "",
       "first_seen": "2026-10-21"
     },
@@ -225,7 +325,12 @@
       "kind": "change",
       "area": "capture",
       "title": "no burst capture and no frame ring buffer: only single frames are available",
-      "must_fix": { "misleads": false, "blocks": false, "common_no_workaround": true, "evidence": "crates/bevy_debugger_bevy/src/screenshot.rs keeps the last 8 single captures; nothing in the plugin or server captures a sequence" },
+      "must_fix": {
+        "misleads": false,
+        "blocks": false,
+        "common_no_workaround": true,
+        "evidence": "crates/bevy_debugger_bevy/src/screenshot.rs keeps the last 8 single captures; nothing in the plugin or server captures a sequence"
+      },
       "status": "open",
       "evidence": "Verified 2026-10-21. The `RingBuffer` in src/anomaly_detector.rs is for anomaly data, not frames.",
       "last_failure": "",
@@ -236,7 +341,12 @@
       "kind": "change",
       "area": "docs",
       "title": "scene scripts record commands, not input, and this is not documented",
-      "must_fix": { "misleads": true, "blocks": false, "common_no_workaround": true, "evidence": "crates/bevy_debugger_bevy/src/commands.rs:224-229 records only debug commands" },
+      "must_fix": {
+        "misleads": true,
+        "blocks": false,
+        "common_no_workaround": true,
+        "evidence": "crates/bevy_debugger_bevy/src/commands.rs:224-229 records only debug commands"
+      },
       "status": "open",
       "evidence": "Verified 2026-10-21.",
       "last_failure": "",
@@ -247,7 +357,12 @@
       "kind": "change",
       "area": "release",
       "title": "crates.io has bevy_debugger_mcp 0.1.8; the working tree is 0.2.0 and has never been published",
-      "must_fix": { "misleads": false, "blocks": false, "common_no_workaround": true, "evidence": "crates.io API: max_version 0.1.8. Cargo.toml: version 0.2.0" },
+      "must_fix": {
+        "misleads": false,
+        "blocks": false,
+        "common_no_workaround": true,
+        "evidence": "crates.io API: max_version 0.1.8. Cargo.toml: version 0.2.0"
+      },
       "status": "open",
       "evidence": "Verified 2026-10-21. The plugin crate bevy_debugger_bevy has never been published; that first publish needs the human's OK.",
       "last_failure": "",
