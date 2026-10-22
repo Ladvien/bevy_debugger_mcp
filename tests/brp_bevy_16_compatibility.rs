@@ -249,12 +249,21 @@ async fn test_real_bevy_16_integration() {
         Name::new("TestEntity"),
     )).id();
 
-    // Bevy's BRP serialises an entity as a u64: `(generation << 32) | index`. Bevy 0.20's
-    // `Entity` exposes the two halves as `index_u32()` and `generation().to_bits()`, and the
-    // whole thing as `to_bits()`.
+    // Bevy's BRP serialises an entity as a u64, and Bevy 0.20's `Entity::to_bits` is
+    // `index.to_bits() | (generation.to_bits() << 32)`.
+    //
+    // The index half is an `EntityIndex`, which holds a `NonMaxU32`. `NonMaxU32` stores the
+    // complement of the value and `get()` un-complements it, so the low half of the wire
+    // format is `!index`, not `index`. Bevy documents the bits as opaque, and this test pins
+    // what it actually does rather than what it might.
     let combined: u64 = entity_id.to_bits();
-    let index = (combined & 0xFFFF_FFFF) as u32;
-    let generation = (combined >> 32) as u32;
+    let index = entity_id.index_u32();
+    let generation = entity_id.generation().to_bits();
+
+    assert_eq!(combined & 0xFFFF_FFFF, !index as u64);
+    assert_eq!(combined >> 32, generation as u64);
+
+    // And the halves are the ones the entity itself reports.
     assert_eq!(index, entity_id.index_u32());
     assert_eq!(generation, entity_id.generation().to_bits());
 }
