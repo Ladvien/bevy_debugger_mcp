@@ -20,7 +20,10 @@ use rmcp::model::CallToolResult;
 use serde_json::{json, Value};
 use tokio::sync::RwLock;
 
-/// A port nobody is listening on, so parallel test binaries do not collide.
+/// A port that was free a moment ago. The listener is dropped before the fixture binds, so two
+/// tests can race for the same port; if that happens the loser's fixture fails to bind and the
+/// test talks to the winner's. The fixtures are identical and nothing here writes to them, so
+/// the assertions stay honest -- but the race is real, and this is not a guarantee.
 fn free_port() -> u16 {
     std::net::TcpListener::bind("127.0.0.1:0")
         .expect("bind an ephemeral port")
@@ -69,8 +72,9 @@ async fn brp(tools: &BevyDebuggerTools, request: Value) -> Value {
     serde_json::from_str(&text).unwrap_or_else(|e| panic!("brp returned non-JSON ({e}): {text}"))
 }
 
-/// Wait until the `status` tool says the fixture is ready. This is itself a check: a game that
-/// is up and has finished `Startup` must be reported ready, with a frame count that moved.
+/// Wait until the `status` tool says the fixture is ready. This is a gate, not the `status`
+/// check -- `ready` is set at once and any answer already has `frame >= 1`. The check is
+/// [`status_reports_a_frame_count_that_advances`].
 async fn wait_until_ready(tools: &BevyDebuggerTools) -> Value {
     let deadline = Instant::now() + Duration::from_secs(60);
     loop {
@@ -198,12 +202,47 @@ async fn the_planted_spinner_bug_is_visible_through_the_brp_tool() {
         (angle - frozen).abs() < 1e-3,
         "the angle must be frozen at {frozen} after the stop frame; the tool reports {angle} ({spinner})"
     );
+
+    // And the freeze is a freeze, not a stale read: a later read shows the counter climbing
+    // while the angle stays put.
+    tokio::time::sleep(Duration::from_millis(300)).await;
+    let rows = rows_of(&tools, "fixture_game::Spinner").await;
+    let later = &rows[0]["components"]["fixture_game::Spinner"];
+    assert!(
+        later["frames"].as_u64() > spinner["frames"].as_u64(),
+        "the spinner's frame counter must keep climbing: {spinner} then {later}"
+    );
+    assert_eq!(
+        later["angle"].as_f64(),
+        Some(angle),
+        "the spinner's angle must stay frozen while its counter climbs: {spinner} then {later}"
+    );
 }
 
-/// Metamorphic: the mover's x only grows. Two reads a moment apart must show it further along
-/// +x, so a tool that returns a cached or stale snapshot fails here.
+/// The `status` tool reports the game's real frame count: two reads a moment apart must show
+/// it advancing. A `status` that answered a fixed `{"ready": true, "frame": 1}` would pass a
+/// readiness check and fail this one.
 #[tokio::test(flavor = "multi_thread")]
-async fn the_mover_is_further_along_on_a_later_read() {
+async fn status_reports_a_frame_count_that_advances() {
+    let port = start_fixture();
+    let tools = tools_for(port);
+    let first = wait_until_ready(&tools).await;
+    tokio::time::sleep(Duration::from_millis(500)).await;
+    let result = tools.status(Parameters(NoArgs {})).await.expect("status returns a result");
+    let second: Value = serde_json::from_str(&text_of(&result)).expect("status returns JSON");
+
+    assert!(
+        second["frame"].as_u64() > first["frame"].as_u64(),
+        "a running game's frame count must advance between reads: {first} then {second}"
+    );
+}
+
+/// The mover's x grows, and no faster than [`fixture_game::MOVER_SPEED`] allows. Game time
+/// cannot outrun the wall clock, so between two reads the mover can travel at most
+/// `MOVER_SPEED` times the wall-clock time that elapsed around them. A tool that returns a
+/// stale snapshot fails the lower bound; one that scales or invents x fails the upper.
+#[tokio::test(flavor = "multi_thread")]
+async fn the_mover_travels_at_no_more_than_its_speed() {
     let port = start_fixture();
     let tools = tools_for(port);
     wait_until_ready(&tools).await;
@@ -221,13 +260,26 @@ async fn the_mover_is_further_along_on_a_later_read() {
             "filter": {"with": ["fixture_game::Mover"]}
         }
     });
+    let started = Instant::now();
     let first = x_now(brp(&tools, request.clone()).await.as_array().cloned().unwrap_or_default());
     tokio::time::sleep(Duration::from_millis(500)).await;
     let second = x_now(brp(&tools, request).await.as_array().cloned().unwrap_or_default());
+    let elapsed = started.elapsed().as_secs_f64();
 
+    let travelled = second - first;
+    // The first read is served on a frame that may have begun before `started`, so the game
+    // time between the two reads can exceed the wall time by up to one frame -- and Bevy clamps
+    // one frame's delta to `Time<Virtual>`'s default maximum of 250 ms. That bound is sound on
+    // a stalled host, and still catches a tool that doubles x.
+    let most = f64::from(fixture_game::MOVER_SPEED) * (elapsed + 0.25);
     assert!(
-        second > first,
-        "the mover travels +x at {} units/s, so a later read must be further along: {first} then {second}",
+        travelled > 0.0,
+        "a later read must show the mover further along +x: {first} then {second}"
+    );
+    assert!(
+        travelled <= most,
+        "the mover travelled {travelled} in {elapsed:.3} s of wall time; at {} units/s it can \
+         travel at most {most:.3}",
         fixture_game::MOVER_SPEED
     );
 }

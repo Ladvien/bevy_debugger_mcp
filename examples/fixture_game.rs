@@ -83,7 +83,15 @@ pub struct Spinner {
 }
 
 /// The fixture game, listening for BRP on `port` and capped at `fps` frames a second.
+///
+/// # Panics
+///
+/// If `fps` is not a finite number above zero: a frame cap of zero or less has no frame time.
 pub fn build_app(port: u16, fps: f64) -> App {
+    assert!(
+        fps.is_finite() && fps > 0.0,
+        "the fixture's frame cap must be a finite number above zero, got {fps}"
+    );
     let mut app = App::new();
     app.add_plugins(
         MinimalPlugins.set(ScheduleRunnerPlugin::run_loop(Duration::from_secs_f64(1.0 / fps))),
@@ -136,8 +144,16 @@ fn spin(mut spinners: Query<&mut Spinner>) {
     }
 }
 
+/// The value of an environment variable, or `default` when it is unset. A value that is set but
+/// does not parse is refused rather than quietly replaced: a fixture that silently ran at a
+/// different frame cap than the one asked for would make every frame-time check wrong.
 fn env_or<T: std::str::FromStr>(name: &str, default: T) -> T {
-    std::env::var(name).ok().and_then(|v| v.parse().ok()).unwrap_or(default)
+    match std::env::var(name) {
+        Err(_) => default,
+        Ok(value) => value
+            .parse()
+            .unwrap_or_else(|_| panic!("{name}={value:?} does not parse")),
+    }
 }
 
 // Tests include this file with `#[path]` and call `build_app` directly, so in a test binary
