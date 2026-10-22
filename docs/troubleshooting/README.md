@@ -24,20 +24,22 @@ This guide helps you diagnose and resolve common issues when using the Bevy Debu
 
 **Causes**:
 - Bevy game is not running
-- RemotePlugin not enabled in Bevy app
+- The debugger plugin is not in the Bevy app
 - Incorrect host/port configuration
 - Firewall blocking connections
 
 **Solutions**:
-1. **Verify Bevy game is running** with RemotePlugin:
+1. **Verify Bevy game is running** with the debugger plugin:
    ```rust
    use bevy::prelude::*;
-   use bevy::remote::RemotePlugin;
+   use bevy::remote::http::RemoteHttpPlugin;
+use bevy_debugger_bevy::DebuggerPlugin;
    
    fn main() {
        App::new()
            .add_plugins(DefaultPlugins)
-           .add_plugins(RemotePlugin::default()) // This line is crucial
+           .add_plugins(DebuggerPlugin::default()) // This line is crucial
+           .add_plugins(RemoteHttpPlugin::default())
            .run();
    }
    ```
@@ -637,12 +639,14 @@ This guide helps you diagnose and resolve common issues when using the Bevy Debu
 2. **Use version-specific configurations**:
    ```rust
    // Bevy 0.12+
-   use bevy::remote::RemotePlugin;
+   use bevy::remote::http::RemoteHttpPlugin;
+use bevy_debugger_bevy::DebuggerPlugin;
    
    fn main() {
        App::new()
            .add_plugins(DefaultPlugins)
-           .add_plugins(RemotePlugin::default())
+           .add_plugins(DebuggerPlugin::default())
+           .add_plugins(RemoteHttpPlugin::default())
            .run();
    }
    
@@ -653,7 +657,8 @@ This guide helps you diagnose and resolve common issues when using the Bevy Debu
    ```rust
    // Create minimal test case
    use bevy::prelude::*;
-   use bevy::remote::RemotePlugin;
+   use bevy::remote::http::RemoteHttpPlugin;
+use bevy_debugger_bevy::DebuggerPlugin;
    
    #[derive(Component, Reflect)]
    #[reflect(Component)]
@@ -662,7 +667,8 @@ This guide helps you diagnose and resolve common issues when using the Bevy Debu
    fn main() {
        App::new()
            .add_plugins(DefaultPlugins)
-           .add_plugins(RemotePlugin::default())
+           .add_plugins(DebuggerPlugin::default())
+           .add_plugins(RemoteHttpPlugin::default())
            .register_type::<TestComponent>()
            .add_systems(Startup, setup)
            .run();

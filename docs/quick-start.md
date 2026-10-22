@@ -19,18 +19,20 @@ cargo install bevy_debugger_mcp
 bevy-debugger-mcp --help
 ```
 
-### Step 2: Enable RemotePlugin (1 minute)
+### Step 2: Add the debugger plugin (1 minute)
 
 Add this to your Bevy game's `main.rs`:
 
 ```rust
 use bevy::prelude::*;
-use bevy::remote::RemotePlugin;
+use bevy::remote::http::RemoteHttpPlugin;
+use bevy_debugger_bevy::DebuggerPlugin;
 
 fn main() {
     App::new()
         .add_plugins(DefaultPlugins)
-        .add_plugins(RemotePlugin::default()) // ← Add this line
+        .add_plugins(DebuggerPlugin::default()) // ← Add this line
+        .add_plugins(RemoteHttpPlugin::default())
         .run();
 }
 ```
@@ -103,7 +105,7 @@ What happens if I spawn 10 new entities?
 - Restart Claude Code after config changes
 
 **"BRP connection failed"?**
-- Ensure `RemotePlugin::default()` is in your App
+- Ensure `DebuggerPlugin::default()` is in your App
 - Check port 15702 isn't blocked by firewall
 
 **Tools not available?**

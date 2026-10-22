@@ -1,7 +1,7 @@
 //! Benchmark system to measure lock contention improvements
 //! 
 //! This module provides tools to measure the performance impact of our
-//! Arc<RwLock<T>> reduction efforts.
+//! `Arc<RwLock<T>>` reduction efforts.
 
 use std::collections::HashMap;
 use std::sync::{Arc, RwLock};

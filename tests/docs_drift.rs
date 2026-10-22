@@ -86,11 +86,14 @@ fn the_crate_docs_name_the_bevy_version_the_crate_uses() {
     }
 }
 
-/// The README must not tell a reader to register a BRP method the plugin already registers. Doing
-/// so adds `RemotePlugin` a second time, which Bevy rejects by name, so the game panics on start.
+/// No doc may tell the reader to add `RemotePlugin` to their game. The plugin owns it, and
+/// Bevy rejects a duplicate plugin by name, so a game that adds it twice panics on start.
+///
+/// This started as a check on the README alone, and it found the same mistake in three other
+/// files: the README's Quick Start, the README's developer workflow, and the macOS service
+/// page. So it now walks every doc in the tree.
 #[test]
-fn the_readme_does_not_tell_the_reader_to_register_a_method_the_plugin_registers() {
-    let readme = read("README.md");
+fn no_doc_tells_the_reader_to_add_a_second_remote_plugin() {
     let plugin = read("crates/bevy_debugger_bevy/src/lib.rs");
 
     // The plugin registers these itself.
@@ -109,14 +112,49 @@ fn the_readme_does_not_tell_the_reader_to_register_a_method_the_plugin_registers
         );
     }
 
-    assert_no_hand_registration("README.md", &readme);
+    for (what, text) in doc_files() {
+        assert_no_hand_registration(&what, &text);
+        assert_no_remote_plugin(&what, &text);
+    }
 }
 
-/// The same goes for the book: a guide that tells the reader to register a method the plugin owns
-/// makes the game panic on start.
-#[test]
-fn the_book_does_not_tell_the_reader_to_register_a_method_the_plugin_registers() {
-    assert_no_hand_registration("book/SCREENSHOT_SETUP.md", &read("book/SCREENSHOT_SETUP.md"));
+/// Every markdown file in the repository, by path, with its contents.
+fn doc_files() -> Vec<(String, String)> {
+    let mut files = Vec::new();
+    for dir in ["." , "book", "docs"] {
+        let path = root().join(dir);
+        if !path.is_dir() {
+            continue;
+        }
+        let mut stack = vec![path];
+        while let Some(dir) = stack.pop() {
+            for entry in std::fs::read_dir(&dir).expect("reading a directory") {
+                let entry = entry.expect("a directory entry");
+                let path = entry.path();
+                if path.is_dir() {
+                    // `target/` and `.git/` hold no docs and are huge.
+                    let name = path.file_name().and_then(|n| n.to_str()).unwrap_or_default();
+                    if name == "target" || name == ".git" {
+                        continue;
+                    }
+                    stack.push(path);
+                    continue;
+                }
+                if path.extension().and_then(|e| e.to_str()) != Some("md") {
+                    continue;
+                }
+                let relative = path
+                    .strip_prefix(root())
+                    .unwrap_or(&path)
+                    .to_string_lossy()
+                    .into_owned();
+                let text = std::fs::read_to_string(&path).expect("reading a markdown file");
+                files.push((relative, text));
+            }
+        }
+    }
+    files.sort();
+    files
 }
 
 /// A registration is written as `.with_method("name", handler)`. No doc may tell the reader to do
@@ -135,6 +173,44 @@ fn assert_no_hand_registration(what: &str, text: &str) {
             }
         }
     }
+}
+
+/// `RemotePlugin` is added by the plugin. A doc that tells the reader to add it is telling them
+/// to add it twice.
+fn assert_no_remote_plugin(what: &str, text: &str) {
+    for line in text.lines() {
+        let trimmed = line.trim();
+        if !trimmed.contains("RemotePlugin") {
+            continue;
+        }
+        // A line that says the plugin owns it, or that says never to add a second one, is the
+        // doc telling the reader the right thing.
+        let lower = trimmed.to_lowercase();
+        let mentions_the_plugin = trimmed.contains("DebuggerPlugin");
+        let warns = lower.contains("never")
+            || lower.contains("not add")
+            || lower.contains("do not add")
+            || lower.contains("owns the");
+        if mentions_the_plugin || warns {
+            continue;
+        }
+        // A line that describes the mistake rather than instructing it -- a bug report, a
+        // changelog entry, a backlog item -- is not telling the reader to do anything. Only a
+        // line that looks like code or an instruction is.
+        if !looks_like_an_instruction(trimmed) {
+            continue;
+        }
+        panic!(
+            "{what} tells the reader to add `RemotePlugin` themselves, but `DebuggerPlugin` \
+             already adds it. Bevy rejects a duplicate plugin by name, so the game panics on \
+             start. Line: {trimmed}"
+        );
+    }
+}
+
+/// A line that shows a plugin being added, rather than one that talks about the mistake.
+fn looks_like_an_instruction(line: &str) -> bool {
+    line.contains(".add_plugins(") || line.contains("add_plugins(")
 }
 
 /// The docs must name the Bevy version the crate uses. A reader who follows a doc that names an
@@ -170,6 +246,60 @@ fn the_docs_name_the_bevy_version_the_crate_uses() {
             assert_eq!(
                 named, bevy_version,
                 "{what} names Bevy {named}, but the crate uses {bevy_version}. Line: {trimmed}"
+            );
+        }
+    }
+}
+
+/// The changelog's migration table names the fields the tools take. If a field is renamed again
+/// and the table is not updated, an agent that read the changelog will send a field the tool
+/// does not have -- which is exactly the bug the table exists to prevent.
+#[test]
+fn the_changelog_migration_table_names_the_fields_the_tools_take() {
+    let changelog = read("CHANGELOG.md");
+    let tools = read("src/mcp_tools.rs");
+
+    // The table row for each tool: `| `tool` | before | after |`.
+    for tool in ["experiment", "hypothesis", "detect_anomaly", "stress_test"] {
+        let row = changelog
+            .lines()
+            .find(|line| {
+                let trimmed = line.trim();
+                trimmed.starts_with(&format!("| `{tool}` |"))
+            })
+            .unwrap_or_else(|| panic!("CHANGELOG.md has no migration row for `{tool}`"));
+
+        // The "after" cell is the last one.
+        let after = row
+            .rsplit('|')
+            .nth(1)
+            .expect("the row has cells")
+            .trim();
+        let after = after.trim_start_matches('`').trim_end_matches('`');
+
+        // Every backticked name in the cell must be a field of the tool's request struct.
+        let struct_name = match tool {
+            "experiment" => "ExperimentRequest",
+            "hypothesis" => "HypothesisRequest",
+            "detect_anomaly" => "AnomalyRequest",
+            "stress_test" => "StressTestRequest",
+            _ => unreachable!("the list above is exhaustive"),
+        };
+        let start = tools
+            .find(&format!("pub struct {struct_name} {{"))
+            .unwrap_or_else(|| panic!("{struct_name} is not in src/mcp_tools.rs"));
+        let body = &tools[start..];
+        let end = body.find("\n}").expect("the struct is closed");
+        let body = &body[..end];
+
+        for field in after.split(',').map(|f| f.trim().trim_matches('`')) {
+            if field.is_empty() || field == "..." {
+                continue;
+            }
+            assert!(
+                body.contains(&format!("pub {field}:")),
+                "CHANGELOG.md says `{tool}` takes `{field}`, but {struct_name} has no such field. \
+                 The migration table must name the fields the tool actually takes."
             );
         }
     }

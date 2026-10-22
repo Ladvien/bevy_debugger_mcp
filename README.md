@@ -160,9 +160,14 @@ cargo install bevy_debugger_mcp
 # 2. Run the setup script (IMPORTANT!)
 curl -sSL https://raw.githubusercontent.com/ladvien/bevy_debugger_mcp/main/setup-claude.sh | bash
 
-# 3. Add RemotePlugin to your Bevy game
+# 3. Add the debugger plugin to your Bevy game
+# In your game's Cargo.toml:
+#   bevy_debugger_bevy = "0.2"
 # In your game's main.rs:
-# .add_plugins(RemotePlugin::default())
+#   .add_plugins(DebuggerPlugin::default())
+#   .add_plugins(RemoteHttpPlugin::default())
+# The plugin owns the BRP RemotePlugin. Never add a second RemotePlugin next
+# to it: Bevy rejects a duplicate plugin by name, so the game panics on start.
 
 # 4. Restart Claude Code and start debugging!
 cargo run  # In your game directory
@@ -209,7 +214,7 @@ The Bevy Debugger MCP creates a bridge between Claude Code and your Bevy game:
 1. **Claude Code (AI Agent)**: Natural language interface for debugging commands
 2. **MCP Server**: Translates AI requests into game debugging operations
 3. **BRP Client**: Communicates with your Bevy game via WebSocket
-4. **RemotePlugin**: Bevy plugin that exposes game internals for debugging
+4. **DebuggerPlugin**: Bevy plugin that exposes game internals for debugging
 5. **Debug Tools**: 11 specialized tools for different debugging tasks
 
 ## 🚀 Quick Start
@@ -218,7 +223,7 @@ The Bevy Debugger MCP creates a bridge between Claude Code and your Bevy game:
 
 - Rust 1.70+ and Cargo
 - Claude Code CLI
-- A Bevy game with [RemotePlugin](https://docs.rs/bevy/latest/bevy/remote/struct.RemotePlugin.html) enabled
+- A Bevy game with the `DebuggerPlugin` enabled
 
 ### Installation
 
@@ -427,7 +432,7 @@ fn main() {
 
 ### Setting Up Claude Code
 
-1. **Install the MCP Server** (v0.1.6 or later):
+1. **Install the MCP Server** (v0.2.0 or later):
 ```bash
 cargo install bevy_debugger_mcp
 ```
@@ -617,12 +622,12 @@ Results: Save system works correctly for position and score, but inventory items
 If Claude can't connect to your game:
 
 ```bash
-# 1. Ensure your Bevy game is running with RemotePlugin
+# 1. Ensure your Bevy game is running with the debugger plugin
 # Check if Bevy is listening on the correct port:
 lsof -i :15702  # Should show your Bevy game process
 
 # 2. Test the MCP server standalone:
-bevy-debugger-mcp --help  # Should show version 0.1.6
+bevy-debugger-mcp --help  # Should show version 0.2.0
 bevy-debugger-mcp --stdio  # Should wait for input (Ctrl+C to exit)
 
 # 3. Verify Claude Code configuration:
@@ -666,8 +671,8 @@ The debugger is designed for minimal impact on your game:
 
 | Issue | Solution |
 |-------|----------|
-| **"Failed to connect to BRP"** | Ensure your Bevy game is running with `RemotePlugin` enabled |
-| **"No tools available"** | Update to v0.1.6: `cargo install bevy_debugger_mcp --force` |
+| **"Failed to connect to BRP"** | Ensure your Bevy game is running with `DebuggerPlugin` enabled |
+| **"No tools available"** | Update to v0.2.0: `cargo install bevy_debugger_mcp --force` |
 | **High CPU usage** | Reduce monitoring frequency or use `--tcp` mode instead of stdio |
 | **Screenshot not working** | Add screenshot handler to your Bevy game (see setup example) |
 | **Memory leak detection false positives** | Adjust detection thresholds in anomaly tool |
@@ -711,12 +716,16 @@ bevy_debugger_mcp/
 ```rust
 // In your main.rs or lib.rs
 use bevy::prelude::*;
-use bevy::remote::RemotePlugin;
+use bevy::remote::http::RemoteHttpPlugin;
+use bevy_debugger_bevy::DebuggerPlugin;
 
 fn main() {
     App::new()
         .add_plugins(DefaultPlugins)
-        .add_plugins(RemotePlugin::default()) // Essential for debugging
+        // The plugin owns the BRP RemotePlugin. Never add a second one next to
+        // it: Bevy rejects a duplicate plugin by name, so the game panics.
+        .add_plugins(DebuggerPlugin::default())
+        .add_plugins(RemoteHttpPlugin::default())
         .add_systems(Update, your_game_systems)
         .run();
 }
@@ -749,7 +758,7 @@ cargo install bevy_debugger_mcp
    - "Monitor the player's health"
    - "Test spawning 1000 enemies"
 
-## 🧪 Complete Debugging Toolkit (v0.1.6)
+## 🧪 Complete Debugging Toolkit (v0.2.0)
 
 ### Core MCP Tools
 
@@ -852,26 +861,22 @@ cargo test screenshot_integration_wrapper::test_screenshot_performance
 
 ## 📦 Changelog
 
-### v0.1.6 (Latest) - Production Ready
-- ✅ All 11 debugging tools fully integrated and operational
-- ✅ Fixed critical async initialization issues
-- ✅ Enhanced error handling and sensitive data sanitization
-- ✅ Performance optimizations with lazy initialization
-- ✅ Comprehensive test coverage (232+ tests)
-- ✅ Machine learning pattern recognition with privacy preservation
-- ✅ Workflow automation for common debugging tasks
-- ✅ Production-ready with <3% performance overhead
+The full changelog is [`CHANGELOG.md`](CHANGELOG.md), which covers every release. The short
+version:
 
-### v0.1.5
-- Added GPL-3.0 license compliance
-- Initial pattern learning system
-- Enhanced error context
+### v0.2.0 - the plugin, and the tools that stopped lying
 
-### v0.1.4
-- Improved Claude Code integration
-- Added suggestion engine
-- Bug fixes
+- The companion Bevy plugin crate, `bevy_debugger_bevy`, published for the first time. It owns
+  the BRP `RemotePlugin`, so a game adds `DebuggerPlugin` and never a second `RemotePlugin`.
+- Game-registered commands, capture from an offscreen target or the window, injectable input
+  that really arrives, a guide channel, and replayable scenes.
+- The `experiment`, `hypothesis`, `detect_anomaly` and `stress_test` tools take the arguments
+  their handlers read. They used to advertise one set of names and dispatch on another, so
+  every request was dropped and a default ran instead.
+- `hypothesis` measures the entity and component counts from the game instead of reporting
+  constants, and `replay` records the game's entities instead of returning an empty map.
 
+### v0.1.6 - Production Ready
 ## 📄 License
 
 Licensed under either of [MIT](LICENSE-MIT) or [Apache-2.0](LICENSE-APACHE) at your option.

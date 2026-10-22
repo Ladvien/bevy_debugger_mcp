@@ -1,4 +1,4 @@
-//! Refactored replay tool using actor model instead of Arc<RwLock<T>>
+//! Refactored replay tool using actor model instead of `Arc<RwLock<T>>`
 //! 
 //! This is the new implementation that eliminates lock contention by using
 //! message passing and the actor pattern.

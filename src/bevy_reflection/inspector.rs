@@ -18,7 +18,7 @@
 //!
 //! - **TypeRegistry Integration**: Discover all registered component types dynamically
 //! - **Reflection-based Queries**: Query components using reflection metadata
-//! - **Complex Type Handling**: Support for Option<T>, Vec<T>, HashMap<K,V>, etc.
+//! - **Complex Type Handling**: Support for `Option<T>`, `Vec<T>`, `HashMap<K,V>`, etc.
 //! - **Custom Inspectors**: Extensible inspector system for complex types
 //! - **Reflection-based Diffing**: Compare component states using reflection
 //! - **Bevy 0.16 Compatible**: Uses latest Bevy reflection APIs

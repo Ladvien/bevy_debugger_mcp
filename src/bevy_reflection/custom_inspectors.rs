@@ -18,7 +18,7 @@ use crate::bevy_reflection::inspector::{CustomInspector, InspectedValue};
 use crate::brp_messages::ComponentValue;
 use crate::error::{Error, Result};
 
-/// Inspector for Option<T> types - handles Some/None variants
+/// Inspector for `Option<T>` types - handles Some/None variants
 pub struct OptionInspector;
 
 impl CustomInspector for OptionInspector {
@@ -117,7 +117,7 @@ impl OptionInspector {
     }
 }
 
-/// Inspector for Vec<T> and other list types
+/// Inspector for `Vec<T>` and other list types
 pub struct VecInspector;
 
 impl CustomInspector for VecInspector {

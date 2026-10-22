@@ -225,7 +225,7 @@ pub fn get_deadlock_detector() -> &'static DeadlockDetector {
     DETECTOR.get_or_init(DeadlockDetector::new)
 }
 
-/// Wrapper for Arc<RwLock<T>> that includes deadlock detection
+/// Wrapper for `Arc<RwLock<T>>` that includes deadlock detection
 pub struct TrackedRwLock<T> {
     inner: Arc<RwLock<T>>,
     lock_id: LockId,

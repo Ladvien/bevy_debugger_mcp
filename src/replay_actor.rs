@@ -1,4 +1,4 @@
-//! Actor-based replay system to replace Arc<RwLock<T>> heavy replay.rs
+//! Actor-based replay system to replace `Arc<RwLock<T>>` heavy replay.rs
 //!
 //! This module implements the actor model for replay functionality, eliminating
 //! the need for shared mutable state through locks.

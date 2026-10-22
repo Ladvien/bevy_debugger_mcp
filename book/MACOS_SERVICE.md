@@ -226,11 +226,12 @@ If port 3000 is already in use:
    ./scripts/service.sh test
    ```
 
-2. Check if Bevy game has RemotePlugin:
+2. Check if Bevy game has the debugger plugin:
    ```rust
    App::new()
        .add_plugins(DefaultPlugins)
-       .add_plugins(RemotePlugin::default()) // ← This line
+       .add_plugins(DebuggerPlugin::default()) // ← This line
+       .add_plugins(RemoteHttpPlugin::default())
        .run();
    ```
 

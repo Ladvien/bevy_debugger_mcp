@@ -19,21 +19,23 @@ Step-by-step tutorials for common debugging scenarios using the Bevy Debugger MC
 Set up the Bevy Debugger MCP and perform your first debugging session.
 
 ### Prerequisites
-- Bevy game project with RemotePlugin enabled
+- Bevy game project with the debugger plugin enabled
 - Claude Code installed and configured
 - Basic understanding of Bevy ECS
 
-### Step 1: Enable RemotePlugin in Your Game
+### Step 1: Add the debugger plugin to your game
 
 ```rust
 // main.rs
 use bevy::prelude::*;
-use bevy::remote::RemotePlugin;
+use bevy::remote::http::RemoteHttpPlugin;
+use bevy_debugger_bevy::DebuggerPlugin;
 
 fn main() {
     App::new()
         .add_plugins(DefaultPlugins)
-        .add_plugins(RemotePlugin::default())  // Enable BRP
+        .add_plugins(DebuggerPlugin::default())  // Enable BRP
+        .add_plugins(RemoteHttpPlugin::default())
         .add_systems(Startup, setup)
         .add_systems(Update, (movement_system, animation_system))
         .run();

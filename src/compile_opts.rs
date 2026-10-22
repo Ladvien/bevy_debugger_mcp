@@ -159,18 +159,15 @@ impl CompileConfig {
 }
 
 /// Optimized hash map types based on build configuration
+///
+/// `ahash` is an unconditional dependency of this crate, and `query_optimization` uses it
+/// directly, so these types always use its hasher. The `cfg(feature = "ahash")` gates that used
+/// to be here referred to a feature that was never declared, which meant the fast-hash arm had
+/// never compiled and `rustdoc` rejected the unknown feature name.
 pub mod collections {
-    #[cfg(feature = "ahash")]
     pub type FastHashMap<K, V> = std::collections::HashMap<K, V, ahash::RandomState>;
-    
-    #[cfg(not(feature = "ahash"))]
-    pub type FastHashMap<K, V> = std::collections::HashMap<K, V>;
-    
-    #[cfg(feature = "ahash")]
+
     pub type FastHashSet<T> = std::collections::HashSet<T, ahash::RandomState>;
-    
-    #[cfg(not(feature = "ahash"))]
-    pub type FastHashSet<T> = std::collections::HashSet<T>;
 }
 
 /// Branch prediction hints for hot paths
