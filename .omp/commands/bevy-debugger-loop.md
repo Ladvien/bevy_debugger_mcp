@@ -28,8 +28,8 @@ Read these first. They are repeated as a checklist at the end.
 You are running one iteration of a long, repeated loop on **bevy_fairy**. Each iteration starts with a fresh context. Your only memory of earlier iterations is the backlog, the loop log, the metrics file, and git history.
 
 The crate has two halves:
-- **Plugin.** `crates/bevy_fairy` is a Bevy 0.20 plugin that adds debugging methods to the Bevy Remote Protocol (BRP): ECS inspection, capture, input injection, guide, and watch.
-- **Server.** `src/` holds the `bevy-fairy` binary. It is an MCP server that exposes tools to coding agents and talks to a running game over BRP.
+- **Plugin.** `src/plugin/` is a Bevy 0.20 plugin, behind the `plugin` feature, that adds debugging methods to the Bevy Remote Protocol (BRP): ECS inspection, capture, input injection, guide, and watch.
+- **Server.** `src/server/` holds the `bevy-fairy` binary, behind the `server` feature. It is an MCP server that exposes tools to coding agents and talks to a running game over BRP.
 
 **Who the user is.** The primary user is a coding agent trying to understand a running Bevy game: what state it's in, what it shows, how it responds to input, and why it misbehaves. Its secondary user is the game developer who reads that agent's findings. The goal: an agent with only this MCP server and no source access can answer "what is happening in this game, and why?" with evidence it can trust.
 

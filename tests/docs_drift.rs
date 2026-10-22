@@ -94,7 +94,7 @@ fn the_crate_docs_name_the_bevy_version_the_crate_uses() {
 /// page. So it now walks every doc in the tree.
 #[test]
 fn no_doc_tells_the_reader_to_add_a_second_remote_plugin() {
-    let plugin = read("crates/bevy_fairy/src/lib.rs");
+    let plugin = read("src/plugin/mod.rs");
 
     // The plugin registers these itself.
     for method in [
@@ -119,6 +119,9 @@ fn no_doc_tells_the_reader_to_add_a_second_remote_plugin() {
 }
 
 /// Every markdown file in the repository, by path, with its contents.
+///
+/// `docs/loop/` is skipped: it is the improvement loop's own history, and history is allowed to
+/// name the crate by the names it had.
 fn doc_files() -> Vec<(String, String)> {
     let mut files = Vec::new();
     for dir in ["." , "book", "docs"] {
@@ -132,9 +135,10 @@ fn doc_files() -> Vec<(String, String)> {
                 let entry = entry.expect("a directory entry");
                 let path = entry.path();
                 if path.is_dir() {
-                    // `target/` and `.git/` hold no docs and are huge.
+                    // `target/` and `.git/` hold no docs and are huge. `docs/loop/` is the
+                    // loop's own history.
                     let name = path.file_name().and_then(|n| n.to_str()).unwrap_or_default();
-                    if name == "target" || name == ".git" {
+                    if name == "target" || name == ".git" || name == "loop" {
                         continue;
                     }
                     stack.push(path);
@@ -257,7 +261,7 @@ fn the_docs_name_the_bevy_version_the_crate_uses() {
 #[test]
 fn the_changelog_migration_table_names_the_fields_the_tools_take() {
     let changelog = read("CHANGELOG.md");
-    let tools = read("src/mcp_tools.rs");
+    let tools = read("src/server/mcp_tools.rs");
 
     // The table row for each tool: `| `tool` | before | after |`.
     for tool in ["experiment", "hypothesis", "detect_anomaly", "stress_test"] {
@@ -301,6 +305,97 @@ fn the_changelog_migration_table_names_the_fields_the_tools_take() {
                 "CHANGELOG.md says `{tool}` takes `{field}`, but {struct_name} has no such field. \
                  The migration table must name the fields the tool actually takes."
             );
+        }
+    }
+}
+
+/// The crate was renamed and merged on 2026-10-21. A doc that still names the old crate, the
+/// old package path or the old BRP prefix sends a reader to something that does not exist.
+#[test]
+fn no_doc_names_the_old_crate_or_the_old_package_path() {
+    for (what, text) in doc_files() {
+        for (line_no, line) in text.lines().enumerate() {
+            let trimmed = line.trim();
+            // A line that is *about* the rename -- a changelog entry, a migration note, a
+            // sentence explaining what the old names were -- is history, and history is allowed
+            // to name things that no longer exist. What is not allowed is a line that tells a
+            // reader where to go.
+            let is_history = trimmed.contains("was ")
+                || trimmed.contains("were ")
+                || trimmed.contains("used to")
+                || trimmed.contains("renamed")
+                || trimmed.contains("formerly")
+                || trimmed.contains("no longer")
+                || trimmed.contains("before 2026-10-21")
+                || trimmed.contains("until 2026-10-21")
+                || trimmed.contains("stuttered")
+                || trimmed.contains("Migration")
+                || trimmed.contains("migrat");
+            if is_history {
+                continue;
+            }
+            for stale in [
+                "bevy_debugger_mcp",
+                "bevy_debugger_bevy",
+                "bevy-debugger-mcp",
+                "crates/bevy_fairy",
+                "bevy_debugger/",
+            ] {
+                assert!(
+                    !trimmed.contains(stale),
+                    "{what}:{} still names `{stale}`, which does not exist any more. The crate is \
+                     `bevy_fairy`, the plugin lives in `src/plugin/`, and the BRP methods are \
+                     `bevy_fairy/*`. Line: {trimmed}",
+                    line_no + 1
+                );
+            }
+        }
+    }
+}
+
+/// The plugin's public path. A game writes `use bevy_fairy::DebuggerPlugin`, and the docs have to
+/// say the same thing, or a reader's first line of code does not compile.
+#[test]
+fn the_docs_name_the_plugin_the_way_the_crate_exports_it() {
+    let lib = read("src/lib.rs");
+    assert!(
+        lib.contains("pub use plugin::{"),
+        "the plugin's items should be re-exported at the crate root"
+    );
+
+    for (what, text) in doc_files() {
+        for (line_no, line) in text.lines().enumerate() {
+            let trimmed = line.trim();
+            if !trimmed.contains("use bevy_fairy::") && !trimmed.contains("bevy_fairy = {") {
+                continue;
+            }
+            // The path a reader would write must be one the crate actually exports.
+            if trimmed.contains("use bevy_fairy::server::")
+                || trimmed.contains("use bevy_fairy::plugin::")
+            {
+                continue;
+            }
+            for name in [
+                "DebuggerPlugin",
+                "DebugCommandInfo",
+                "DebugCommandsAppExt",
+                "DebugCaptureTarget",
+                "PendingInput",
+                "InputAction",
+                "DebugCursor",
+            ] {
+                if trimmed.contains(&format!("use bevy_fairy::{}", name))
+                    || trimmed.contains(&format!("::{},", name))
+                    || trimmed.contains(&format!("::{}}}", name))
+                {
+                    assert!(
+                        lib.contains(name),
+                        "{what}:{} tells the reader to use `bevy_fairy::{name}`, but the crate does \
+                         not export it at the root. Line: {trimmed}",
+                        line_no + 1
+                    );
+                }
+            }
         }
     }
 }

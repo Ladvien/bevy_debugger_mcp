@@ -27,14 +27,31 @@ When one of these seems necessary, stop and ask. Name the exact command, what it
 
 ## Source of truth
 
-This standalone repo, `Ladvien/bevy_fairy`, is the source of truth for both crates, on Bevy 0.20 (Sanctuary decision 0232, 2026-10-19). It was a pinned git dependency, then vendored into `Ladvien/foundation_vs_slop` with `git subtree add` and mirrored back out of it. The monorepo's `crates/bevy_fairy` is now a frozen Bevy 0.19 copy that is never mirrored again, and `Ladvien/bevy_emerge` depends on this repo by git. A bug found while driving a game is an ordinary edit here, followed by a push.
+This standalone repo, `Ladvien/bevy_fairy`, is the source of truth for the crate, on Bevy 0.20 (Sanctuary decision 0232, 2026-10-19). It was a pinned git dependency, then vendored into `Ladvien/foundation_vs_slop` with `git subtree add` and mirrored back out of it. The monorepo's copy is now a frozen Bevy 0.19 copy that is never mirrored again, and `Ladvien/bevy_emerge` depends on this repo by git. A bug found while driving a game is an ordinary edit here, followed by a push.
 
-## Two independent halves
+## One crate, two halves
 
-- **`src/`** — the MCP server binary `bevy-fairy`. A separate process: speaks MCP over stdio to an agent, BRP over JSON-RPC/HTTP (:15702) to the game. ~52k lines, 56 direct dependencies.
-- **`crates/bevy_fairy/`** — the Bevy plugin the game links. ~400 lines, five dependencies.
+`bevy_fairy` is one published crate with two halves, and it was two crates until 2026-10-21. The
+names `bevy_debugger_mcp` and `bevy_debugger_bevy` stuttered, and a game that wanted the plugin
+had to depend on a crate whose name said it was about the server.
 
-The server does **not** depend on the plugin. Do not introduce a dependency between them: an agent can use Bevy's built-in BRP methods against a game that never linked the plugin, and a game can link the plugin without anyone running the server.
+- **`src/plugin/`** — the Bevy plugin the game links. Behind the `plugin` feature. ~400 lines, four
+  direct dependencies.
+- **`src/server/`** — the MCP server, and the `bevy-fairy` binary. Behind the `server` feature, which
+  is the default. A separate process: speaks MCP over stdio to an agent, BRP over JSON-RPC/HTTP
+  (:15702) to the game. ~52k lines.
+
+The two halves do **not** depend on each other, and that is a property of the *features*, not of
+the packages. Cargo resolves dependencies per feature, so a game that takes the plugin with
+`--no-default-features --features plugin` compiles the plugin's closure and none of the server's.
+The reverse holds: the server talks to any game that exposes BRP, including one that never heard of
+this crate.
+
+A consequence worth remembering: the `bevy` dependency is declared once, with
+`default-features = false`, and each feature adds what it needs. A feature that turns on the
+plugin's capture turns on `bevy/bevy_render`; one that turns on the guide turns on
+`bevy/ui_api` and `bevy/bevy_picking`. Adding a Bevy feature is a deliberate act, not a side
+effect of depending on the crate.
 
 ## The non-negotiable: nothing here may touch the OS
 
@@ -54,13 +71,22 @@ So:
 - **Input writes into Bevy's own input message stream**, inside the game process — the same
   `Messages<KeyboardInput>` / `Messages<MouseButtonInput>` buffers `bevy_winit` appends to.
 
-`crates/bevy_fairy/tests/leaf.rs` is the ratchet: it pins the plugin's dependency list and fails on any source mentioning `enigo`, `xdotool`, `CGEvent`, `SendInput`, `winit` or `unsafe`. That test is the enforcement of the paragraph above — widening it is a design decision and should cost a deliberate edit.
+`tests/plugin_leaf.rs` is the ratchet, and it is the enforcement of the paragraph above. It
+checks the plugin's *resolved dependency closure* — it runs `cargo tree` for the plugin's feature
+set — and fails if anything in it can synthesise an operating-system event, if the plugin's direct
+dependencies grow past `bevy`, `serde`, `serde_json` and `image`, or if any plugin source mentions
+`enigo`, `xdotool`, `CGEvent`, `SendInput`, `winit` or `unsafe`. Widening any of those lists is a
+design decision and should cost a deliberate edit in that file.
+
+This is stronger than the check it replaced. When the plugin was its own package, the guarantee
+rested on a list somebody maintained; now it rests on the dependency graph Cargo resolves, which
+cannot be quietly widened by adding a dependency to a feature.
 
 ## BRP handlers run in `RemoteLast` — after everything — and that has bitten input
 
 `DebuggerPlugin::build` registers its methods with `RemotePlugin::with_method_main(..)`, so handlers execute in **`RemoteLast`**, a schedule `RemotePlugin` inserts *after* `Last` (`bevy_remote-0.19.0/src/lib.rs:832-835`). It is the very end of the frame. Bevy's `keyboard_input_system` clears `just_pressed`/`just_released` in the **next** frame's `PreUpdate`.
 
-A press written there therefore has its `just_pressed` flag cleared before any `Update` system reads it, so **`just_pressed`-based actions could never be triggered by injected input** — the method returned `success: true` and the game did not move. Held `pressed` state survives the clear, which is why some actions appeared to work and others did not. See `input.rs` for how this is handled now; if you change the schedule or the action shape, re-verify against a real game rather than a unit test.
+A press written there therefore has its `just_pressed` flag cleared before any `Update` system reads it, so **`just_pressed`-based actions could never be triggered by injected input** — the method returned `success: true` and the game did not move. Held `pressed` state survives the clear, which is why some actions appeared to work and others did not. See `src/plugin/input.rs` for how this is handled now; if you change the schedule or the action shape, re-verify against a real game rather than a unit test.
 
 (This paragraph said `Last` for as long as it existed, and it was close enough to be useful and wrong enough to mislead anyone reasoning about ordering against another `Last` system.)
 
@@ -78,7 +104,7 @@ The trap it walked into first: **the handler runs every frame, so any answer tha
 
 - **The plugin never learns the host's vocabulary.** Checkpoints are one-shot systems the host registers by name (`Checkpoints`), the same seam `PendingInput`'s public `queue_*` methods are. Anything that made this crate know what a tile is would be the mistake.
 - **The overlay spawns no camera**, because a second one silently breaks any host `Single<&Camera>` query — the trap the mirror camera already argues about.
-- **Step copy must be ASCII.** Bevy's embedded font is 95 codepoints and this crate cannot ship one without widening `leaf.rs`. `the_one_script_this_crate_ships_is_ascii` pins the example.
+- **Step copy must be ASCII.** Bevy's embedded font is 95 codepoints and this crate cannot ship one without widening `tests/plugin_leaf.rs`. `the_one_script_this_crate_ships_is_ascii` pins the example.
 
 ## Injected input is the *source*, not the fold — and that is what lets an agent type
 
@@ -97,7 +123,7 @@ Two consequences worth knowing before you touch this:
 
 `bevy_fairy/input` accepts `kind: "Cursor"` with `x`/`y` in logical window pixels, or `clear: true`. It writes `DebugCursor`, **not** `Window::set_cursor_position`.
 
-That looks like the obvious call and it is the wrong one, read out of the pinned engine rather than guessed: `Window::set_cursor_position` writes an internal field, and Bevy's windowing backend diffs that field against a per-window cache every frame and asks the platform to **move the physical pointer** (`bevy_winit-0.19.0/src/system.rs:433`). The cache is `pub(crate)`, so a plugin cannot suppress the diff. Writing the window would drag the mouse out from under whoever is at the machine — the precise class of thing this crate exists to avoid, and it would pass `tests/leaf.rs` while defeating its whole purpose.
+That looks like the obvious call and it is the wrong one, read out of the pinned engine rather than guessed: `Window::set_cursor_position` writes an internal field, and Bevy's windowing backend diffs that field against a per-window cache every frame and asks the platform to **move the physical pointer** (`bevy_winit-0.19.0/src/system.rs:433`). The cache is `pub(crate)`, so a plugin cannot suppress the diff. Writing the window would drag the mouse out from under whoever is at the machine — the precise class of thing this crate exists to avoid, and it would pass `tests/plugin_leaf.rs` while defeating its whole purpose.
 
 **A host has to read the pointer through `bevy_fairy::cursor_position(&window, &debug_cursor)`** or the injected half never reaches it. A host that calls `Window::cursor_position` directly is undrivable by an agent, and that is not a bug in the plugin.
 
@@ -113,12 +139,18 @@ There is deliberately no `[profile.*]` in `Cargo.toml`; the manifest comment rec
 
 ## Build and test
 
-Both halves are members of this workspace, so `cargo test --workspace` covers them. Individually:
+One package, so `cargo test --workspace` covers everything. The halves are selected by feature,
+and the plugin's tests declare `required-features` so they are simply not built when the plugin is
+off:
 
 ```sh
-cargo test -p bevy_fairy      # the plugin, including the dependency ratchet
-cargo test -p bevy_fairy       # the server
-cargo install --path .                # the bevy-fairy binary
+cargo test --workspace                    # the server, and the plugin's tests
+cargo test --no-default-features --features plugin --test plugin_leaf
+                                          # the OS-boundary ratchet, on its own
+cargo install --path .                    # the bevy-fairy binary
 ```
+
+The plugin's examples need their own features: `plugin-screenshot` for the capture example,
+`plugin-guide` for the guided-steps example, plain `plugin` for the rest.
 
 - Consult Bevy documentation often. It can be found at codex_fs/offline_reference_docs/bevy-0.20-book/

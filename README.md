@@ -13,20 +13,36 @@ Lets an agent inspect and drive a **running** Bevy game: query entities, compone
 [![Rust](https://img.shields.io/badge/rust-1.95+-orange.svg)](https://www.rust-lang.org)
 [![Bevy](https://img.shields.io/badge/bevy-0.20-purple.svg)](https://bevyengine.org)
 
-## Two halves
+## Two halves, one crate
 
 | | What it is | Where it runs |
 |---|---|---|
-| `bevy_fairy` (this crate) | The MCP **server** binary, `bevy-fairy`. Speaks MCP to an agent and BRP to the game. No login; it starts without a game and finds one when it appears. | Its own process |
-| [`crates/bevy_fairy`](crates/bevy_fairy) | The companion **Bevy plugin**. Registers `bevy_fairy/status`, `commands`, `screenshot`, `capture`, `scene`, `time`, `quit`, `input`, `guide` and `guide+watch`, and lets a game register its own typed commands (`add_debug_command`). | Inside the game |
+| The **server** (`server` feature, the default) | The MCP server binary, `bevy-fairy`. Speaks MCP to an agent and BRP to the game. No login; it starts without a game and finds one when it appears. | Its own process |
+| The **plugin** (`plugin` feature) | The Bevy plugin. Registers `bevy_fairy/status`, `commands`, `screenshot`, `capture`, `scene`, `time`, `quit`, `input`, `guide` and `guide+watch`, and lets a game register its own typed commands (`add_debug_command`). | Inside the game |
 
-They are independent — the server does not depend on the plugin. The plugin is what a game links; the server is what an agent talks to.
+They are one published crate with two features, and they are independent of each other. Cargo
+resolves dependencies per feature, so a game that takes the plugin compiles the plugin and none of
+the server's:
+
+```toml
+[dependencies]
+bevy_fairy = { version = "0.2", default-features = false, features = ["plugin"] }
+```
+
+An agent installs the server:
+
+```sh
+cargo install bevy_fairy
+```
+
+The plugin is what a game links; the server is what an agent talks to. The server talks to any
+game that exposes BRP, including one that never heard of this crate.
 
 ## Stage a scene and look at it
 
 The workflow the server's tools are built for: `status` (is the game ready?) → `commands` (what can this game do, with an example of each) → `run <command> <params>` … → `screenshot` → `scene save <path>` → `quit`. The game decides what its commands are, so the same seven tools drive any game that registers some; a mistyped command name is answered with the nearest real one. Every command that runs is recorded, and `scene save` writes the run to a file the game replays at startup (`BEVY_FAIRY_SCENE=<file>`), one step a frame, once it says it is ready. A capture comes back over BRP as a PNG, from the offscreen image the game renders to or from its window (`source: "window"`), so the game may run on another machine. `brp` is a raw passthrough for any BRP method.
 
-Wire a game in with the example in [`crates/bevy_fairy/README.md`](crates/bevy_fairy/README.md) (`examples/agent_scene.rs`), point the server at it with `BEVY_BRP_HOST` and `BEVY_BRP_PORT` (default `127.0.0.1:15702`), and set `BEVY_FAIRY_CAPTURE_DIR` for where captures are saved.
+Wire a game in with the example in `examples/plugin_agent_scene.rs`, point the server at it with `BEVY_BRP_HOST` and `BEVY_BRP_PORT` (default `127.0.0.1:15702`), and set `BEVY_FAIRY_CAPTURE_DIR` for where captures are saved.
 
 ### Why it looks like this
 
@@ -52,9 +68,9 @@ The third is the newest and the least obvious. An agent could already drive an a
 The three that demonstrate what this crate actually does — no window, no GPU, no mouse; all print to the terminal:
 
 ```sh
-cargo run -p bevy_fairy --example injected_input_lands
-cargo run -p bevy_fairy --example cursor_drag_lands
-cargo run -p bevy_fairy --example guided_steps_land
+cargo run --features plugin --example plugin_injected_input_lands
+cargo run --features plugin --example plugin_cursor_drag_lands
+cargo run --features plugin-guide --example plugin_guided_steps_land
 ```
 
 The first shows the property the plugin exists to provide: an injected key is visible to `just_pressed` for exactly one frame and `just_released` on the next, the same shape a physical key produces.
@@ -90,7 +106,7 @@ A step may have **no** checkpoint — *"does this look right?"* is not a machine
 
 What comes back is **`k/n` per step**, never a boolean, plus how long each took. A step nobody can complete shows up as a stall rather than a silence.
 
-The design is grounded rather than guessed, and two of the findings are negative: an on-demand help button *costs* completion, and restricting input to force the step buys nothing at all. See the [design notes](crates/bevy_fairy/src/guide.rs) for the citations.
+The design is grounded rather than guessed, and two of the findings are negative: an on-demand help button *costs* completion, and restricting input to force the step buys nothing at all. See the [design notes](src/plugin/guide.rs) for the citations.
 
 ## Injecting a cursor
 
