@@ -83,8 +83,9 @@ pub const BEAT_SECONDS: f32 = 2.0;
 #[derive(Debug, Clone, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct Step {
-    /// The sub-goal, in a few words. van der Meij: labelling each step of a procedure *"effectively
-    /// creat[es] a series of sub-goals"* and significantly improved knowledge development.
+    /// The sub-goal, in a few words. van der Meij: labelling each step of a procedure
+    /// *"effectively creates a series of sub-goals"* and significantly improved knowledge
+    /// development.
     pub label: String,
     /// One clause saying **why** this is being asked.
     ///
@@ -620,7 +621,7 @@ fn spawn_guide_overlay(mut commands: Commands) {
 /// Paints the current step, or the confirmation of the one just finished.
 ///
 /// **One step, never the script.** Llanos & Jorgensen 2011 found players accept a superimposed
-/// overlay while it is "clearly motivated, and provide[s] relevant and sufficient information" and
+/// overlay while it is "clearly motivated, and provides relevant and sufficient information" and
 /// that "once the players receive more information than they need, superimposed UI elements become
 /// annoying". Andersen's +40% is the same claim with a number on it.
 fn paint_guide(
