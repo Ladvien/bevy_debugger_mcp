@@ -231,7 +231,9 @@ async fn test_query_filter_serialization() {
 }
 
 /// Integration test with a minimal Bevy app (feature-gated).
-#[cfg(feature = "bevy")]
+// This test builds a real Bevy app, so it needs the `bevy` dependency, which this crate only
+// has when the `plugin` feature is on.
+#[cfg(feature = "plugin")]
 #[tokio::test]
 async fn test_real_bevy_16_integration() {
     use bevy::prelude::*;
@@ -247,10 +249,12 @@ async fn test_real_bevy_16_integration() {
         Name::new("TestEntity"),
     )).id();
 
-    // Bevy's BRP serialises entities as `(generation << 32) | index` u64s.
-    let combined: u64 = ((entity_id.generation() as u64) << 32) | (entity_id.index() as u64);
+    // Bevy's BRP serialises an entity as a u64: `(generation << 32) | index`. Bevy 0.20's
+    // `Entity` exposes the two halves as `index_u32()` and `generation().to_bits()`, and the
+    // whole thing as `to_bits()`.
+    let combined: u64 = entity_id.to_bits();
     let index = (combined & 0xFFFF_FFFF) as u32;
     let generation = (combined >> 32) as u32;
-    assert_eq!(index, entity_id.index());
-    assert_eq!(generation, entity_id.generation());
+    assert_eq!(index, entity_id.index_u32());
+    assert_eq!(generation, entity_id.generation().to_bits());
 }

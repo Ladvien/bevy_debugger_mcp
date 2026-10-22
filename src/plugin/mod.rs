@@ -34,7 +34,7 @@
 //!
 //! # Quick start
 //!
-//! ```ignore
+//! ```text
 //! use bevy::prelude::*;
 //! use bevy::remote::http::RemoteHttpPlugin;
 //! use bevy_fairy::{DebugCommandInfo, DebugCommandsAppExt, DebuggerPlugin};

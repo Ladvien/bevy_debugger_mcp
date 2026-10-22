@@ -458,54 +458,35 @@ impl CommandCache {
 }
 
 /// Get active feature flags as a string for cache key generation
+///
+/// The list is built from a fixed array of `(flag, is_enabled)` pairs rather than from
+/// `cfg`-gated pushes. A push behind a `cfg` needs a `mut` binding, and the binding is
+/// unused when the feature is off -- which is a clippy warning, and the crate is not allowed
+/// to add warnings. This form has no `mut` at all.
 fn get_active_feature_flags() -> String {
-    // The type is named because every push below is behind a `cfg`, so with no feature
-    // enabled there is nothing to infer it from.
-    let mut flags: Vec<&str> = Vec::new();
-    
-    #[cfg(feature = "basic-debugging")]
-    flags.push("basic-debugging");
-    
-    #[cfg(feature = "entity-inspection")]
-    flags.push("entity-inspection");
-    
-    #[cfg(feature = "performance-profiling")]
-    flags.push("performance-profiling");
-    
-    #[cfg(feature = "visual-debugging")]
-    flags.push("visual-debugging");
-    
-    #[cfg(feature = "session-management")]
-    flags.push("session-management");
-    
-    #[cfg(feature = "issue-detection")]
-    flags.push("issue-detection");
-    
-    #[cfg(feature = "memory-profiling")]
-    flags.push("memory-profiling");
-    
-    #[cfg(feature = "stress-testing")]
-    flags.push("stress-testing");
-    
-    #[cfg(feature = "time-travel")]
-    flags.push("time-travel");
-    
-    #[cfg(feature = "orchestration")]
-    flags.push("orchestration");
-    
-    #[cfg(feature = "optimizations")]
-    flags.push("optimizations");
-    
-    #[cfg(feature = "caching")]
-    flags.push("caching");
-    
-    #[cfg(feature = "pooling")]
-    flags.push("pooling");
-    
-    #[cfg(feature = "lazy-init")]
-    flags.push("lazy-init");
-    
-    flags.join(",")
+    const FLAGS: &[(&str, bool)] = &[
+        ("basic-debugging", cfg!(feature = "basic-debugging")),
+        ("entity-inspection", cfg!(feature = "entity-inspection")),
+        ("performance-profiling", cfg!(feature = "performance-profiling")),
+        ("visual-debugging", cfg!(feature = "visual-debugging")),
+        ("session-management", cfg!(feature = "session-management")),
+        ("issue-detection", cfg!(feature = "issue-detection")),
+        ("memory-profiling", cfg!(feature = "memory-profiling")),
+        ("stress-testing", cfg!(feature = "stress-testing")),
+        ("time-travel", cfg!(feature = "time-travel")),
+        ("orchestration", cfg!(feature = "orchestration")),
+        ("optimizations", cfg!(feature = "optimizations")),
+        ("caching", cfg!(feature = "caching")),
+        ("pooling", cfg!(feature = "pooling")),
+        ("lazy-init", cfg!(feature = "lazy-init")),
+    ];
+
+    FLAGS
+        .iter()
+        .filter(|(_, enabled)| *enabled)
+        .map(|(name, _)| *name)
+        .collect::<Vec<_>>()
+        .join(",")
 }
 
 #[cfg(test)]

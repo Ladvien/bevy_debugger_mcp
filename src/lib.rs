@@ -42,7 +42,10 @@
 //! bevy_fairy = { version = "0.2", default-features = false, features = ["plugin"] }
 //! ```
 //!
-//! ```rust
+//! This example belongs to the *game*, not to this crate: it uses `bevy`, which this crate
+//! only depends on when the `plugin` feature is on, so it is shown rather than compiled.
+//!
+//! ```text
 //! use bevy::prelude::*;
 //! use bevy::remote::http::RemoteHttpPlugin;
 //! use bevy_fairy::plugin::DebuggerPlugin;
