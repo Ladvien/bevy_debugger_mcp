@@ -2,12 +2,36 @@
 
 ## 0.2.0 — 2026-10-21
 
-A minor bump, and a breaking one: the tool schemas changed, and the plugin crate is new.
+A minor bump, and a breaking one: the crate is renamed and merged, the tool schemas
+changed, and the BRP method names changed.
 
 The gap from 0.1.8 (2025-08-23) to here is large — a year of work, most of it in a
-companion Bevy plugin that was not published at all until now.
+Bevy plugin that was not published at all until now.
 
 ### Breaking
+
+- **The crate is renamed and the two halves are merged.** `bevy_debugger_mcp` and
+  `bevy_debugger_bevy` are now one crate, `bevy_fairy`. The names stuttered, and a game
+  that wanted the plugin had to depend on a crate whose name said it was about the server.
+
+  The two halves are two *features* of the one crate, and they stay independent: Cargo
+  resolves dependencies per feature, so a game that takes the plugin compiles the plugin's
+  closure and none of the server's.
+
+  | | before | after |
+  |---|---|---|
+  | a game | `bevy_debugger_bevy = "0.2"` | `bevy_fairy = { version = "0.2", default-features = false, features = ["plugin"] }` |
+  | an agent | `cargo install bevy_debugger_mcp` | `cargo install bevy_fairy --no-default-features --features server` |
+  | the binary | `bevy-debugger-mcp` | `bevy-fairy` |
+  | the BRP methods | `bevy_debugger/*` | `bevy_fairy/*` |
+  | the environment | `BEVY_DEBUGGER_*` | `BEVY_FAIRY_*` |
+  | the control script | `bevy-debugger-control` | `bevy-fairy-control` |
+
+  The plugin's public items are re-exported at the crate root, so a game writes
+  `use bevy_fairy::DebuggerPlugin` — the same as it did when the plugin was its own crate.
+
+  `bevy_debugger_mcp` 0.1.8 stays published and is not yanked. It will not receive further
+  releases; this is the one that replaces it.
 
 - **The `experiment`, `hypothesis`, `detect_anomaly` and `stress_test` tools take different
   arguments.** Each tool's parameters are now generated from the same Rust type its handler
@@ -26,13 +50,18 @@ companion Bevy plugin that was not published at all until now.
   An agent that learned the old names has to learn the new ones. Nothing that worked stops
   working: the old names were never read.
 
-- **`bevy` is now 0.20.** The companion plugin is a Bevy 0.20 plugin.
+- **`bevy` is now 0.20.** The plugin is a Bevy 0.20 plugin.
 
 ### Added
 
-- **A companion Bevy plugin crate**, `bevy_fairy`, published for the first time. It
+- **A Bevy plugin**, behind the `plugin` feature, published for the first time. It
   owns the BRP `RemotePlugin`, so a host adds `DebuggerPlugin` plus a transport and never a
   second `RemotePlugin` — adding one twice panics the game on start.
+- **The guarantee that the plugin cannot reach the operating system is now checked against
+  the resolved dependency graph** rather than against a list. `tests/plugin_leaf.rs` runs
+  `cargo tree` for the plugin's feature set and fails if anything in it can synthesise an
+  OS event, which is stronger than the manifest check it replaces: the graph cannot be
+  quietly widened by adding a dependency to a feature.
 - **Game-registered commands.** A host registers a typed handler under a `<game>/<verb>` name
   with `add_debug_command`; the agent discovers the vocabulary from the game itself through
   `bevy_fairy/commands`, and each command ships a checked example.
@@ -77,9 +106,13 @@ An agent that calls the four tools above with the old field names will get a str
 naming the bad value, listing the valid ones, and giving one corrected call. Read the tool's
 schema from `tools/list` rather than from memory.
 
-A host that linked the plugin by git now depends on `bevy_fairy = "0.2"`. A host that
-hand-registered `bevy_fairy/screenshot` must delete that registration: the plugin owns it,
-and registering it twice panics the game on start.
+A host that linked the plugin by git now depends on
+`bevy_fairy = { version = "0.2", default-features = false, features = ["plugin"] }`. A host
+that hand-registered `bevy_debugger/screenshot` must delete that registration: the plugin
+owns it, and registering it twice panics the game on start.
+
+A host that registered a game command under a `bevy_debugger/` name must rename it to
+`bevy_fairy/`: the BRP method names changed with the crate.
 
 ## 0.1.8 — 2025-08-23
 

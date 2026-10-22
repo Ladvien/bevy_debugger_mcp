@@ -314,6 +314,11 @@ fn the_changelog_migration_table_names_the_fields_the_tools_take() {
 #[test]
 fn no_doc_names_the_old_crate_or_the_old_package_path() {
     for (what, text) in doc_files() {
+        // The changelog's whole job is to name what existed before, so it is history by
+        // definition, like `docs/loop/`.
+        if what == "CHANGELOG.md" {
+            continue;
+        }
         for (line_no, line) in text.lines().enumerate() {
             let trimmed = line.trim();
             // A line that is *about* the rename -- a changelog entry, a migration note, a
