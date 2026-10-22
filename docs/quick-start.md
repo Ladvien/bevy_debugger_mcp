@@ -1,4 +1,4 @@
-# Bevy Debugger MCP - Quick Start Guide
+# bevy-fairy - Quick Start Guide
 
 *Get from zero to debugging your Bevy game in under 5 minutes*
 

@@ -51,7 +51,7 @@ class BevyDebuggerMcp < Formula
 
   def caveats
     <<~EOS
-      ✨ Bevy Debugger MCP Server has been installed!
+      ✨ bevy-fairy has been installed!
 
       To set up Claude Desktop integration:
         bevy-fairy setup-claude

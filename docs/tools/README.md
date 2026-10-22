@@ -1,6 +1,6 @@
 # Debugging Tools Reference
 
-Complete reference for all 6 debugging tools available in the Bevy Debugger MCP.
+Complete reference for all 6 debugging tools available in bevy-fairy.
 
 ## Tool Overview
 

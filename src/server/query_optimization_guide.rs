@@ -1,5 +1,5 @@
 /*
- * Bevy Debugger MCP Server - Query Optimization Guide
+ * bevy-fairy - Query Optimization Guide
  * Copyright (C) 2025 ladvien
  *
  * Licensed under either of MIT (LICENSE-MIT) or Apache-2.0 (LICENSE-APACHE), at your option.
@@ -11,7 +11,7 @@
 //! # Bevy ECS Query Optimization Guide
 //!
 //! This module provides comprehensive guidance on optimizing ECS queries for Bevy games
-//! using the Bevy Debugger MCP server. The optimizations focus on Bevy's archetype-based
+//! using the bevy-fairy server. The optimizations focus on Bevy's archetype-based
 //! storage system and provide 10x+ performance improvements for large worlds.
 //!
 //! ## Performance Targets (BEVDBG-014)

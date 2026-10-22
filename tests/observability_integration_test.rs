@@ -1,5 +1,5 @@
 /*
- * Bevy Debugger MCP - Observability Integration Tests
+ * bevy-fairy - Observability Integration Tests
  * Copyright (C) 2025 ladvien
  *
  * Comprehensive tests for the observability stack
@@ -268,7 +268,7 @@ mod observability_tests {
         assert!(dashboard["dashboard"].is_object());
         assert_eq!(
             dashboard["dashboard"]["title"].as_str(),
-            Some("Bevy Debugger MCP Server Monitoring")
+            Some("bevy-fairy Monitoring")
         );
         
         // Check panels exist

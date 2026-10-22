@@ -1,4 +1,4 @@
-# Bevy Debugger MCP Server Configuration Example
+# bevy-fairy Configuration Example
 # Copy this file to ~/.config/bevy-fairy/config.toml and customize as needed
 
 [connection]

@@ -1,5 +1,5 @@
 /*
- * Bevy Debugger MCP Server - BRP Refactor Integration Tests
+ * bevy-fairy - BRP Refactor Integration Tests
  * Tests for Story BEVDBG-014
  *
  * Rewritten for the real `bevy_remote` crate wire types: `BrpRequest` is a

@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# Bevy Debugger MCP Server - Uninstaller Script
+# bevy-fairy - Uninstaller Script
 # This script removes the bevy-fairy service and all related files
 
 set -euo pipefail
@@ -39,7 +39,7 @@ print_warning() {
 }
 
 confirm_uninstall() {
-    echo "This will remove the Bevy Debugger MCP Server and all related files:"
+    echo "This will remove the bevy-fairy and all related files:"
     echo "  • Service: ${SERVICE_NAME}"
     echo "  • Binary: /usr/local/bin/${BINARY_NAME}"
     echo "  • LaunchAgent: ${LAUNCHAGENT_DIR}/${PLIST_NAME}"
@@ -224,7 +224,7 @@ show_completion() {
     echo "  🗑️  Uninstallation Complete"
     echo "========================================="
     echo
-    echo "The Bevy Debugger MCP Server has been uninstalled."
+    echo "The bevy-fairy has been uninstalled."
     echo
     
     if [[ -d "${CONFIG_DIR}" ]]; then
@@ -261,7 +261,7 @@ fi
 main() {
     echo
     echo "╔══════════════════════════════════════════╗"
-    echo "║   Bevy Debugger MCP Server Uninstaller  ║"
+    echo "║   bevy-fairy Uninstaller  ║"
     echo "╚══════════════════════════════════════════╝"
     echo
     
@@ -281,7 +281,7 @@ main() {
 # Handle script arguments
 case "${1:-}" in
     --help|-h)
-        echo "Bevy Debugger MCP Server - Uninstaller Script"
+        echo "bevy-fairy - Uninstaller Script"
         echo
         echo "Usage: $0 [options]"
         echo

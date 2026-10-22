@@ -1,5 +1,5 @@
 /*
- * Bevy Debugger MCP - Stdio Transport Integration Tests
+ * bevy-fairy - Stdio Transport Integration Tests
  * Copyright (C) 2025 ladvien
  *
  * Licensed under either of MIT (LICENSE-MIT) or Apache-2.0 (LICENSE-APACHE), at your option.

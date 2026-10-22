@@ -1,5 +1,5 @@
 /*
- * Bevy Debugger MCP Server - Hot Reload System for ML Models
+ * bevy-fairy - Hot Reload System for ML Models
  * Copyright (C) 2025 ladvien
  *
  * Licensed under either of MIT (LICENSE-MIT) or Apache-2.0 (LICENSE-APACHE), at your option.

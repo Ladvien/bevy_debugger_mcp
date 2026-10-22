@@ -1,4 +1,4 @@
-/// Integration test infrastructure for Bevy Debugger MCP
+/// Integration test infrastructure for bevy-fairy
 /// 
 /// This module provides comprehensive testing infrastructure including:
 /// - Test harness with mock clients

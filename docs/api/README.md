@@ -1,4 +1,4 @@
-# Bevy Debugger MCP - API Reference
+# bevy-fairy - API Reference
 
 Auto-generated API documentation for all debugging tools and interfaces.
 

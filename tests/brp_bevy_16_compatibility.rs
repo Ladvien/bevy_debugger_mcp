@@ -1,5 +1,5 @@
 /*
- * Bevy Debugger MCP Server - Bevy 0.16 BRP Compatibility Tests
+ * bevy-fairy - Bevy 0.16 BRP Compatibility Tests
  * Tests for BEVDBG-004: Update BRP Protocol for Bevy 0.16
  *
  * Rewritten for the real `bevy_remote` crate wire types: `BrpRequest` is a

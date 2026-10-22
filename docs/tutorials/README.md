@@ -1,6 +1,6 @@
-# Debugging Tutorials - Bevy Debugger MCP
+# Debugging Tutorials - bevy-fairy
 
-Step-by-step tutorials for common debugging scenarios using the Bevy Debugger MCP.
+Step-by-step tutorials for common debugging scenarios using bevy-fairy.
 
 ## Table of Contents
 
@@ -16,7 +16,7 @@ Step-by-step tutorials for common debugging scenarios using the Bevy Debugger MC
 ## Tutorial 1: Getting Started
 
 ### Goal
-Set up the Bevy Debugger MCP and perform your first debugging session.
+Set up bevy-fairy and perform your first debugging session.
 
 ### Prerequisites
 - Bevy game project with the debugger plugin enabled
@@ -516,4 +516,4 @@ Show me the diagnostic report to understand what went wrong with the last comman
 
 ---
 
-*These tutorials provide hands-on experience with the most common debugging scenarios. Practice them with your own games to become proficient with the Bevy Debugger MCP.*
+*These tutorials provide hands-on experience with the most common debugging scenarios. Practice them with your own games to become proficient with the bevy-fairy.*

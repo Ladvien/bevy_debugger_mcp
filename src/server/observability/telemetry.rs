@@ -1,5 +1,5 @@
 /*
- * Bevy Debugger MCP - Telemetry Service
+ * bevy-fairy - Telemetry Service
  * Copyright (C) 2025 ladvien
  *
  * Custom telemetry and data collection for advanced monitoring

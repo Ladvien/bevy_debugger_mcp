@@ -3,7 +3,7 @@
 
 set -e
 
-echo "🚀 Bevy Debugger MCP - Quick Setup for macOS"
+echo "🚀 bevy-fairy - Quick Setup for macOS"
 echo "============================================"
 echo ""
 

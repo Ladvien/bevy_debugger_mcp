@@ -1,10 +1,10 @@
-# Bevy Debugger MCP Server
+# bevy-fairy
 
 > ⚠️ **Vibe Coded** — written by an AI agent working from a human's direction. It is used against a shipping game and covered by tests, but it has had no line-by-line human audit. Read it before you trust it.
 
 Lets an agent inspect and drive a **running** Bevy game: query entities, components and resources live, capture frames from an offscreen render target, inject keyboard and mouse input — including **cursor position**, so a click-drag is expressible, and **typed text**, so a text field can be filled and committed — and **post a walkthrough the app renders one step at a time**, watching a named condition and recording what actually happened. None of it touches your desktop, your window manager, or the OS input stack.
 
-> **This repo is the source of truth** for both crates, on Bevy 0.20. It began as a subtree of [`Ladvien/foundation_vs_slop`](https://github.com/Ladvien/foundation_vs_slop) and was mirrored out of it until 2026-10-19; that monorepo's copy is now a frozen Bevy 0.19 snapshot, and nothing is pulled back from it. Issues and PRs belong here.
+> **This repo is the source of truth** for the crate, on Bevy 0.20. It began as a subtree of [`Ladvien/foundation_vs_slop`](https://github.com/Ladvien/foundation_vs_slop) and was mirrored out of it until 2026-10-19; that monorepo's copy is now a frozen Bevy 0.19 snapshot, and nothing is pulled back from it. Issues and PRs belong here.
 
 > **The one part that is not an ordinary change is the OS boundary below.** Neither crate may reach the machine the game runs on: no OS screen capture of other windows, no OS input synthesis.
 
@@ -205,7 +205,7 @@ cargo run  # In your game directory
 
 ## 🏗️ How It Works
 
-The Bevy Debugger MCP creates a bridge between Claude Code and your Bevy game:
+The bevy-fairy creates a bridge between Claude Code and your Bevy game:
 
 ```
 ┌─────────────┐     MCP Protocol      ┌──────────────────┐     BRP Protocol    ┌─────────────┐

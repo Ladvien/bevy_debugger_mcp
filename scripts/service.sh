@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# Bevy Debugger MCP Server - Service Management Script
+# bevy-fairy - Service Management Script
 # Provides convenient commands for managing the LaunchAgent service
 
 set -euo pipefail

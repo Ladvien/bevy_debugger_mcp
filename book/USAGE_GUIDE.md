@@ -1,6 +1,6 @@
-# Bevy Debugger MCP Usage Guide
+# bevy-fairy Usage Guide
 
-A comprehensive guide to getting the most out of the Bevy Debugger MCP server for debugging your Bevy games.
+A comprehensive guide to getting the most out of bevy-fairy for debugging your Bevy games.
 
 ## Table of Contents
 
@@ -15,7 +15,7 @@ A comprehensive guide to getting the most out of the Bevy Debugger MCP server fo
 
 ## Architecture Overview
 
-The Bevy Debugger MCP server acts as a bridge between Claude Code (the AI assistant) and your Bevy game:
+The bevy-fairy acts as a bridge between Claude Code (the AI assistant) and your Bevy game:
 
 ```
 Claude Code <--> MCP Protocol <--> MCP Server <--> BRP Protocol <--> Bevy Game
@@ -565,7 +565,7 @@ System Analysis:
 
 ## Conclusion
 
-The Bevy Debugger MCP server provides a powerful toolkit for debugging Bevy games. By combining intelligent observation, controlled experimentation, and systematic testing, you can quickly identify and resolve issues in your game.
+The bevy-fairy provides a powerful toolkit for debugging Bevy games. By combining intelligent observation, controlled experimentation, and systematic testing, you can quickly identify and resolve issues in your game.
 
 Remember:
 - Start with observation to understand the problem

@@ -1,5 +1,5 @@
 /*
- * Bevy Debugger MCP - Distributed Tracing
+ * bevy-fairy - Distributed Tracing
  * Copyright (C) 2025 ladvien
  *
  * OpenTelemetry and Jaeger-compatible distributed tracing

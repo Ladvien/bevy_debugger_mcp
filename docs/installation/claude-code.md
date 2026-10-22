@@ -1,15 +1,15 @@
 # Claude Code Integration Guide
 
-*Complete guide to integrating the Bevy Debugger MCP with Claude Code*
+*Complete guide to integrating bevy-fairy with Claude Code*
 
 ## Overview
 
-Claude Code is Anthropic's official CLI that supports the Model Context Protocol (MCP). This guide covers everything you need to know about setting up and using the Bevy Debugger MCP with Claude Code.
+Claude Code is Anthropic's official CLI that supports the Model Context Protocol (MCP). This guide covers everything you need to know about setting up and using bevy-fairy with Claude Code.
 
 ## Prerequisites
 
 - Claude Code CLI installed
-- Bevy Debugger MCP server installed (`cargo install bevy_fairy`)
+- bevy-fairy installed (`cargo install bevy_fairy`)
 - Basic familiarity with command line
 
 ## Configuration
@@ -23,7 +23,7 @@ The configuration file location varies by platform:
 
 ### 2. Add MCP Server Configuration
 
-Edit the configuration file and add the Bevy Debugger server:
+Edit the configuration file and add the bevy-fairy server:
 
 ```json
 {

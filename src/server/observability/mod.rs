@@ -1,5 +1,5 @@
 /*
- * Bevy Debugger MCP - Observability Stack
+ * bevy-fairy - Observability Stack
  * Copyright (C) 2025 ladvien
  *
  * Licensed under either of MIT (LICENSE-MIT) or Apache-2.0 (LICENSE-APACHE), at your option.
@@ -8,7 +8,7 @@
  * crate in the Bevy ecosystem cannot be adopted, and being adoptable is why it is published.
  */
 
-//! Comprehensive observability stack for Bevy Debugger MCP Server
+//! Comprehensive observability stack for bevy-fairy
 //! 
 //! This module provides production-grade monitoring, metrics, and tracing capabilities:
 //! - OpenTelemetry integration for distributed tracing

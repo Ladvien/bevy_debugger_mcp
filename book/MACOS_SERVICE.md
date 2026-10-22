@@ -1,6 +1,6 @@
 # macOS Service Setup Guide
 
-This guide explains how to set up the Bevy Debugger MCP server as a background service on macOS using LaunchAgent.
+This guide explains how to set up bevy-fairy as a background service on macOS using LaunchAgent.
 
 ## 🚀 Quick Start
 

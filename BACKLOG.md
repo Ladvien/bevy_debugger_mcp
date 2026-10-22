@@ -1,4 +1,4 @@
-# Bevy Debugger MCP - Cleaned Technical Backlog
+# bevy-fairy - Cleaned Technical Backlog
 
 **Date:** August 23, 2025  
 **Version:** v0.1.8  

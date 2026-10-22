@@ -1,11 +1,11 @@
 # Bevy Game Setup Guide
 
-*Complete guide to integrating the Bevy Debugger MCP with your Bevy game*
+*Complete guide to integrating bevy-fairy with your Bevy game*
 
 ## Overview
 
 This guide walks you through adding the debugger to your Bevy game so it can be inspected and
-driven over the Bevy Remote Protocol (BRP) by the Bevy Debugger MCP server.
+driven over the Bevy Remote Protocol (BRP) by bevy-fairy.
 
 The setup is one plugin. The plugin owns the BRP `RemotePlugin` and registers every
 `bevy_fairy/*` method, so there is nothing else to wire up.

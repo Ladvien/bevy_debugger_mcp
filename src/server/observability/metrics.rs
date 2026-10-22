@@ -1,5 +1,5 @@
 /*
- * Bevy Debugger MCP - Metrics Collection
+ * bevy-fairy - Metrics Collection
  * Copyright (C) 2025 ladvien
  *
  * Prometheus-compatible metrics collection for MCP server monitoring

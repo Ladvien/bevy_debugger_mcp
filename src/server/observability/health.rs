@@ -1,5 +1,5 @@
 /*
- * Bevy Debugger MCP - Health Monitoring
+ * bevy-fairy - Health Monitoring
  * Copyright (C) 2025 ladvien
  *
  * Health endpoints for load balancers and Kubernetes readiness/liveness probes

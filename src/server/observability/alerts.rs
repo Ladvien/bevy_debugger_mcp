@@ -1,5 +1,5 @@
 /*
- * Bevy Debugger MCP - Alert Rules and Definitions
+ * bevy-fairy - Alert Rules and Definitions
  * Copyright (C) 2025 ladvien
  *
  * Production monitoring alert rules and Grafana dashboard configurations
@@ -389,7 +389,7 @@ impl GrafanaDashboard {
         serde_json::json!({
             "dashboard": {
                 "id": null,
-                "title": "Bevy Debugger MCP Server Monitoring",
+                "title": "bevy-fairy Server Monitoring",
                 "tags": ["bevy", "mcp", "debugging", "observability"],
                 "style": "dark",
                 "timezone": "browser",

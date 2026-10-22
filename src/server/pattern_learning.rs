@@ -1,5 +1,5 @@
 /*
- * Bevy Debugger MCP Server - Pattern Learning System
+ * bevy-fairy - Pattern Learning System
  * Copyright (C) 2025 ladvien
  *
  * Licensed under either of MIT (LICENSE-MIT) or Apache-2.0 (LICENSE-APACHE), at your option.

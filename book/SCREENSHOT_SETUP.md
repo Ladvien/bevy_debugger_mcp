@@ -1,6 +1,6 @@
 # Screenshot Setup Guide
 
-The Bevy Debugger MCP captures what your Bevy game renders, without reaching outside the game.
+The bevy-fairy captures what your Bevy game renders, without reaching outside the game.
 
 ## What it captures
 

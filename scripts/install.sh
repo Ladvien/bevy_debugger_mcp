@@ -1,5 +1,5 @@
 #!/bin/bash
-# Universal installer for Bevy Debugger MCP Server
+# Universal installer for bevy-fairy
 # Supports macOS, Linux, and WSL
 
 set -e
@@ -270,7 +270,7 @@ verify_installation() {
         print_success "Installation successful! Version: $VERSION"
         
         echo ""
-        print_success "🎉 Bevy Debugger MCP Server installed successfully!"
+        print_success "🎉 bevy-fairy installed successfully!"
         echo ""
         echo "Next steps:"
         echo "  1. Add RemotePlugin to your Bevy game"
@@ -287,7 +287,7 @@ verify_installation() {
 
 # Uninstall function
 uninstall() {
-    print_info "Uninstalling Bevy Debugger MCP Server..."
+    print_info "Uninstalling bevy-fairy..."
     
     # Remove binary
     if [ -f "$INSTALL_DIR/$BINARY_NAME" ]; then
@@ -316,7 +316,7 @@ uninstall() {
 main() {
     echo ""
     echo "╔══════════════════════════════════════════╗"
-    echo "║   Bevy Debugger MCP Server Installer    ║"
+    echo "║   bevy-fairy Installer    ║"
     echo "╚══════════════════════════════════════════╝"
     echo ""
     

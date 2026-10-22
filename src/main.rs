@@ -1,5 +1,5 @@
 /*
- * Bevy Debugger MCP Server
+ * bevy-fairy: the MCP server half of an agentic debugger for Bevy games
  * Copyright (C) 2025 ladvien
  *
  * Licensed under either of MIT (LICENSE-MIT) or Apache-2.0 (LICENSE-APACHE), at your option.
@@ -53,7 +53,7 @@ async fn main() -> Result<()> {
     
     // Check for help flag
     if args.iter().any(|arg| arg == "--help" || arg == "-h") {
-        println!("Bevy Debugger MCP Server v{}", env!("CARGO_PKG_VERSION"));
+        println!("bevy-fairy v{}", env!("CARGO_PKG_VERSION"));
         println!("\nUsage: {} [OPTIONS]", args[0]);
         println!("\nOptions:");
         println!("  --stdio              Run in stdio mode (default for Claude Code)");
@@ -98,11 +98,11 @@ async fn main() -> Result<()> {
     );
 
     if use_stdio {
-        info!("Starting Bevy Debugger MCP Server in stdio mode for Claude Code");
+        info!("Starting bevy-fairy in stdio mode for Claude Code");
         run_stdio_mode(config).await
     } else {
         info!(
-            "Starting Bevy Debugger MCP Server in TCP mode on port {}",
+            "Starting bevy-fairy in TCP mode on port {}",
             config.mcp_port
         );
         run_tcp_mode(config).await

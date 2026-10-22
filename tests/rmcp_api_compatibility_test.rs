@@ -1,5 +1,5 @@
 /*
- * Bevy Debugger MCP - rmcp 0.2.1 API Compatibility Tests
+ * bevy-fairy - rmcp 0.2.1 API Compatibility Tests
  * Copyright (C) 2025 ladvien
  * 
  * Tests for rmcp 0.2.1 API compatibility and ServerHandler implementation

@@ -1,5 +1,5 @@
 /*
- * Bevy Debugger MCP Server - Debug BRP Command Handler
+ * bevy-fairy - Debug BRP Command Handler
  * Copyright (C) 2025 ladvien
  *
  * Licensed under either of MIT (LICENSE-MIT) or Apache-2.0 (LICENSE-APACHE), at your option.

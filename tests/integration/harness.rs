@@ -1,4 +1,4 @@
-/// Integration Test Harness for Bevy Debugger MCP
+/// Integration Test Harness for bevy-fairy
 /// 
 /// This module provides a comprehensive test harness for validating all debugging features
 /// across different scenarios with mock clients, performance validation, and comprehensive

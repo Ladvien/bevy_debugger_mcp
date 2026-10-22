@@ -1,6 +1,6 @@
-# Troubleshooting Guide - Bevy Debugger MCP
+# Troubleshooting Guide - bevy-fairy
 
-This guide helps you diagnose and resolve common issues when using the Bevy Debugger MCP server.
+This guide helps you diagnose and resolve common issues when using bevy-fairy.
 
 ## Table of Contents
 

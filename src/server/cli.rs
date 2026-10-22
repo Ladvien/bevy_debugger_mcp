@@ -391,7 +391,7 @@ debug = ["bevy_remote"]
     fs::write(&main_path, main_rs)?;
     
     // Create .env file
-    let env_content = r#"# Bevy Debugger Configuration
+    let env_content = r#"# bevy-fairy configuration
 BEVY_BRP_HOST=localhost
 BEVY_BRP_PORT=15702
 RUST_LOG=info

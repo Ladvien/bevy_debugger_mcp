@@ -1,5 +1,5 @@
 /*
- * Bevy Debugger MCP Server - BRP Validation Tests
+ * bevy-fairy - BRP Validation Tests
  * Copyright (C) 2025 ladvien
  *
  * Comprehensive test suite for BRP command validation functionality.
