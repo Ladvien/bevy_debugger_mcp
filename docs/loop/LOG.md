@@ -1,3 +1,3 @@
-- 2026-10-21 e93da67 seed: loop state created from the 2026-10-21 crate review and literature critique — no release — [critique](2026-10-21-bevy-debugger-mcp-loop-literature-critique.md)
+- 2026-10-21 e93da67 seed: loop state created from the 2026-10-21 crate review and literature critique — no release — [critique](2026-10-21-bevy-fairy-loop-literature-critique.md)
 - 2026-10-21 73564a1 honesty: four tools stopped answering with something else, and the docs stopped claiming things the code does not do — no release (the 0.2.0 publish is blocked on the plugin crate's first publish) — [report](iterations/2026-10-21-honesty-73564a1.md)
 - 2026-10-21 7ce4e68 merge: one crate named bevy_fairy, and the OS boundary re-proved against the resolved dependency graph — no release (a new name is the human's to publish) — [report](iterations/2026-10-21-merge-7ce4e68.md)
