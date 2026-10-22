@@ -1,6 +1,6 @@
 {
   "measured_at": "2026-10-21",
-  "sha": "7ce4e68",
+  "sha": "da090f1",
   "server": {
     "loc": 51212,
     "direct_dependencies": 53,
@@ -19,14 +19,14 @@
     "clippy_warnings_default": 1451,
     "clippy_warnings_all_features_errors": 42,
     "all_features_build": "fails: src/observability/ (42 errors); 'full-debugging' includes observability, so it fails too",
-    "server_tests_passed": 542,
+    "server_tests_passed": 523,
     "server_tests_failed": 0,
-    "server_tests_ignored": 5,
+    "server_tests_ignored": 4,
     "plugin_tests_passed": 59,
     "plugin_tests_failed": 0,
     "plugin_tests_ignored": 1,
     "clippy_warnings_note": "Counted by the ratchet: lint occurrences across the workspace and all targets. An earlier grep counted distinct warning lines and undercounted (707 vs 1462). The ratchet number is what the gate uses.",
-    "server_tests_note": "542 is the whole workspace, server and plugin together, counted from the gate log. The 463 recorded before was the server half alone.",
+    "server_tests_note": "523 is the whole workspace, server and plugin together, counted from the gate log. The default feature set is `server` and `plugin` together, so `cargo test --workspace` covers both halves.",
     "ignored_tests_note": "5 ignored, and the set of names is identical to known_red: test_profiling_history and four doctests. The baseline's count of 4 was a miscount; known_red always listed five.",
     "direct_dependencies_note": "The baseline said 50; the manifest at e93da67 actually had 51. The count is the number of entries in [dependencies], by name. The one added since is `schemars`, which `rmcp` already depended on and which resolves to 0.8.22 in the lockfile, so there is one copy, not two."
   },
