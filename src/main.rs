@@ -54,8 +54,16 @@ async fn main() -> Result<()> {
     // Every argument this binary understands. Anything else is refused by name: it used to
     // fall through to "start the MCP server", so `--version` or a typo looked like a server
     // crash ("connection closed: initialized request") rather than a usage error.
+    //
+    // `stdio` and `serve` are legacy spellings of `--stdio`. Earlier installers wrote them into
+    // MCP client configs (`"args": ["stdio"]`, `"args": ["serve"]`), and those configs only
+    // worked because unknown words fell through to stdio mode. They are accepted explicitly so
+    // a config already on someone's machine keeps working; the installers now write `--stdio`.
+    const LEGACY_STDIO_ALIASES: &[&str] = &["stdio", "serve"];
     const KNOWN_ARGS: &[&str] = &["--stdio", "--tcp", "--server", "--help", "-h", "--version", "-V"];
-    if let Some(unknown) = args.iter().skip(1).find(|arg| !KNOWN_ARGS.contains(&arg.as_str())) {
+    if let Some(unknown) = args.iter().skip(1).find(|arg| {
+        !KNOWN_ARGS.contains(&arg.as_str()) && !LEGACY_STDIO_ALIASES.contains(&arg.as_str())
+    }) {
         eprintln!("bevy-fairy: unknown argument `{unknown}`");
         eprintln!("valid arguments: {}", KNOWN_ARGS.join(", "));
         eprintln!("try `bevy-fairy --help`");
@@ -69,7 +77,7 @@ async fn main() -> Result<()> {
 
     // Check for help flag
     if args.iter().any(|arg| arg == "--help" || arg == "-h") {
-        println!("bevy-fairy v{}", env!("CARGO_PKG_VERSION"));
+        println!("bevy-fairy {}", env!("CARGO_PKG_VERSION"));
         println!("\nUsage: {} [OPTIONS]", args[0]);
         println!("\nOptions:");
         println!("  --stdio              Run in stdio mode (default for Claude Code)");
@@ -85,7 +93,9 @@ async fn main() -> Result<()> {
     }
     
     // Determine if we're in stdio mode (for MCP protocol)
-    let is_stdio_mode = args.iter().any(|arg| arg == "--stdio") || 
+    let is_stdio_mode = args
+        .iter()
+        .any(|arg| arg == "--stdio" || LEGACY_STDIO_ALIASES.contains(&arg.as_str())) ||
                         (!args.iter().any(|arg| arg == "--tcp" || arg == "--server") && !std::io::stdout().is_terminal());
     
     // Initialize tracing to stderr when in stdio mode (stdout is reserved for MCP protocol)

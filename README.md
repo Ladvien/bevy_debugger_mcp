@@ -478,7 +478,7 @@ cargo install bevy_fairy --no-default-features --features server
 3. **Verify Installation**:
 ```bash
 # Check version
-bevy-fairy --help
+bevy-fairy --version
 
 # Test the MCP server responds correctly
 echo '{"jsonrpc": "2.0", "method": "initialize", "params": {"capabilities": {}}, "id": 1}' | bevy-fairy --stdio

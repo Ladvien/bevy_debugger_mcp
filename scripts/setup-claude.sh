@@ -88,7 +88,7 @@ add_mcp_server() {
     local mcp_config=$(cat <<EOF
 {
   "command": "${binary_path}",
-  "args": ["serve"],
+  "args": ["--stdio"],
   "env": {
     "BEVY_BRP_HOST": "localhost",
     "BEVY_BRP_PORT": "15702",

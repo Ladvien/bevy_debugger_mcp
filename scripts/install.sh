@@ -216,7 +216,7 @@ setup_claude() {
   "mcpServers": {
     "bevy-fairy": {
       "command": "$INSTALL_DIR/$BINARY_NAME",
-      "args": ["serve"],
+      "args": ["--stdio"],
       "env": {
         "RUST_LOG": "info"
       }

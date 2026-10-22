@@ -53,3 +53,27 @@ fn an_unknown_argument_is_refused_by_name_rather_than_starting_the_server() {
         "the error must list the arguments that do exist; got: {stderr}"
     );
 }
+
+/// MCP client configs that earlier installers wrote say `"args": ["stdio"]` or
+/// `"args": ["serve"]`. They worked because unknown words fell through to stdio mode, and they
+/// are on users' machines now, so refusing unknown arguments must not refuse these two.
+///
+/// With stdin closed the server starts, sees the client go away, and exits; what matters is
+/// that it started rather than refusing the argument as a usage error.
+#[test]
+fn the_legacy_stdio_spellings_installers_wrote_are_still_accepted() {
+    for legacy in ["stdio", "serve"] {
+        let out = bevy_fairy(&[legacy]);
+        let stderr = String::from_utf8_lossy(&out.stderr);
+        assert_ne!(
+            out.status.code(),
+            Some(2),
+            "`bevy-fairy {legacy}` was written into client configs by earlier installers and \
+             must still start the server; stderr: {stderr}"
+        );
+        assert!(
+            !stderr.contains("unknown argument"),
+            "`{legacy}` must not be refused as unknown; stderr: {stderr}"
+        );
+    }
+}

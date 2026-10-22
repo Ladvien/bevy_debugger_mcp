@@ -37,7 +37,7 @@ if command -v bevy-fairy &> /dev/null; then
     echo "Example configuration:"
     echo '  "bevy-fairy": {'
     echo '    "command": "/Users/'$USER'/.cargo/bin/bevy-fairy",'
-    echo '    "args": ["stdio"],'
+    echo '    "args": ["--stdio"],'
     echo '    "env": {'
     echo '      "RUST_LOG": "info",'
     echo '      "BEVY_BRP_HOST": "127.0.0.1",'

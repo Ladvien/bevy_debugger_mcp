@@ -46,7 +46,7 @@ class BevyDebuggerMcp < Formula
       Example configuration:
         "bevy-fairy": {
           "command": "#{HOMEBREW_PREFIX}/bin/bevy-fairy",
-          "args": ["stdio"],
+          "args": ["--stdio"],
           "env": {
             "RUST_LOG": "info",
             "BEVY_BRP_HOST": "127.0.0.1",

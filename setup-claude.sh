@@ -62,7 +62,7 @@ cat << EOF
   "mcpServers": {
     "bevy-fairy": {
       "command": "$BINARY_PATH",
-      "args": ["stdio"],
+      "args": ["--stdio"],
       "env": {
         "RUST_LOG": "info",
         "BEVY_BRP_HOST": "127.0.0.1",
