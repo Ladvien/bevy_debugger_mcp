@@ -1,10 +1,10 @@
 {
   "measured_at": "2026-10-21",
-  "sha": "e93da67",
+  "sha": "73564a1",
   "server": {
-    "loc": 51268,
-    "direct_dependencies": 50,
-    "public_modules": 73,
+    "loc": 51571,
+    "direct_dependencies": 52,
+    "public_modules": 72,
     "mcp_tools": 14,
     "release_binary_bytes": 99925248
   },
@@ -13,16 +13,19 @@
     "direct_dependencies": 5
   },
   "quality": {
-    "clippy_warnings_default": 1462,
+    "clippy_warnings_default": 1460,
     "clippy_warnings_all_features_errors": 42,
     "all_features_build": "fails: src/observability/ (42 errors); 'full-debugging' includes observability, so it fails too",
-    "server_tests_passed": 463,
+    "server_tests_passed": 542,
     "server_tests_failed": 0,
-    "server_tests_ignored": 4,
+    "server_tests_ignored": 5,
     "plugin_tests_passed": 59,
     "plugin_tests_failed": 0,
     "plugin_tests_ignored": 1,
-    "clippy_warnings_note": "Counted by the ratchet: lint occurrences across the workspace and all targets. An earlier grep counted distinct warning lines and undercounted (707 vs 1462). The ratchet number is what the gate uses."
+    "clippy_warnings_note": "Counted by the ratchet: lint occurrences across the workspace and all targets. An earlier grep counted distinct warning lines and undercounted (707 vs 1462). The ratchet number is what the gate uses.",
+    "server_tests_note": "542 is the whole workspace, server and plugin together, counted from the gate log. The 463 recorded before was the server half alone.",
+    "ignored_tests_note": "5 ignored, and the set of names is identical to known_red: test_profiling_history and four doctests. The baseline's count of 4 was a miscount; known_red always listed five.",
+    "direct_dependencies_note": "The baseline said 50; the manifest at e93da67 actually had 51. The count is the number of entries in [dependencies], by name. The one added since is `schemars`, which `rmcp` already depended on and which resolves to 0.8.22 in the lockfile, so there is one copy, not two."
   },
   "evals": {
     "dev_success_rate": null,
@@ -35,7 +38,9 @@
     "Only the `observability` and `full-debugging` features fail to compile, with 42 errors each. Every other feature builds.",
     "The default build is clean.",
     "CI runs `scripts/ratchet.sh` instead of plain `-D warnings`, so a red build means something new broke.",
-    "The metrics ratchet may not let any of these numbers go up without a logged reason."
+    "The metrics ratchet may not let any of these numbers go up without a logged reason.",
+    "public_modules went 73 -> 72: the count is `pub mod` in src/lib.rs, and one declaration was removed while the tools were moved onto generated schemas.",
+    "server loc went 51268 -> 51571 (+303): the four tools' request structs, the handler-side JsonSchema derives, the measurement code that replaced the constants, and the recording fix. The tests are counted separately and are not in this number."
   ],
   "known_red": {
     "recorded_at": "2026-10-21",

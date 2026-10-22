@@ -1,0 +1,174 @@
+{
+  "items": [
+    {
+      "id": "B-001",
+      "kind": "bug",
+      "area": "experiment",
+      "title": "experiment tool sends `type`; handler dispatches on `action`, so the requested operation is ignored",
+      "must_fix": {
+        "misleads": true,
+        "blocks": false,
+        "common_no_workaround": true,
+        "evidence": "src/mcp_tools.rs:453-517 sends `type`; src/tools/experiment.rs:45-48 reads `action`"
+      },
+      "status": "fixed",
+      "evidence": "Fixed in c657ab2. The request struct carries the action; the handler dispatches on it. Proof: tests/tool_contract.rs::experiment_runs_the_requested_action.",
+      "last_failure": "",
+      "first_seen": "2026-10-21",
+      "fixed_at": "2026-10-21"
+    },
+    {
+      "id": "B-002",
+      "kind": "bug",
+      "area": "hypothesis",
+      "title": "hypothesis tool sends no `action`; handler dispatches on `action` and falls through to `test`",
+      "must_fix": {
+        "misleads": true,
+        "blocks": false,
+        "common_no_workaround": true,
+        "evidence": "src/mcp_tools.rs:473-477 sends `hypothesis`/`confidence`/`context`; src/tools/hypothesis.rs:18-21 reads `action`"
+      },
+      "status": "fixed",
+      "evidence": "Fixed in c657ab2. Same shape. Proof: tests/tool_contract.rs::hypothesis_runs_the_requested_action.",
+      "last_failure": "",
+      "first_seen": "2026-10-21",
+      "fixed_at": "2026-10-21"
+    },
+    {
+      "id": "B-003",
+      "kind": "bug",
+      "area": "anomaly",
+      "title": "detect_anomaly tool sends `type`; handler dispatches on `action` and falls through to `detect`",
+      "must_fix": {
+        "misleads": true,
+        "blocks": false,
+        "common_no_workaround": true,
+        "evidence": "src/mcp_tools.rs:493-497 sends `type`; src/tools/anomaly.rs:63-66 reads `action`"
+      },
+      "status": "fixed",
+      "evidence": "Fixed in c657ab2. Same shape. Proof: tests/tool_contract.rs::detect_anomaly_analyses_the_live_game_with_the_given_thresholds.",
+      "last_failure": "",
+      "first_seen": "2026-10-21",
+      "fixed_at": "2026-10-21"
+    },
+    {
+      "id": "B-004",
+      "kind": "bug",
+      "area": "stress",
+      "title": "stress_test tool sends `type`; handler dispatches on `action` and falls through to `run`",
+      "must_fix": {
+        "misleads": true,
+        "blocks": false,
+        "common_no_workaround": true,
+        "evidence": "src/mcp_tools.rs:513-518 sends `type`; src/tools/stress.rs:34-37 reads `action`"
+      },
+      "status": "fixed",
+      "evidence": "Fixed in c657ab2. Same shape. Proof: tests/tool_contract.rs::stress_test_runs_the_requested_test_type.",
+      "last_failure": "",
+      "first_seen": "2026-10-21",
+      "fixed_at": "2026-10-21"
+    },
+    {
+      "id": "B-005",
+      "kind": "bug",
+      "area": "hypothesis",
+      "title": "hypothesis measures hard-coded constants: 16.67 ms frame time, 100 entities, 500 components, 1024 MB, 50% CPU",
+      "must_fix": {
+        "misleads": true,
+        "blocks": false,
+        "common_no_workaround": true,
+        "evidence": "src/hypothesis_system.rs:291-300, `PerformanceMetric::measure` returns constants"
+      },
+      "status": "fixed",
+      "evidence": "Fixed in 0e138cc. Entity and component counts are measured from the game; the other three are refused with a reason. Proof: tests/hypothesis_metrics.rs (4 tests).",
+      "last_failure": "",
+      "first_seen": "2026-10-21",
+      "fixed_at": "2026-10-21"
+    },
+    {
+      "id": "B-006",
+      "kind": "bug",
+      "area": "replay",
+      "title": "replay record captures nothing: entity and event fetching are TODO and return empty",
+      "must_fix": {
+        "misleads": true,
+        "blocks": false,
+        "common_no_workaround": true,
+        "evidence": "src/recording_system.rs:328-350, both fetchers return an empty collection"
+      },
+      "status": "fixed",
+      "evidence": "Fixed in e1e0517. Entity states are recorded; events are not observable over BRP, so a frame carries events_not_captured. Two more bugs found while proving it: the dropped first frame and its duplication. Proof: tests/replay_recording.rs (3 tests).",
+      "last_failure": "",
+      "first_seen": "2026-10-21",
+      "fixed_at": "2026-10-21"
+    },
+    {
+      "id": "B-007",
+      "kind": "bug",
+      "area": "instructions",
+      "title": "server instructions tell agents to use `hypothesis`/`experiment`/`stress_test`/`replay` for inspecting and re-running the game, but those tools mislead",
+      "must_fix": {
+        "misleads": true,
+        "blocks": false,
+        "common_no_workaround": true,
+        "evidence": "src/mcp_tools.rs:369-370, the COLLABORATION_PROTOCOL string"
+      },
+      "status": "fixed",
+      "evidence": "Fixed in ef3025c. The instructions now name the fields each tool needs. Proof: tests/instructions.rs (3 tests).",
+      "last_failure": "",
+      "first_seen": "2026-10-21",
+      "fixed_at": "2026-10-21"
+    },
+    {
+      "id": "B-008",
+      "kind": "bug",
+      "area": "docs",
+      "title": "CLAUDE.md says a screenshot fails loudly without DebugCaptureTarget; the code silently falls back to window capture",
+      "must_fix": {
+        "misleads": true,
+        "blocks": false,
+        "common_no_workaround": true,
+        "evidence": "CLAUDE.md 'The non-negotiable' section vs crates/bevy_debugger_bevy/src/screenshot.rs:152-158"
+      },
+      "status": "fixed",
+      "evidence": "Fixed in 00b98c8. CLAUDE.md now says the fallback is to window capture, which is weaker than offscreen but not focus-stealing. Proof: tests/docs_drift.rs::claude_md_does_not_claim_the_screenshot_refuses_to_fall_back.",
+      "last_failure": "",
+      "first_seen": "2026-10-21",
+      "fixed_at": "2026-10-21"
+    },
+    {
+      "id": "B-014",
+      "kind": "bug",
+      "area": "docs",
+      "title": "lib.rs crate docs say Bevy 0.12 with feature `bevy_remote_protocol`; the crate is on Bevy 0.20",
+      "must_fix": {
+        "misleads": true,
+        "blocks": false,
+        "common_no_workaround": true,
+        "evidence": "src/lib.rs:25"
+      },
+      "status": "fixed",
+      "evidence": "Fixed in 00b98c8. src/lib.rs names Bevy 0.20. The example is a text block, because it belongs to the game crate and this crate does not depend on bevy by default. Proof: tests/docs_drift.rs::the_docs_name_the_bevy_version_the_crate_uses.",
+      "last_failure": "",
+      "first_seen": "2026-10-21",
+      "fixed_at": "2026-10-21"
+    },
+    {
+      "id": "B-015",
+      "kind": "bug",
+      "area": "docs",
+      "title": "README and book/SCREENSHOT_SETUP.md tell users to hand-register `bevy_debugger/screenshot`, which now double-adds RemotePlugin and panics",
+      "must_fix": {
+        "misleads": true,
+        "blocks": true,
+        "common_no_workaround": false,
+        "evidence": "README.md:371, book/SCREENSHOT_SETUP.md:41 and :178"
+      },
+      "status": "fixed",
+      "evidence": "Fixed in 00b98c8. The README and the book use the plugin and say not to add a second RemotePlugin. Proof: tests/docs_drift.rs::the_readme_does_not_tell_the_reader_to_register_a_method_the_plugin_registers and the_book_ variant.",
+      "last_failure": "",
+      "first_seen": "2026-10-21",
+      "fixed_at": "2026-10-21"
+    }
+  ]
+}

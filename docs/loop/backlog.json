@@ -1,134 +1,6 @@
 {
   "items": [
     {
-      "id": "B-001",
-      "kind": "bug",
-      "area": "experiment",
-      "title": "experiment tool sends `type`; handler dispatches on `action`, so the requested operation is ignored",
-      "must_fix": {
-        "misleads": true,
-        "blocks": false,
-        "common_no_workaround": true,
-        "evidence": "src/mcp_tools.rs:453-517 sends `type`; src/tools/experiment.rs:45-48 reads `action`"
-      },
-      "status": "open",
-      "evidence": "Verified 2026-10-21 by reading both sites. The tool always falls through to the `execute` default.",
-      "last_failure": "",
-      "first_seen": "2026-10-21"
-    },
-    {
-      "id": "B-002",
-      "kind": "bug",
-      "area": "hypothesis",
-      "title": "hypothesis tool sends no `action`; handler dispatches on `action` and falls through to `test`",
-      "must_fix": {
-        "misleads": true,
-        "blocks": false,
-        "common_no_workaround": true,
-        "evidence": "src/mcp_tools.rs:473-477 sends `hypothesis`/`confidence`/`context`; src/tools/hypothesis.rs:18-21 reads `action`"
-      },
-      "status": "open",
-      "evidence": "Verified 2026-10-21 by reading both sites.",
-      "last_failure": "",
-      "first_seen": "2026-10-21"
-    },
-    {
-      "id": "B-003",
-      "kind": "bug",
-      "area": "anomaly",
-      "title": "detect_anomaly tool sends `type`; handler dispatches on `action` and falls through to `detect`",
-      "must_fix": {
-        "misleads": true,
-        "blocks": false,
-        "common_no_workaround": true,
-        "evidence": "src/mcp_tools.rs:493-497 sends `type`; src/tools/anomaly.rs:63-66 reads `action`"
-      },
-      "status": "open",
-      "evidence": "Verified 2026-10-21 by reading both sites.",
-      "last_failure": "",
-      "first_seen": "2026-10-21"
-    },
-    {
-      "id": "B-004",
-      "kind": "bug",
-      "area": "stress",
-      "title": "stress_test tool sends `type`; handler dispatches on `action` and falls through to `run`",
-      "must_fix": {
-        "misleads": true,
-        "blocks": false,
-        "common_no_workaround": true,
-        "evidence": "src/mcp_tools.rs:513-518 sends `type`; src/tools/stress.rs:34-37 reads `action`"
-      },
-      "status": "open",
-      "evidence": "Verified 2026-10-21 by reading both sites.",
-      "last_failure": "",
-      "first_seen": "2026-10-21"
-    },
-    {
-      "id": "B-005",
-      "kind": "bug",
-      "area": "hypothesis",
-      "title": "hypothesis measures hard-coded constants: 16.67 ms frame time, 100 entities, 500 components, 1024 MB, 50% CPU",
-      "must_fix": {
-        "misleads": true,
-        "blocks": false,
-        "common_no_workaround": true,
-        "evidence": "src/hypothesis_system.rs:291-300, `PerformanceMetric::measure` returns constants"
-      },
-      "status": "open",
-      "evidence": "Verified 2026-10-21 by reading src/hypothesis_system.rs:291-300. Every metric is a literal.",
-      "last_failure": "",
-      "first_seen": "2026-10-21"
-    },
-    {
-      "id": "B-006",
-      "kind": "bug",
-      "area": "replay",
-      "title": "replay record captures nothing: entity and event fetching are TODO and return empty",
-      "must_fix": {
-        "misleads": true,
-        "blocks": false,
-        "common_no_workaround": true,
-        "evidence": "src/recording_system.rs:328-350, both fetchers return an empty collection"
-      },
-      "status": "open",
-      "evidence": "Verified 2026-10-21 by reading src/recording_system.rs:328-350.",
-      "last_failure": "",
-      "first_seen": "2026-10-21"
-    },
-    {
-      "id": "B-007",
-      "kind": "bug",
-      "area": "instructions",
-      "title": "server instructions tell agents to use `hypothesis`/`experiment`/`stress_test`/`replay` for inspecting and re-running the game, but those tools mislead",
-      "must_fix": {
-        "misleads": true,
-        "blocks": false,
-        "common_no_workaround": true,
-        "evidence": "src/mcp_tools.rs:369-370, the COLLABORATION_PROTOCOL string"
-      },
-      "status": "open",
-      "evidence": "Verified 2026-10-21 by reading src/mcp_tools.rs:362-393.",
-      "last_failure": "",
-      "first_seen": "2026-10-21"
-    },
-    {
-      "id": "B-008",
-      "kind": "bug",
-      "area": "docs",
-      "title": "CLAUDE.md says a screenshot fails loudly without DebugCaptureTarget; the code silently falls back to window capture",
-      "must_fix": {
-        "misleads": true,
-        "blocks": false,
-        "common_no_workaround": true,
-        "evidence": "CLAUDE.md 'The non-negotiable' section vs crates/bevy_debugger_bevy/src/screenshot.rs:152-158"
-      },
-      "status": "open",
-      "evidence": "Verified 2026-10-21: `None if target.is_some() => Offscreen, None => Window`. Window capture can be stale or a single flat colour when the window is not in front.",
-      "last_failure": "",
-      "first_seen": "2026-10-21"
-    },
-    {
       "id": "B-009",
       "kind": "bug",
       "area": "input",
@@ -205,38 +77,6 @@
       },
       "status": "open",
       "evidence": "Verified 2026-10-21 by reading the tool router and the module exports.",
-      "last_failure": "",
-      "first_seen": "2026-10-21"
-    },
-    {
-      "id": "B-014",
-      "kind": "bug",
-      "area": "docs",
-      "title": "lib.rs crate docs say Bevy 0.12 with feature `bevy_remote_protocol`; the crate is on Bevy 0.20",
-      "must_fix": {
-        "misleads": true,
-        "blocks": false,
-        "common_no_workaround": true,
-        "evidence": "src/lib.rs:25"
-      },
-      "status": "open",
-      "evidence": "Verified 2026-10-21.",
-      "last_failure": "",
-      "first_seen": "2026-10-21"
-    },
-    {
-      "id": "B-015",
-      "kind": "bug",
-      "area": "docs",
-      "title": "README and book/SCREENSHOT_SETUP.md tell users to hand-register `bevy_debugger/screenshot`, which now double-adds RemotePlugin and panics",
-      "must_fix": {
-        "misleads": true,
-        "blocks": true,
-        "common_no_workaround": false,
-        "evidence": "README.md:371, book/SCREENSHOT_SETUP.md:41 and :178"
-      },
-      "status": "open",
-      "evidence": "Verified 2026-10-21. The plugin registers the method itself (crates/bevy_debugger_bevy/src/lib.rs:122-134).",
       "last_failure": "",
       "first_seen": "2026-10-21"
     },
@@ -365,6 +205,54 @@
       },
       "status": "open",
       "evidence": "Verified 2026-10-21. The plugin crate bevy_debugger_bevy has never been published; that first publish needs the human's OK.",
+      "last_failure": "",
+      "first_seen": "2026-10-21"
+    },
+    {
+      "id": "B-024",
+      "kind": "bug",
+      "area": "tooling",
+      "title": "the tools' request structs and the handlers' own types are two sources of truth for the same argument",
+      "must_fix": {
+        "misleads": false,
+        "blocks": false,
+        "common_no_workaround": false,
+        "evidence": "src/mcp_tools.rs request structs vs src/experiment_system.rs Action/Assertion"
+      },
+      "status": "open",
+      "evidence": "The four tools now carry the handler's own types, so the advertised schema is generated from the type the handler parses. The wrapper structs still exist alongside them and are the second place a field could be added and missed.",
+      "last_failure": "",
+      "first_seen": "2026-10-21"
+    },
+    {
+      "id": "B-025",
+      "kind": "bug",
+      "area": "docs",
+      "title": "docs/mcp-tools.md does not exist; the tool reference is not generated from the registered schemas",
+      "must_fix": {
+        "misleads": false,
+        "blocks": false,
+        "common_no_workaround": false,
+        "evidence": "the loop's docs rule names docs/mcp-tools.md as a generated output; there is no such file"
+      },
+      "status": "open",
+      "evidence": "The docs rule says `docs/mcp-tools.md` is generated from the registered schemas and that the docs-drift test covers it. Neither the file nor the generator exists. The docs-drift test covers README, the book, CLAUDE.md and the instructions string instead.",
+      "last_failure": "",
+      "first_seen": "2026-10-21"
+    },
+    {
+      "id": "B-026",
+      "kind": "bug",
+      "area": "tooling",
+      "title": "the `observe` tool's description does not say how to call it; the same class of gap the instructions had",
+      "must_fix": {
+        "misleads": false,
+        "blocks": false,
+        "common_no_workaround": false,
+        "evidence": "src/mcp_tools.rs, the `observe` tool's description"
+      },
+      "status": "open",
+      "evidence": "B-007 fixed the instructions string. The per-tool descriptions were not audited the same way: `observe` does not name the field it reads.",
       "last_failure": "",
       "first_seen": "2026-10-21"
     }
