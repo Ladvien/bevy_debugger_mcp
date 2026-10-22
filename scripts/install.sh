@@ -140,14 +140,16 @@ build_from_source() {
     }
     
     cd "$TEMP_DIR/bevy-fairy"
-    cargo build --release
-    
+    # Only the server half. The plugin half needs Bevy, and an agent installing the server
+    # does not want to compile the engine.
+    cargo build --release --no-default-features --features server
+
     # Install binary
     if [ -w "$INSTALL_DIR" ]; then
-        mv "target/release/bevy_fairy" "$INSTALL_DIR/$BINARY_NAME"
+        mv "target/release/bevy-fairy" "$INSTALL_DIR/$BINARY_NAME"
     else
         print_info "Installing to $INSTALL_DIR requires sudo permission"
-        sudo mv "target/release/bevy_fairy" "$INSTALL_DIR/$BINARY_NAME"
+        sudo mv "target/release/bevy-fairy" "$INSTALL_DIR/$BINARY_NAME"
     fi
     
     chmod +x "$INSTALL_DIR/$BINARY_NAME"

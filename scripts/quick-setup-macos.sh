@@ -21,7 +21,7 @@ INSTALL_DIR="/usr/local/bin"
 BINARY_NAME="bevy-fairy"
 
 # Create symlink for easy updates
-ln -sf "$(pwd)/target/release/bevy_fairy" "$INSTALL_DIR/$BINARY_NAME"
+ln -sf "$(pwd)/target/release/bevy-fairy" "$INSTALL_DIR/$BINARY_NAME"
 echo "✅ Installed to $INSTALL_DIR/$BINARY_NAME"
 
 # Step 3: Configure Claude Desktop

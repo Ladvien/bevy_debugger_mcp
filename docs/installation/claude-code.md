@@ -346,7 +346,7 @@ The MCP server is designed for minimal impact:
 # .github/workflows/debug-test.yml
 - name: Test MCP Integration
   run: |
-    cargo install bevy_fairy
+    cargo install bevy_fairy --no-default-features --features server
     echo '{"jsonrpc": "2.0", "method": "tools/list", "id": 1}' | bevy-fairy --stdio
 ```
 

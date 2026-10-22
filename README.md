@@ -32,7 +32,7 @@ bevy_fairy = { version = "0.2", default-features = false, features = ["plugin"] 
 An agent installs the server:
 
 ```sh
-cargo install bevy_fairy
+cargo install bevy_fairy --no-default-features --features server
 ```
 
 The plugin is what a game links; the server is what an agent talks to. The server talks to any
@@ -171,7 +171,7 @@ A powerful Model Context Protocol (MCP) server that enables AI-assisted debuggin
 
 ```bash
 # 1. Install the debugger (pick your preferred method)
-cargo install bevy_fairy
+cargo install bevy_fairy --no-default-features --features server
 
 # 2. Run the setup script (IMPORTANT!)
 curl -sSL https://raw.githubusercontent.com/ladvien/bevy_fairy/main/setup-claude.sh | bash
@@ -254,7 +254,7 @@ bevy-fairy-setup
 
 #### Method 2: Cargo Install
 ```bash
-cargo install bevy_fairy
+cargo install bevy_fairy --no-default-features --features server
 
 # Run setup script for Claude integration
 curl -sSL https://raw.githubusercontent.com/ladvien/bevy_fairy/main/setup-claude.sh | bash
@@ -450,7 +450,7 @@ fn main() {
 
 1. **Install the MCP Server** (v0.2.0 or later):
 ```bash
-cargo install bevy_fairy
+cargo install bevy_fairy --no-default-features --features server
 ```
 
 2. **Configure Claude Code** - Add to your Claude Code settings:
@@ -688,7 +688,7 @@ The debugger is designed for minimal impact on your game:
 | Issue | Solution |
 |-------|----------|
 | **"Failed to connect to BRP"** | Ensure your Bevy game is running with `DebuggerPlugin` enabled |
-| **"No tools available"** | Update to v0.2.0: `cargo install bevy_fairy --force` |
+| **"No tools available"** | Update to v0.2.0: `cargo install bevy_fairy --no-default-features --features server --force` |
 | **High CPU usage** | Reduce monitoring frequency or use `--tcp` mode instead of stdio |
 | **Screenshot not working** | Add screenshot handler to your Bevy game (see setup example) |
 | **Memory leak detection false positives** | Adjust detection thresholds in anomaly tool |
@@ -751,7 +751,7 @@ fn main() {
 
 ```bash
 # Install the debugger
-cargo install bevy_fairy
+cargo install bevy_fairy --no-default-features --features server
 
 # Add to Claude Code config (~/.config/claude/claude_code_config.json)
 {

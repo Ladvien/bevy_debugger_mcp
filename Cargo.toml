@@ -131,9 +131,10 @@ tower-http = { version = "0.5", features = ["auth", "cors", "trace", "metrics"],
 axum = { version = "0.7", features = ["macros", "json"], optional = true }
 
 [features]
-# The default is the server: `cargo install bevy_fairy` gives you the MCP server, and that is
-# what an agent needs. A game opts into the plugin instead, and never pulls the server's tree.
-default = ["server"]
+# The default is the server *and* the plugin, so that `cargo test --workspace` and
+# `cargo install bevy_fairy` both cover everything in the crate. A game that wants only the
+# plugin turns the server off with `default-features = false` and never pulls its tree in.
+default = ["server", "plugin"]
 
 # The MCP server, the half an agent talks to.
 server = [

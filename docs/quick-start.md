@@ -13,7 +13,7 @@
 
 ```bash
 # Install from crates.io
-cargo install bevy_fairy
+cargo install bevy_fairy --no-default-features --features server
 
 # Verify installation
 bevy-fairy --help
@@ -109,7 +109,7 @@ What happens if I spawn 10 new entities?
 - Check port 15702 isn't blocked by firewall
 
 **Tools not available?**
-- Update to latest version: `cargo install bevy_fairy --force`
+- Update to latest version: `cargo install bevy_fairy --no-default-features --features server --force`
 - Verify installation: `bevy-fairy --help`
 
 ## 🎮 What's Next?
