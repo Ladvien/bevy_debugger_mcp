@@ -147,10 +147,27 @@ off:
 cargo test --workspace                    # the server, and the plugin's tests
 cargo test --no-default-features --features plugin --test plugin_leaf
                                           # the OS-boundary ratchet, on its own
-cargo install --path .                    # the bevy-fairy binary
+cargo install --path . --no-default-features --features server
+                                          # the bevy-fairy binary, without Bevy
 ```
 
 The plugin's examples need their own features: `plugin-screenshot` for the capture example,
 `plugin-guide` for the guided-steps example, plain `plugin` for the rest.
+
+## The fixture game is the ground truth
+
+`examples/fixture_game.rs` is a headless Bevy app whose state is known from its own `pub const`s:
+six `Crate`s with fixed weights (one deliberately negative), a `Score` resource, a `Mover` at a
+fixed speed, and a `Spinner` with a **planted bug** -- it stops turning after a fixed frame.
+`tests/fixture_ground_truth.rs` runs it in-process and checks the server's tools against those
+constants. A tool test that asserts against a value the tool itself produced proves nothing;
+assert against the fixture.
+
+```sh
+cargo run --example fixture_game --features plugin    # FIXTURE_PORT, FIXTURE_FPS to override
+```
+
+Things that need a window -- a UI button, a pickable object, a text field -- are not in it yet,
+because nothing headless can click them honestly.
 
 - Consult Bevy documentation often. It can be found at codex_fs/offline_reference_docs/bevy-0.20-book/

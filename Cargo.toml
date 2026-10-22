@@ -308,3 +308,13 @@ required-features = ["plugin"]
 [[example]]
 name = "plugin_typed_text_lands"
 required-features = ["plugin"]
+
+# The fixture game the tools are checked against. Headless, so it needs only the plugin.
+[[example]]
+name = "fixture_game"
+required-features = ["plugin"]
+
+# Runs the fixture in-process, so it needs both halves.
+[[test]]
+name = "fixture_ground_truth"
+required-features = ["server", "plugin"]
