@@ -9,7 +9,7 @@ fn main() {
     }
     
     // Re-run build script if control script changes
-    println!("cargo:rerun-if-changed=scripts/bevy-debugger-control");
+    println!("cargo:rerun-if-changed=scripts/bevy-fairy-control");
 }
 
 fn install_control_script() {
@@ -24,12 +24,12 @@ fn install_control_script() {
     };
     
     let bin_dir = install_root.join("bin");
-    let script_dest = bin_dir.join("bevy-debugger-control");
+    let script_dest = bin_dir.join("bevy-fairy-control");
     
     // Read the control script from the package
     let script_src = PathBuf::from(env::var("CARGO_MANIFEST_DIR").unwrap())
         .join("scripts")
-        .join("bevy-debugger-control");
+        .join("bevy-fairy-control");
     
     // Only install if source exists
     if script_src.exists() {
@@ -52,7 +52,7 @@ fn install_control_script() {
                     }
                 }
                 
-                println!("cargo:warning=Installed bevy-debugger-control script to {script_dest:?}");
+                println!("cargo:warning=Installed bevy-fairy-control script to {script_dest:?}");
             }
             Err(e) => {
                 eprintln!("Warning: Failed to read control script: {e}");

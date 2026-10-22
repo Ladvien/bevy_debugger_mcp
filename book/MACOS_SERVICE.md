@@ -47,9 +47,9 @@ If you prefer to understand each step:
 
 3. **Create directories**:
    ```bash
-   mkdir -p ~/.config/bevy-debugger
-   mkdir -p ~/Library/Application\ Support/bevy-debugger
-   mkdir -p ~/Library/Logs/bevy-debugger
+   mkdir -p ~/.config/bevy-fairy
+   mkdir -p ~/Library/Application\ Support/bevy-fairy
+   mkdir -p ~/Library/Logs/bevy-fairy
    ```
 
 4. **Install LaunchAgent**:
@@ -100,7 +100,7 @@ If you prefer to understand each step:
 
 ### Configuration File
 
-The service reads configuration from `~/.config/bevy-debugger/config.toml`:
+The service reads configuration from `~/.config/bevy-fairy/config.toml`:
 
 ```toml
 [connection]
@@ -125,7 +125,7 @@ max_recording_size = "100MB" # Maximum recording file size
 ./scripts/service.sh config
 
 # Or edit manually
-vim ~/.config/bevy-debugger/config.toml
+vim ~/.config/bevy-fairy/config.toml
 
 # Reload configuration
 ./scripts/service.sh reload
@@ -157,7 +157,7 @@ WARNING: Bevy Game: NOT DETECTED on port 15702
 
 ### Log Files
 
-Logs are stored in `~/Library/Logs/bevy-debugger/`:
+Logs are stored in `~/Library/Logs/bevy-fairy/`:
 
 - `stdout.log` - Standard output
 - `stderr.log` - Errors and warnings
@@ -167,7 +167,7 @@ Logs are stored in `~/Library/Logs/bevy-debugger/`:
 ./scripts/service.sh logs
 
 # View specific log files
-tail -f ~/Library/Logs/bevy-debugger/stderr.log
+tail -f ~/Library/Logs/bevy-fairy/stderr.log
 ```
 
 ### Process Information
@@ -196,7 +196,7 @@ tail -f ~/Library/Logs/bevy-debugger/stderr.log
 
 3. Check logs:
    ```bash
-   tail -f ~/Library/Logs/bevy-debugger/stderr.log
+   tail -f ~/Library/Logs/bevy-fairy/stderr.log
    ```
 
 ### Port Conflicts
@@ -251,8 +251,8 @@ If you get permission errors:
 
 2. Fix directory permissions:
    ```bash
-   chmod 755 ~/.config/bevy-debugger
-   chmod 755 ~/Library/Application\ Support/bevy-debugger
+   chmod 755 ~/.config/bevy-fairy
+   chmod 755 ~/Library/Application\ Support/bevy-fairy
    ```
 
 ## 🗑️ Uninstallation
@@ -279,9 +279,9 @@ If you get permission errors:
 
 3. Remove directories (optional):
    ```bash
-   rm -rf ~/.config/bevy-debugger
-   rm -rf ~/Library/Application\ Support/bevy-debugger
-   rm -rf ~/Library/Logs/bevy-debugger
+   rm -rf ~/.config/bevy-fairy
+   rm -rf ~/Library/Application\ Support/bevy-fairy
+   rm -rf ~/Library/Logs/bevy-fairy
    ```
 
 ## 🏗️ Advanced Usage
@@ -329,7 +329,7 @@ You can run multiple configurations by:
 
 ```bash
 # Start with custom config
-bevy-fairy serve --config ~/.config/bevy-debugger/game1.toml
+bevy-fairy serve --config ~/.config/bevy-fairy/game1.toml
 ```
 
 ## 📚 Additional Resources

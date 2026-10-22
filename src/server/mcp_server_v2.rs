@@ -44,7 +44,7 @@ impl McpServerV2 {
         {
             let client = self.brp_client.read().await;
             if let Err(e) = client.init().await {
-                warn!("bevy-debugger: BRP client init failed: {e}; tools will retry");
+                warn!("bevy-fairy: BRP client init failed: {e}; tools will retry");
             }
         }
         
@@ -60,12 +60,12 @@ impl McpServerV2 {
                 };
                 match probe {
                     Ok(()) if reachable != Some(true) => {
-                        info!("bevy-debugger: game answering at {url}");
+                        info!("bevy-fairy: game answering at {url}");
                         reachable = Some(true);
                     }
                     Ok(()) => {}
                     Err(e) if reachable != Some(false) => {
-                        warn!("bevy-debugger: no game answering at {url} yet; tools will retry ({e})");
+                        warn!("bevy-fairy: no game answering at {url} yet; tools will retry ({e})");
                         reachable = Some(false);
                     }
                     Err(_) => {}

@@ -46,7 +46,7 @@ Add to your Claude Code configuration:
 ```json
 {
   "mcpServers": {
-    "bevy-debugger": {
+    "bevy-fairy": {
       "command": "bevy-fairy",
       "args": ["--stdio"]
     }

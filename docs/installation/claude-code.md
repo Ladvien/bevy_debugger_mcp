@@ -28,7 +28,7 @@ Edit the configuration file and add the Bevy Debugger server:
 ```json
 {
   "mcpServers": {
-    "bevy-debugger": {
+    "bevy-fairy": {
       "command": "bevy-fairy",
       "args": ["--stdio"],
       "type": "stdio",
@@ -48,7 +48,7 @@ Edit the configuration file and add the Bevy Debugger server:
 ```json
 {
   "mcpServers": {
-    "bevy-debugger": {
+    "bevy-fairy": {
       "command": "bevy-fairy",
       "args": ["--stdio"]
     }
@@ -60,7 +60,7 @@ Edit the configuration file and add the Bevy Debugger server:
 ```json
 {
   "mcpServers": {
-    "bevy-debugger": {
+    "bevy-fairy": {
       "command": "bevy-fairy",
       "args": ["--stdio"],
       "type": "stdio",
@@ -69,8 +69,8 @@ Edit the configuration file and add the Bevy Debugger server:
         "BEVY_BRP_PORT": "15702",
         "MCP_PORT": "3001",
         "RUST_LOG": "debug",
-        "BEVY_DEBUGGER_TIMEOUT": "30",
-        "BEVY_DEBUGGER_MAX_RETRIES": "3"
+        "BEVY_FAIRY_TIMEOUT": "30",
+        "BEVY_FAIRY_MAX_RETRIES": "3"
       },
       "disabled": false
     }
@@ -82,7 +82,7 @@ Edit the configuration file and add the Bevy Debugger server:
 ```json
 {
   "mcpServers": {
-    "bevy-debugger": {
+    "bevy-fairy": {
       "command": "bevy-fairy",
       "args": ["--stdio"],
       "env": {
@@ -102,8 +102,8 @@ Edit the configuration file and add the Bevy Debugger server:
 | `BEVY_BRP_PORT` | `15702` | Port for Bevy Remote Protocol |
 | `MCP_PORT` | `3001` | Port for MCP server (TCP mode only) |
 | `RUST_LOG` | `info` | Logging level (trace, debug, info, warn, error) |
-| `BEVY_DEBUGGER_TIMEOUT` | `30` | Connection timeout in seconds |
-| `BEVY_DEBUGGER_MAX_RETRIES` | `3` | Maximum connection retry attempts |
+| `BEVY_FAIRY_TIMEOUT` | `30` | Connection timeout in seconds |
+| `BEVY_FAIRY_MAX_RETRIES` | `3` | Maximum connection retry attempts |
 
 ## Verification
 
@@ -119,7 +119,7 @@ echo '{"jsonrpc": "2.0", "method": "initialize", "params": {"capabilities": {}},
 
 Expected response:
 ```json
-{"id":1,"jsonrpc":"2.0","result":{"capabilities":{"tools":{"listChanged":false},"resources":{"subscribe":false,"listChanged":false},"prompts":{"listChanged":false},"logging":{}},"serverInfo":{"name":"bevy-debugger","version":"0.1.8"},"protocolVersion":"2024-11-05"}}
+{"id":1,"jsonrpc":"2.0","result":{"capabilities":{"tools":{"listChanged":false},"resources":{"subscribe":false,"listChanged":false},"prompts":{"listChanged":false},"logging":{}},"serverInfo":{"name":"bevy-fairy","version":"0.1.8"},"protocolVersion":"2024-11-05"}}
 ```
 
 ### 2. Test Tool Discovery
@@ -185,7 +185,7 @@ You can run multiple MCP servers simultaneously:
 ```json
 {
   "mcpServers": {
-    "bevy-debugger": {
+    "bevy-fairy": {
       "command": "bevy-fairy",
       "args": ["--stdio"]
     },
@@ -203,12 +203,12 @@ You can run multiple MCP servers simultaneously:
 ```json
 {
   "mcpServers": {
-    "bevy-debugger": {
+    "bevy-fairy": {
       "command": "bevy-fairy",
       "args": ["--stdio"],
       "env": {
         "RUST_LOG": "debug",
-        "BEVY_DEBUGGER_TIMEOUT": "60"
+        "BEVY_FAIRY_TIMEOUT": "60"
       }
     }
   }
@@ -219,12 +219,12 @@ You can run multiple MCP servers simultaneously:
 ```json
 {
   "mcpServers": {
-    "bevy-debugger": {
+    "bevy-fairy": {
       "command": "bevy-fairy",
       "args": ["--stdio"],
       "env": {
         "RUST_LOG": "warn",
-        "BEVY_DEBUGGER_TIMEOUT": "10"
+        "BEVY_FAIRY_TIMEOUT": "10"
       }
     }
   }
@@ -256,7 +256,7 @@ You can run multiple MCP servers simultaneously:
 1. **Increase timeout**:
    ```json
    "env": {
-     "BEVY_DEBUGGER_TIMEOUT": "60"
+     "BEVY_FAIRY_TIMEOUT": "60"
    }
    ```
 2. **Check game is running**:
@@ -286,7 +286,7 @@ Enable detailed logging to diagnose issues:
 ```json
 {
   "mcpServers": {
-    "bevy-debugger": {
+    "bevy-fairy": {
       "command": "bevy-fairy",
       "args": ["--stdio"],
       "env": {
@@ -356,7 +356,7 @@ Create `.claude/config.json` in your project:
 ```json
 {
   "mcpServers": {
-    "bevy-debugger": {
+    "bevy-fairy": {
       "command": "bevy-fairy",
       "args": ["--stdio"],
       "env": {

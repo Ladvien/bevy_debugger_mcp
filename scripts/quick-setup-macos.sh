@@ -44,7 +44,7 @@ else
     cat > "$CLAUDE_CONFIG" << EOF
 {
   "mcpServers": {
-    "bevy-debugger": {
+    "bevy-fairy": {
       "command": "$INSTALL_DIR/$BINARY_NAME",
       "args": ["serve"],
       "env": {

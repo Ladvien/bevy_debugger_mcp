@@ -1,5 +1,5 @@
 # Bevy Debugger MCP Server Configuration Example
-# Copy this file to ~/.config/bevy-debugger/config.toml and customize as needed
+# Copy this file to ~/.config/bevy-fairy/config.toml and customize as needed
 
 [connection]
 # Bevy Remote Protocol connection settings
@@ -23,7 +23,7 @@ level = "info"
 debug_mode = false
 
 # Log file path (optional, logs to stdout if not specified)
-# log_file = "~/.local/share/bevy-debugger/debug.log"
+# log_file = "~/.local/share/bevy-fairy/debug.log"
 
 [features]
 # Checkpoint interval in milliseconds for error recovery

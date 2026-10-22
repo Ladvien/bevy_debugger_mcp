@@ -25,7 +25,7 @@ class BevyDebuggerMcp < Formula
 
   def post_install
     # Create config directory
-    config_dir = Pathname.new(Dir.home) / ".config" / "bevy-debugger"
+    config_dir = Pathname.new(Dir.home) / ".config" / "bevy-fairy"
     config_dir.mkpath
 
     # Create default config if it doesn't exist
@@ -60,7 +60,7 @@ class BevyDebuggerMcp < Formula
         bevy-fairy serve
 
       Configuration file is located at:
-        ~/.config/bevy-debugger/config.toml
+        ~/.config/bevy-fairy/config.toml
 
       Don't forget to add RemotePlugin to your Bevy game!
     EOS

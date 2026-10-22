@@ -14,7 +14,7 @@ NC='\033[0m' # No Color
 # Configuration
 REPO_URL="https://github.com/ladvien/bevy_fairy"
 INSTALL_DIR="/usr/local/bin"
-CONFIG_DIR="$HOME/.config/bevy-debugger"
+CONFIG_DIR="$HOME/.config/bevy-fairy"
 BINARY_NAME="bevy-fairy"
 
 # Print colored output
@@ -96,14 +96,14 @@ install_binary() {
     RELEASE_URL="${REPO_URL}/releases/latest/download/${BINARY_NAME}-${PLATFORM_STRING}.tar.gz"
     
     # Download binary
-    if ! $DOWNLOAD_CMD "$RELEASE_URL" $DOWNLOAD_OUTPUT "$TEMP_DIR/bevy-debugger.tar.gz"; then
+    if ! $DOWNLOAD_CMD "$RELEASE_URL" $DOWNLOAD_OUTPUT "$TEMP_DIR/bevy-fairy.tar.gz"; then
         print_warn "Failed to download pre-built binary. Trying to build from source..."
         build_from_source
         return
     fi
     
     # Extract binary
-    tar -xzf "$TEMP_DIR/bevy-debugger.tar.gz" -C "$TEMP_DIR"
+    tar -xzf "$TEMP_DIR/bevy-fairy.tar.gz" -C "$TEMP_DIR"
     
     # Install binary
     if [ -w "$INSTALL_DIR" ]; then
@@ -134,12 +134,12 @@ build_from_source() {
     TEMP_DIR=$(mktemp -d)
     trap "rm -rf $TEMP_DIR" EXIT
     
-    git clone "$REPO_URL" "$TEMP_DIR/bevy-debugger" || {
+    git clone "$REPO_URL" "$TEMP_DIR/bevy-fairy" || {
         print_error "Failed to clone repository"
         exit 1
     }
     
-    cd "$TEMP_DIR/bevy-debugger"
+    cd "$TEMP_DIR/bevy-fairy"
     cargo build --release
     
     # Install binary
@@ -212,7 +212,7 @@ setup_claude() {
     cat > "$CLAUDE_CONFIG" << EOF
 {
   "mcpServers": {
-    "bevy-debugger": {
+    "bevy-fairy": {
       "command": "$INSTALL_DIR/$BINARY_NAME",
       "args": ["serve"],
       "env": {

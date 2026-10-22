@@ -25,7 +25,7 @@ include = [
     "LICENSE-APACHE",
     "README.md",
     "build.rs",
-    "scripts/bevy-debugger-control"
+    "scripts/bevy-fairy-control"
 ]
 exclude = [
     "target/*",

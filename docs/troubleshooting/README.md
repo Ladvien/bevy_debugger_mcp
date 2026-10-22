@@ -367,7 +367,7 @@ use bevy_fairy::DebuggerPlugin;
 
 3. **Check service configuration** (macOS):
    ```bash
-   launchctl list | grep bevy-debugger
+   launchctl list | grep bevy-fairy
    cat ~/Library/LaunchAgents/com.bevy-fairy.plist
    ```
 

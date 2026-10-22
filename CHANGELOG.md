@@ -49,7 +49,7 @@ companion Bevy plugin that was not published at all until now.
   `bevy_fairy/guide+watch` waits on a condition and records `k/n`. The plugin never learns
   the host's vocabulary: checkpoints are one-shot systems the host registers by name.
 - **Replayable scenes.** Every recorded command call is logged, and `bevy_fairy/scene`
-  returns that log as a file. `BEVY_DEBUGGER_SCENE` replays one step per frame at startup.
+  returns that log as a file. `BEVY_FAIRY_SCENE` replays one step per frame at startup.
 - **A stdio transport that Claude Desktop can use.** Logging goes to stderr, never stdout, in
   stdio mode.
 

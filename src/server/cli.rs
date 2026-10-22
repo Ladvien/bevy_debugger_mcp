@@ -179,7 +179,7 @@ pub fn run_doctor() -> Result<(), Box<dyn std::error::Error>> {
     // Check 2: Config file
     print!("Checking configuration... ");
     let config_path = dirs::config_dir()
-        .map(|p| p.join("bevy-debugger").join("config.toml"))
+        .map(|p| p.join("bevy-fairy").join("config.toml"))
         .unwrap_or_default();
     
     if config_path.exists() {
@@ -202,7 +202,7 @@ pub fn run_doctor() -> Result<(), Box<dyn std::error::Error>> {
         if path.exists() {
             // Check if our server is configured
             if let Ok(content) = fs::read_to_string(&path) {
-                if content.contains("bevy-debugger") {
+                if content.contains("bevy-fairy") {
                     println!("{} Configured", "✓".green());
                 } else {
                     println!("{} Not configured (run 'setup-claude')", "⚠".yellow());
@@ -275,7 +275,7 @@ pub fn setup_claude(force: bool) -> Result<(), Box<dyn std::error::Error>> {
     // Create MCP server configuration
     let config = json!({
         "mcpServers": {
-            "bevy-debugger": {
+            "bevy-fairy": {
                 "command": "bevy-fairy",
                 "args": ["serve"],
                 "env": {

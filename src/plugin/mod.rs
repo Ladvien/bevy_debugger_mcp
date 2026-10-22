@@ -14,7 +14,7 @@
 //!   offscreen image or from the primary window. `bevy_fairy/capture` returns the
 //!   PNG as base64 over BRP. Nothing is written to disk unless a path is given.
 //! - **Scenes.** Every recorded command call is logged. `bevy_fairy/scene` returns
-//!   that log as a replayable file. Setting `BEVY_DEBUGGER_SCENE` replays a file at
+//!   that log as a replayable file. Setting `BEVY_FAIRY_SCENE` replays a file at
 //!   startup, one step per frame.
 //! - **Time and quit.** `bevy_fairy/time` pauses the virtual clock or changes its
 //!   speed. `bevy_fairy/quit` exits cleanly.

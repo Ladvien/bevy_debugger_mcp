@@ -78,7 +78,7 @@ Update your Claude Desktop config at `~/Library/Application Support/Claude/claud
 ```json
 {
   "mcpServers": {
-    "bevy-debugger": {
+    "bevy-fairy": {
       "command": "/Users/ladvien/.local/bin/bevy-fairy-stdio",
       "args": [],
       "env": {

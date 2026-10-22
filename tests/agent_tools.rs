@@ -307,7 +307,7 @@ async fn every_tool_says_no_game_answers_when_nothing_listens() {
     drop(listener);
     let tools = tools_for(port);
     let expected = format!(
-        "bevy-debugger: no game answering at http://127.0.0.1:{port} — start the game with DebuggerPlugin and RemoteHttpPlugin, or set BEVY_BRP_HOST/BEVY_BRP_PORT"
+        "bevy-fairy: no game answering at http://127.0.0.1:{port} — start the game with DebuggerPlugin and RemoteHttpPlugin, or set BEVY_BRP_HOST/BEVY_BRP_PORT"
     );
     let dir = tempfile::tempdir().expect("temp dir");
     let shot_path = dir.path().join("shot.png");

@@ -17,12 +17,12 @@
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
 # Bevy Debugger MCP Control Script
-# Manages the bevy-debugger-mcp server lifecycle
+# Manages the bevy-fairy-mcp server lifecycle
 
-PROGRAM_NAME="bevy-debugger-mcp"
-LOG_DIR="$HOME/.bevy-debugger"
-LOG_FILE="$LOG_DIR/bevy-debugger.log"
-PID_FILE="$LOG_DIR/bevy-debugger.pid"
+PROGRAM_NAME="bevy-fairy-mcp"
+LOG_DIR="$HOME/.bevy-fairy"
+LOG_FILE="$LOG_DIR/bevy-fairy.log"
+PID_FILE="$LOG_DIR/bevy-fairy.pid"
 DEFAULT_PORT=3001
 DEFAULT_HOST="localhost"
 
@@ -79,7 +79,7 @@ start_server() {
     fi
     
     # Set environment variables for MCP port
-    export MCP_PORT="${BEVY_DEBUGGER_PORT:-$DEFAULT_PORT}"
+    export MCP_PORT="${BEVY_FAIRY_PORT:-$DEFAULT_PORT}"
     export BEVY_BRP_HOST="${BEVY_BRP_HOST:-localhost}"
     export BEVY_BRP_PORT="${BEVY_BRP_PORT:-15702}"
     
@@ -94,7 +94,7 @@ start_server() {
     
     if is_running; then
         print_status "$PROGRAM_NAME started successfully (PID: $pid)"
-        print_info "Listening on ${BEVY_DEBUGGER_HOST:-$DEFAULT_HOST}:${BEVY_DEBUGGER_PORT:-$DEFAULT_PORT}"
+        print_info "Listening on ${BEVY_FAIRY_HOST:-$DEFAULT_HOST}:${BEVY_FAIRY_PORT:-$DEFAULT_PORT}"
         print_info "Logs: $LOG_FILE"
         return 0
     else
@@ -158,8 +158,8 @@ server_status() {
         ps -p "$pid" -o pid,user,%cpu,%mem,start,time,command | tail -n +1
         
         # Check if port is listening
-        if lsof -i ":${BEVY_DEBUGGER_PORT:-$DEFAULT_PORT}" >/dev/null 2>&1; then
-            print_info "Port ${BEVY_DEBUGGER_PORT:-$DEFAULT_PORT} is open"
+        if lsof -i ":${BEVY_FAIRY_PORT:-$DEFAULT_PORT}" >/dev/null 2>&1; then
+            print_info "Port ${BEVY_FAIRY_PORT:-$DEFAULT_PORT} is open"
         fi
         
         # Show recent logs
@@ -193,7 +193,7 @@ clean_logs() {
     print_info "Cleaning log files..."
     
     # Keep current log and remove old rotated logs older than 7 days
-    find "$LOG_DIR" -name "bevy-debugger.log.*" -mtime +7 -delete
+    find "$LOG_DIR" -name "bevy-fairy.log.*" -mtime +7 -delete
     
     # Truncate current log if requested
     if [ "$1" = "--all" ]; then
@@ -211,23 +211,23 @@ Bevy Debugger MCP Control Script
 Usage: $(basename "$0") <command> [options]
 
 Commands:
-    start       Start the bevy-debugger-mcp server
-    stop        Stop the bevy-debugger-mcp server
-    restart     Restart the bevy-debugger-mcp server
+    start       Start the bevy-fairy-mcp server
+    stop        Stop the bevy-fairy-mcp server
+    restart     Restart the bevy-fairy-mcp server
     status      Show server status and information
     logs        Show server logs (use -f to follow)
     clean       Clean old log files (use --all to clear all)
     help        Show this help message
 
 Environment Variables:
-    BEVY_DEBUGGER_HOST    Host to bind to (default: localhost)
-    BEVY_DEBUGGER_PORT    Port to listen on (default: 3001)
+    BEVY_FAIRY_HOST    Host to bind to (default: localhost)
+    BEVY_FAIRY_PORT    Port to listen on (default: 3001)
 
 Examples:
     $(basename "$0") start                    # Start server
     $(basename "$0") restart                  # Restart server
     $(basename "$0") logs -f                  # Follow logs in real-time
-    BEVY_DEBUGGER_PORT=3002 $(basename "$0") start  # Start on different port
+    BEVY_FAIRY_PORT=3002 $(basename "$0") start  # Start on different port
 
 Files:
     Logs:     $LOG_FILE

@@ -17,7 +17,7 @@
 //!
 //! # Replay
 //!
-//! Set `BEVY_DEBUGGER_SCENE` to a file path before the game starts. Steps run one per frame, and only
+//! Set `BEVY_FAIRY_SCENE` to a file path before the game starts. Steps run one per frame, and only
 //! while [`DebugReady`](crate::DebugReady) is true, so a scene cannot run into a half-built world. A
 //! step that names no recorded command, or whose command fails, is counted in `failed` and replay
 //! goes on. Replayed calls are recorded again, so saving a replayed session gives the same file.
@@ -35,7 +35,7 @@ pub(crate) const FORMAT: &str = "bevy_fairy_scene";
 /// The only `version` this crate reads or writes.
 pub(crate) const VERSION: u32 = 1;
 /// The environment variable that names a scene file to replay at startup.
-pub(crate) const SCENE_ENV: &str = "BEVY_DEBUGGER_SCENE";
+pub(crate) const SCENE_ENV: &str = "BEVY_FAIRY_SCENE";
 
 /// One recorded call: the BRP method and the params it was called with.
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]

@@ -24,9 +24,9 @@ They are independent — the server does not depend on the plugin. The plugin is
 
 ## Stage a scene and look at it
 
-The workflow the server's tools are built for: `status` (is the game ready?) → `commands` (what can this game do, with an example of each) → `run <command> <params>` … → `screenshot` → `scene save <path>` → `quit`. The game decides what its commands are, so the same seven tools drive any game that registers some; a mistyped command name is answered with the nearest real one. Every command that runs is recorded, and `scene save` writes the run to a file the game replays at startup (`BEVY_DEBUGGER_SCENE=<file>`), one step a frame, once it says it is ready. A capture comes back over BRP as a PNG, from the offscreen image the game renders to or from its window (`source: "window"`), so the game may run on another machine. `brp` is a raw passthrough for any BRP method.
+The workflow the server's tools are built for: `status` (is the game ready?) → `commands` (what can this game do, with an example of each) → `run <command> <params>` … → `screenshot` → `scene save <path>` → `quit`. The game decides what its commands are, so the same seven tools drive any game that registers some; a mistyped command name is answered with the nearest real one. Every command that runs is recorded, and `scene save` writes the run to a file the game replays at startup (`BEVY_FAIRY_SCENE=<file>`), one step a frame, once it says it is ready. A capture comes back over BRP as a PNG, from the offscreen image the game renders to or from its window (`source: "window"`), so the game may run on another machine. `brp` is a raw passthrough for any BRP method.
 
-Wire a game in with the example in [`crates/bevy_fairy/README.md`](crates/bevy_fairy/README.md) (`examples/agent_scene.rs`), point the server at it with `BEVY_BRP_HOST` and `BEVY_BRP_PORT` (default `127.0.0.1:15702`), and set `BEVY_DEBUGGER_CAPTURE_DIR` for where captures are saved.
+Wire a game in with the example in [`crates/bevy_fairy/README.md`](crates/bevy_fairy/README.md) (`examples/agent_scene.rs`), point the server at it with `BEVY_BRP_HOST` and `BEVY_BRP_PORT` (default `127.0.0.1:15702`), and set `BEVY_FAIRY_CAPTURE_DIR` for where captures are saved.
 
 ### Why it looks like this
 
@@ -233,7 +233,7 @@ brew tap ladvien/bevy-fairy
 brew install bevy-fairy
 
 # Run setup for Claude integration
-bevy-debugger-setup
+bevy-fairy-setup
 ```
 
 #### Method 2: Cargo Install
@@ -259,7 +259,7 @@ Coming soon - Will be available in the Claude Desktop extension marketplace.
 **Important:** After installation via ANY method, run the setup script:
 ```bash
 # If installed via Homebrew
-bevy-debugger-setup
+bevy-fairy-setup
 
 # If installed via other methods
 ~/.cargo/bin/bevy-fairy-setup || ./setup-claude.sh
@@ -280,52 +280,52 @@ Claude Code may look for binaries in different locations depending on your syste
 
 The setup script ensures Claude can find the binary regardless of installation method.
 
-### Server Management with `bevy-debugger-control`
+### Server Management with `bevy-fairy-control`
 
-The `bevy-debugger-control` script is automatically installed with the package and provides complete lifecycle management for the MCP server. This solves the common issue of the server hanging when run directly.
+The `bevy-fairy-control` script is automatically installed with the package and provides complete lifecycle management for the MCP server. This solves the common issue of the server hanging when run directly.
 
 #### Basic Commands
 
 ```bash
 # Start the server in the background
-bevy-debugger-control start
+bevy-fairy-control start
 
 # Stop the server gracefully
-bevy-debugger-control stop
+bevy-fairy-control stop
 
 # Restart the server (useful after configuration changes)
-bevy-debugger-control restart
+bevy-fairy-control restart
 
 # Check if the server is running and view details
-bevy-debugger-control status
+bevy-fairy-control status
 
 # View server logs
-bevy-debugger-control logs
+bevy-fairy-control logs
 
 # Follow logs in real-time (like tail -f)
-bevy-debugger-control logs -f
+bevy-fairy-control logs -f
 
 # Clean up old log files
-bevy-debugger-control clean
+bevy-fairy-control clean
 
 # Show help and all available commands
-bevy-debugger-control help
+bevy-fairy-control help
 ```
 
 #### Advanced Usage
 
 ```bash
 # Start server on a different port
-BEVY_DEBUGGER_PORT=3002 bevy-debugger-control start
+BEVY_FAIRY_PORT=3002 bevy-fairy-control start
 
 # Start with custom Bevy host/port
-BEVY_BRP_HOST=192.168.1.100 BEVY_BRP_PORT=15703 bevy-debugger-control start
+BEVY_BRP_HOST=192.168.1.100 BEVY_BRP_PORT=15703 bevy-fairy-control start
 
 # Clean all logs including current
-bevy-debugger-control clean --all
+bevy-fairy-control clean --all
 
 # Check server status with process details
-bevy-debugger-control status
+bevy-fairy-control status
 # Output shows:
 # - PID of running process
 # - CPU and memory usage
@@ -336,20 +336,20 @@ bevy-debugger-control status
 #### File Locations
 
 The control script manages the following files:
-- **Logs**: `~/.bevy-debugger/bevy-debugger.log`
-- **PID file**: `~/.bevy-debugger/bevy-debugger.pid`
-- **Rotated logs**: `~/.bevy-debugger/bevy-debugger.log.*`
+- **Logs**: `~/.bevy-fairy/bevy-fairy.log`
+- **PID file**: `~/.bevy-fairy/bevy-fairy.pid`
+- **Rotated logs**: `~/.bevy-fairy/bevy-fairy.log.*`
 
 #### Troubleshooting
 
 If the server fails to start:
 ```bash
 # Check the logs for errors
-bevy-debugger-control logs
+bevy-fairy-control logs
 
 # Ensure no other instance is running
-bevy-debugger-control stop
-bevy-debugger-control start
+bevy-fairy-control stop
+bevy-fairy-control start
 
 # Verify the binary is installed
 which bevy-fairy
@@ -445,7 +445,7 @@ cargo install bevy_fairy
 ```json
 {
   "mcpServers": {
-    "bevy-debugger": {
+    "bevy-fairy": {
       "command": "bevy-fairy",
       "args": ["--stdio"],
       "type": "stdio",
@@ -632,7 +632,7 @@ bevy-fairy --stdio  # Should wait for input (Ctrl+C to exit)
 
 # 3. Verify Claude Code configuration:
 cat ~/.config/claude/claude_code_config.json
-# Should contain the bevy-debugger configuration
+# Should contain the bevy-fairy configuration
 
 # 4. Test manual MCP connection:
 echo '{"jsonrpc": "2.0", "method": "tools/list", "id": 2}' | bevy-fairy --stdio
@@ -740,7 +740,7 @@ cargo install bevy_fairy
 # Add to Claude Code config (~/.config/claude/claude_code_config.json)
 {
   "mcpServers": {
-    "bevy-debugger": {
+    "bevy-fairy": {
       "command": "bevy-fairy",
       "args": []
     }

@@ -20,9 +20,9 @@ use bevy_fairy::{
 use serde::Deserialize;
 use serde_json::{json, Value};
 
-const SCENE_VAR: &str = "BEVY_DEBUGGER_SCENE";
+const SCENE_VAR: &str = "BEVY_FAIRY_SCENE";
 
-/// Serialises app construction: `DebuggerPlugin` reads `BEVY_DEBUGGER_SCENE` while it builds, and the
+/// Serialises app construction: `DebuggerPlugin` reads `BEVY_FAIRY_SCENE` while it builds, and the
 /// test harness runs tests on several threads, so one test's variable must not leak into another's app.
 static BUILD_LOCK: Mutex<()> = Mutex::new(());
 

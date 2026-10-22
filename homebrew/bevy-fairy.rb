@@ -12,7 +12,7 @@ class BevyDebuggerMcp < Formula
     system "cargo", "install", *std_cargo_args
     
     # Install the setup script
-    bin.install "setup-claude.sh" => "bevy-debugger-setup"
+    bin.install "setup-claude.sh" => "bevy-fairy-setup"
   end
 
   def post_install
@@ -33,7 +33,7 @@ class BevyDebuggerMcp < Formula
       bevy-fairy has been installed!
 
       To complete setup for Claude Code/Desktop, run:
-        bevy-debugger-setup
+        bevy-fairy-setup
 
       This will:
       - Create necessary symlinks

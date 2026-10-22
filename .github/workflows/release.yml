@@ -132,7 +132,7 @@ jobs:
       if: ${{ !inputs.dry_run }}
       run: |
         version="${{ steps.version.outputs.version }}"
-        for crate in bevy_fairy bevy_fairy; do
+        for crate in bevy_fairy; do
           echo "--- $crate@$version"
           cargo info "$crate@$version" || echo "::error::$crate@$version did not resolve."
         done

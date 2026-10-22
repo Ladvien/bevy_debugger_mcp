@@ -65,7 +65,7 @@ impl Service<RoleServer> for McpServerV2 {
 #[tool_handler]
 impl ServerHandler for McpServerV2 {
     fn get_info(&self) -> ServerInfo {
-        ServerInfo::new("bevy-debugger", "0.1.8")
+        ServerInfo::new("bevy-fairy", "0.1.8")
     }
 }
 ```
@@ -106,7 +106,7 @@ Claude Code requires stdio transport but server returns "not implemented" error.
 ```json
 {
   "mcpServers": {
-    "bevy-debugger": {
+    "bevy-fairy": {
       "command": "bevy-fairy",
       "args": ["--stdio"],
       "env": {

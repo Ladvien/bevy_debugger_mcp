@@ -13,12 +13,12 @@
         <string>/usr/local/bin/bevy-fairy</string>
         <string>serve</string>
         <string>--config</string>
-        <string>HOME_DIR/.config/bevy-debugger/config.toml</string>
+        <string>HOME_DIR/.config/bevy-fairy/config.toml</string>
     </array>
     
     <!-- Working directory -->
     <key>WorkingDirectory</key>
-    <string>HOME_DIR/Library/Application Support/bevy-debugger</string>
+    <string>HOME_DIR/Library/Application Support/bevy-fairy</string>
     
     <!-- Environment variables -->
     <key>EnvironmentVariables</key>
@@ -86,10 +86,10 @@
     
     <!-- Standard output/error logging -->
     <key>StandardOutPath</key>
-    <string>HOME_DIR/Library/Logs/bevy-debugger/stdout.log</string>
+    <string>HOME_DIR/Library/Logs/bevy-fairy/stdout.log</string>
     
     <key>StandardErrorPath</key>
-    <string>HOME_DIR/Library/Logs/bevy-debugger/stderr.log</string>
+    <string>HOME_DIR/Library/Logs/bevy-fairy/stderr.log</string>
     
     <!-- Exit timeout (seconds) - time to wait for graceful shutdown -->
     <key>ExitTimeOut</key>

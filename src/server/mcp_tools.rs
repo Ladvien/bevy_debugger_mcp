@@ -266,7 +266,7 @@ pub struct CaptureRegion {
 #[derive(Debug, Deserialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct ScreenshotRequest {
-    /// File to write on this machine. Default: `$BEVY_DEBUGGER_CAPTURE_DIR/capture-<unix_ms>.png`,
+    /// File to write on this machine. Default: `$BEVY_FAIRY_CAPTURE_DIR/capture-<unix_ms>.png`,
     /// or `./debug_captures/` when that variable is unset.
     #[serde(default)]
     pub save_to: Option<String>,
@@ -364,7 +364,7 @@ const QUIT_METHOD: &str = "bevy_fairy/quit";
 
 /// The text an agent reads when nothing answers. Kept exact, because agents match on it.
 fn no_game_text(url: &str) -> String {
-    format!("bevy-debugger: no game answering at {url} — start the game with DebuggerPlugin and RemoteHttpPlugin, or set BEVY_BRP_HOST/BEVY_BRP_PORT")
+    format!("bevy-fairy: no game answering at {url} — start the game with DebuggerPlugin and RemoteHttpPlugin, or set BEVY_BRP_HOST/BEVY_BRP_PORT")
 }
 
 fn tool_ok(text: impl Into<String>) -> Result<CallToolResult, McpError> {
@@ -400,9 +400,9 @@ fn write_file_creating_dirs(path: &Path, bytes: &[u8]) -> std::io::Result<()> {
     std::fs::write(path, bytes)
 }
 
-/// `$BEVY_DEBUGGER_CAPTURE_DIR/capture-<unix_ms>.png`, or under `./debug_captures` when unset.
+/// `$BEVY_FAIRY_CAPTURE_DIR/capture-<unix_ms>.png`, or under `./debug_captures` when unset.
 fn default_capture_path() -> PathBuf {
-    let dir = std::env::var_os("BEVY_DEBUGGER_CAPTURE_DIR")
+    let dir = std::env::var_os("BEVY_FAIRY_CAPTURE_DIR")
         .map(PathBuf::from)
         .unwrap_or_else(|| PathBuf::from("debug_captures"));
     let unix_ms = SystemTime::now().duration_since(UNIX_EPOCH).map(|d| d.as_millis()).unwrap_or_default();

@@ -192,7 +192,7 @@ interface ReplayResponse {
 ```json
 {
   "mcpServers": {
-    "bevy-debugger": {
+    "bevy-fairy": {
       "command": "bevy-fairy",
       "args": ["--stdio"],
       "type": "stdio",
@@ -200,8 +200,8 @@ interface ReplayResponse {
         "BEVY_BRP_HOST": "localhost",
         "BEVY_BRP_PORT": "15702",
         "RUST_LOG": "info",
-        "BEVY_DEBUGGER_TIMEOUT": "30",
-        "BEVY_DEBUGGER_MAX_RETRIES": "3"
+        "BEVY_FAIRY_TIMEOUT": "30",
+        "BEVY_FAIRY_MAX_RETRIES": "3"
       }
     }
   }
@@ -237,10 +237,10 @@ screenshot_on_violation = false
 | `BEVY_BRP_PORT` | `15702` | Bevy Remote Protocol port |
 | `MCP_PORT` | `3001` | MCP server port (TCP mode) |
 | `RUST_LOG` | `info` | Logging level |
-| `BEVY_DEBUGGER_TIMEOUT` | `30` | Connection timeout (seconds) |
-| `BEVY_DEBUGGER_MAX_RETRIES` | `3` | Maximum retry attempts |
-| `BEVY_DEBUGGER_CACHE_SIZE` | `1000` | Entity cache size |
-| `BEVY_DEBUGGER_HISTORY_SIZE` | `10000` | Performance history size |
+| `BEVY_FAIRY_TIMEOUT` | `30` | Connection timeout (seconds) |
+| `BEVY_FAIRY_MAX_RETRIES` | `3` | Maximum retry attempts |
+| `BEVY_FAIRY_CACHE_SIZE` | `1000` | Entity cache size |
+| `BEVY_FAIRY_HISTORY_SIZE` | `10000` | Performance history size |
 
 ## Response Formats
 
