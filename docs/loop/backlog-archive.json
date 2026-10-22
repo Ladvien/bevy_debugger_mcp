@@ -169,6 +169,40 @@
       "last_failure": "",
       "first_seen": "2026-10-21",
       "fixed_at": "2026-10-21"
+    },
+    {
+      "id": "B-027",
+      "kind": "bug",
+      "area": "docs",
+      "title": "the docs told the reader to add `RemotePlugin` themselves, in seven places across four files",
+      "must_fix": {
+        "misleads": false,
+        "blocks": true,
+        "common_no_workaround": false,
+        "evidence": "README.md Quick Start and developer workflow, book/MACOS_SERVICE.md, docs/installation/bevy-setup.md, docs/quick-start.md, docs/troubleshooting/README.md (twice), docs/tutorials/README.md"
+      },
+      "status": "fixed",
+      "evidence": "Fixed in c21045c. Every doc adds DebuggerPlugin and a transport, and says not to add a second RemotePlugin. The drift test was widened from two files to every markdown file in the tree, which is what found the other seven. Proof: tests/docs_drift.rs::no_doc_tells_the_reader_to_add_a_second_remote_plugin.",
+      "last_failure": "",
+      "first_seen": "2026-10-21",
+      "fixed_at": "2026-10-21"
+    },
+    {
+      "id": "B-028",
+      "kind": "bug",
+      "area": "docs",
+      "title": "the release gate's `cargo doc -D warnings` step failed: an undeclared `ahash` feature, five unclosed HTML tags, two broken intra-doc links",
+      "must_fix": {
+        "misleads": false,
+        "blocks": true,
+        "common_no_workaround": false,
+        "evidence": "src/compile_opts.rs:163,169; src/bevy_reflection/custom_inspectors.rs:21,120; src/bevy_reflection/inspector.rs:21; crates/bevy_debugger_bevy/src/guide.rs:87,624"
+      },
+      "status": "fixed",
+      "evidence": "Fixed in c21045c and 3198e6f. The `ahash` feature gates were wrong -- ahash is an unconditional dependency, so the fast-hash arm had never compiled. The tags and links are fixed. Proof: the release gate's doc step, which now passes for both crates.",
+      "last_failure": "",
+      "first_seen": "2026-10-21",
+      "fixed_at": "2026-10-21"
     }
   ]
 }

@@ -1,8 +1,8 @@
 {
   "measured_at": "2026-10-21",
-  "sha": "73564a1",
+  "sha": "3198e6f",
   "server": {
-    "loc": 51571,
+    "loc": 51568,
     "direct_dependencies": 52,
     "public_modules": 72,
     "mcp_tools": 14,
@@ -13,7 +13,7 @@
     "direct_dependencies": 5
   },
   "quality": {
-    "clippy_warnings_default": 1460,
+    "clippy_warnings_default": 1452,
     "clippy_warnings_all_features_errors": 42,
     "all_features_build": "fails: src/observability/ (42 errors); 'full-debugging' includes observability, so it fails too",
     "server_tests_passed": 542,
@@ -40,7 +40,9 @@
     "CI runs `scripts/ratchet.sh` instead of plain `-D warnings`, so a red build means something new broke.",
     "The metrics ratchet may not let any of these numbers go up without a logged reason.",
     "public_modules went 73 -> 72: the count is `pub mod` in src/lib.rs, and one declaration was removed while the tools were moved onto generated schemas.",
-    "server loc went 51268 -> 51571 (+303): the four tools' request structs, the handler-side JsonSchema derives, the measurement code that replaced the constants, and the recording fix. The tests are counted separately and are not in this number."
+    "server loc went 51268 -> 51568 (+300): the four tools' request structs, the handler-side JsonSchema derives, the measurement code that replaced the constants, the recording fix, and the BoxedResult alias. The tests are counted separately and are not in this number.",
+    "clippy went 1462 -> 1452 (-10): four dead `default_*` functions removed, two `result_large_err` sites boxed away, and the undeclared `ahash` feature gates removed (which had silenced a dead arm).",
+    "The release gate's doc step -- `RUSTDOCFLAGS=\"-D warnings\" cargo doc --no-deps --workspace` -- now passes for both crates. It did not before this iteration."
   ],
   "known_red": {
     "recorded_at": "2026-10-21",
