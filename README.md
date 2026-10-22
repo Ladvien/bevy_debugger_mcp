@@ -8,7 +8,7 @@ Lets an agent inspect and drive a **running** Bevy game: query entities, compone
 
 > **The one part that is not an ordinary change is the OS boundary below.** Neither crate may reach the machine the game runs on: no OS screen capture of other windows, no OS input synthesis.
 
-[![Build Status](https://img.shields.io/badge/build-passing-brightgreen)](https://github.com/ladvien/bevy_debugger_mcp)
+[![Build Status](https://img.shields.io/badge/build-passing-brightgreen)](https://github.com/ladvien/bevy_fairy)
 [![License: MIT OR Apache-2.0](https://img.shields.io/badge/License-MIT%20OR%20Apache--2.0-blue.svg)](LICENSE-MIT)
 [![Rust](https://img.shields.io/badge/rust-1.95+-orange.svg)](https://www.rust-lang.org)
 [![Bevy](https://img.shields.io/badge/bevy-0.20-purple.svg)](https://bevyengine.org)
@@ -17,8 +17,8 @@ Lets an agent inspect and drive a **running** Bevy game: query entities, compone
 
 | | What it is | Where it runs |
 |---|---|---|
-| `bevy_debugger_mcp` (this crate) | The MCP **server** binary, `bevy-debugger-mcp`. Speaks MCP to an agent and BRP to the game. No login; it starts without a game and finds one when it appears. | Its own process |
-| [`crates/bevy_debugger_bevy`](crates/bevy_debugger_bevy) | The companion **Bevy plugin**. Registers `bevy_debugger/status`, `commands`, `screenshot`, `capture`, `scene`, `time`, `quit`, `input`, `guide` and `guide+watch`, and lets a game register its own typed commands (`add_debug_command`). | Inside the game |
+| `bevy_fairy` (this crate) | The MCP **server** binary, `bevy-fairy`. Speaks MCP to an agent and BRP to the game. No login; it starts without a game and finds one when it appears. | Its own process |
+| [`crates/bevy_fairy`](crates/bevy_fairy) | The companion **Bevy plugin**. Registers `bevy_fairy/status`, `commands`, `screenshot`, `capture`, `scene`, `time`, `quit`, `input`, `guide` and `guide+watch`, and lets a game register its own typed commands (`add_debug_command`). | Inside the game |
 
 They are independent — the server does not depend on the plugin. The plugin is what a game links; the server is what an agent talks to.
 
@@ -26,24 +26,24 @@ They are independent — the server does not depend on the plugin. The plugin is
 
 The workflow the server's tools are built for: `status` (is the game ready?) → `commands` (what can this game do, with an example of each) → `run <command> <params>` … → `screenshot` → `scene save <path>` → `quit`. The game decides what its commands are, so the same seven tools drive any game that registers some; a mistyped command name is answered with the nearest real one. Every command that runs is recorded, and `scene save` writes the run to a file the game replays at startup (`BEVY_DEBUGGER_SCENE=<file>`), one step a frame, once it says it is ready. A capture comes back over BRP as a PNG, from the offscreen image the game renders to or from its window (`source: "window"`), so the game may run on another machine. `brp` is a raw passthrough for any BRP method.
 
-Wire a game in with the example in [`crates/bevy_debugger_bevy/README.md`](crates/bevy_debugger_bevy/README.md) (`examples/agent_scene.rs`), point the server at it with `BEVY_BRP_HOST` and `BEVY_BRP_PORT` (default `127.0.0.1:15702`), and set `BEVY_DEBUGGER_CAPTURE_DIR` for where captures are saved.
+Wire a game in with the example in [`crates/bevy_fairy/README.md`](crates/bevy_fairy/README.md) (`examples/agent_scene.rs`), point the server at it with `BEVY_BRP_HOST` and `BEVY_BRP_PORT` (default `127.0.0.1:15702`), and set `BEVY_DEBUGGER_CAPTURE_DIR` for where captures are saved.
 
 ### Why it looks like this
 
-- Gregory, *Game Engine Architecture* (3rd ed.), §10.4–10.6: game-registered console commands, a debug camera and pause are what make in-engine debugging tools useful (`add_debug_command`, `bevy_debugger/time`).
+- Gregory, *Game Engine Architecture* (3rd ed.), §10.4–10.6: game-registered console commands, a debug camera and pause are what make in-engine debugging tools useful (`add_debug_command`, `bevy_fairy/time`).
 - Ostrowski and Aroudj, "Automated Regression Testing within Video Game Development", GSTF Journal on Computing 3:10 (2013), DOI 10.7603/s40601-013-0010-4: the game under test processes calls over a network connection, possibly on another machine (BRP over HTTP, captures returned over the wire).
 - Yang et al., "SWE-agent: Agent-Computer Interfaces Enable Automated Software Engineering" (2024), DOI 10.48550/arXiv.2405.15793: a small set of simple actions, concise feedback and guardrails that catch mistakes early (the seven tools, `deny_unknown_fields` errors, unknown-command suggestions).
 - Mindermann, Keck and Wagner, "How Usable Are Rust Cryptography APIs?", QRS 2018, DOI 10.1109/QRS.2018.00028: explain every parameter and ship maintained example code (the required `example` on every command, validated at registration).
 - Matthews, *Idiomatic Rust* (2024), ch. 6: do one thing well, keep dependencies and feature flags few, follow semver (two cargo features, no forced Bevy default features).
-- Xu, "AI Agent Systems" (2026), DOI 10.48550/arXiv.2601.01743: stable, well-specified tool schemas with exemplars let agents learn new tools in context (commands discovered at run time through `bevy_debugger/commands`).
+- Xu, "AI Agent Systems" (2026), DOI 10.48550/arXiv.2601.01743: stable, well-specified tool schemas with exemplars let agents learn new tools in context (commands discovered at run time through `bevy_fairy/commands`).
 
 ## Three directions
 
 | | Method | |
 |---|---|---|
-| app → agent | `bevy_debugger/screenshot`, `bevy_debugger/capture` | a frame from the offscreen target or the window, with a region and a zoom, returned over BRP |
-| agent → app | `bevy_debugger/input`, the game's own commands | keys, text, mouse, cursor position; typed game verbs |
-| **agent → person** | `bevy_debugger/guide`, `…/guide+watch` | a walkthrough the app renders one step at a time |
+| app → agent | `bevy_fairy/screenshot`, `bevy_fairy/capture` | a frame from the offscreen target or the window, with a region and a zoom, returned over BRP |
+| agent → app | `bevy_fairy/input`, the game's own commands | keys, text, mouse, cursor position; typed game verbs |
+| **agent → person** | `bevy_fairy/guide`, `…/guide+watch` | a walkthrough the app renders one step at a time |
 
 The third is the newest and the least obvious. An agent could already drive an app and look at it; what it could not do was **say a sentence to the person at the keyboard**, so every instruction went to a terminal they had to look away from their work to read, and every answer came back as prose the agent then had to guess its way from.
 
@@ -52,9 +52,9 @@ The third is the newest and the least obvious. An agent could already drive an a
 The three that demonstrate what this crate actually does — no window, no GPU, no mouse; all print to the terminal:
 
 ```sh
-cargo run -p bevy_debugger_bevy --example injected_input_lands
-cargo run -p bevy_debugger_bevy --example cursor_drag_lands
-cargo run -p bevy_debugger_bevy --example guided_steps_land
+cargo run -p bevy_fairy --example injected_input_lands
+cargo run -p bevy_fairy --example cursor_drag_lands
+cargo run -p bevy_fairy --example guided_steps_land
 ```
 
 The first shows the property the plugin exists to provide: an injected key is visible to `just_pressed` for exactly one frame and `just_released` on the next, the same shape a physical key produces.
@@ -77,7 +77,7 @@ Post a script; the app shows **one step**, never the list. Each step is a guided
 }]}
 ```
 
-Then `curl -N` on `bevy_debugger/guide+watch` and get a frame each time something happens — nothing at all while the condition is unmet.
+Then `curl -N` on `bevy_fairy/guide+watch` and get a frame each time something happens — nothing at all while the condition is unmet.
 
 **Checkpoints are the host's words.** This plugin cannot know what a tile is and must not learn, so a host registers one-shot systems answering `bool`:
 
@@ -90,11 +90,11 @@ A step may have **no** checkpoint — *"does this look right?"* is not a machine
 
 What comes back is **`k/n` per step**, never a boolean, plus how long each took. A step nobody can complete shows up as a stall rather than a silence.
 
-The design is grounded rather than guessed, and two of the findings are negative: an on-demand help button *costs* completion, and restricting input to force the step buys nothing at all. See the [design notes](crates/bevy_debugger_bevy/src/guide.rs) for the citations.
+The design is grounded rather than guessed, and two of the findings are negative: an on-demand help button *costs* completion, and restricting input to force the step buys nothing at all. See the [design notes](crates/bevy_fairy/src/guide.rs) for the citations.
 
 ## Injecting a cursor
 
-`bevy_debugger/input` takes `kind: "Cursor"` with `x`/`y` in **logical window pixels**, or `clear: true` to hand the pointer back to the real mouse. The position is state, not an edge — it stays where it was put until moved again, so there is no per-frame stream to keep up with.
+`bevy_fairy/input` takes `kind: "Cursor"` with `x`/`y` in **logical window pixels**, or `clear: true` to hand the pointer back to the real mouse. The position is state, not an edge — it stays where it was put until moved again, so there is no per-frame stream to keep up with.
 
 ```jsonc
 {"kind": "Cursor", "x": 640, "y": 360}   // aim
@@ -104,7 +104,7 @@ The design is grounded rather than guessed, and two of the findings are negative
 {"kind": "Cursor", "clear": true}        // give it back
 ```
 
-**A host has to read the pointer through `bevy_debugger_bevy::cursor_position(&window, &debug_cursor)`.** A host that calls `Window::cursor_position` directly cannot be driven, and that is not a bug in the plugin — the window's own cursor is deliberately never written, because Bevy's windowing backend turns a change to it into a request to move the *physical* pointer. That would drag the mouse out from under whoever is at the machine, which is the one thing this crate exists to prevent.
+**A host has to read the pointer through `bevy_fairy::cursor_position(&window, &debug_cursor)`.** A host that calls `Window::cursor_position` directly cannot be driven, and that is not a bug in the plugin — the window's own cursor is deliberately never written, because Bevy's windowing backend turns a change to it into a request to move the *physical* pointer. That would drag the mouse out from under whoever is at the machine, which is the one thing this crate exists to prevent.
 
 Two older examples ship with the server, and it is worth being precise about them, because neither
 demonstrates `DebuggerPlugin`:
@@ -155,14 +155,14 @@ A powerful Model Context Protocol (MCP) server that enables AI-assisted debuggin
 
 ```bash
 # 1. Install the debugger (pick your preferred method)
-cargo install bevy_debugger_mcp
+cargo install bevy_fairy
 
 # 2. Run the setup script (IMPORTANT!)
-curl -sSL https://raw.githubusercontent.com/ladvien/bevy_debugger_mcp/main/setup-claude.sh | bash
+curl -sSL https://raw.githubusercontent.com/ladvien/bevy_fairy/main/setup-claude.sh | bash
 
 # 3. Add the debugger plugin to your Bevy game
 # In your game's Cargo.toml:
-#   bevy_debugger_bevy = "0.2"
+#   bevy_fairy = "0.2"
 # In your game's main.rs:
 #   .add_plugins(DebuggerPlugin::default())
 #   .add_plugins(RemoteHttpPlugin::default())
@@ -193,7 +193,7 @@ The Bevy Debugger MCP creates a bridge between Claude Code and your Bevy game:
 
 ```
 ┌─────────────┐     MCP Protocol      ┌──────────────────┐     BRP Protocol    ┌─────────────┐
-│ Claude Code │ ◄──────────────────► │ bevy-debugger-mcp │ ◄─────────────────► │ Your Bevy   │
+│ Claude Code │ ◄──────────────────► │ bevy-fairy │ ◄─────────────────► │ Your Bevy   │
 │   (AI)      │    stdio/TCP          │    (Server)       │    WebSocket       │    Game     │
 └─────────────┘                       └──────────────────┘                      └─────────────┘
      │                                         │                                       │
@@ -229,8 +229,8 @@ The Bevy Debugger MCP creates a bridge between Claude Code and your Bevy game:
 
 #### Method 1: Homebrew (macOS) - Recommended
 ```bash
-brew tap ladvien/bevy-debugger-mcp
-brew install bevy-debugger-mcp
+brew tap ladvien/bevy-fairy
+brew install bevy-fairy
 
 # Run setup for Claude integration
 bevy-debugger-setup
@@ -238,16 +238,16 @@ bevy-debugger-setup
 
 #### Method 2: Cargo Install
 ```bash
-cargo install bevy_debugger_mcp
+cargo install bevy_fairy
 
 # Run setup script for Claude integration
-curl -sSL https://raw.githubusercontent.com/ladvien/bevy_debugger_mcp/main/setup-claude.sh | bash
+curl -sSL https://raw.githubusercontent.com/ladvien/bevy_fairy/main/setup-claude.sh | bash
 ```
 
 #### Method 3: From Source
 ```bash
-git clone https://github.com/ladvien/bevy_debugger_mcp.git
-cd bevy_debugger_mcp
+git clone https://github.com/ladvien/bevy_fairy.git
+cd bevy_fairy
 ./install.sh  # Handles everything automatically
 ```
 
@@ -262,11 +262,11 @@ Coming soon - Will be available in the Claude Desktop extension marketplace.
 bevy-debugger-setup
 
 # If installed via other methods
-~/.cargo/bin/bevy-debugger-mcp-setup || ./setup-claude.sh
+~/.cargo/bin/bevy-fairy-setup || ./setup-claude.sh
 ```
 
 This setup script will:
-1. Find your bevy-debugger-mcp installation
+1. Find your bevy-fairy installation
 2. Create necessary symlinks for Claude Code compatibility
 3. Generate the configuration you need to add to Claude
 
@@ -352,7 +352,7 @@ bevy-debugger-control stop
 bevy-debugger-control start
 
 # Verify the binary is installed
-which bevy-debugger-mcp
+which bevy-fairy
 
 # Check if port is already in use
 lsof -i :3001  # or your configured port
@@ -367,7 +367,7 @@ on start. Add a transport instead, such as `RemoteHttpPlugin`.
 ```rust
 use bevy::prelude::*;
 use bevy::remote::http::RemoteHttpPlugin;
-use bevy_debugger_bevy::DebuggerPlugin;
+use bevy_fairy::DebuggerPlugin;
 
 fn main() {
     App::new()
@@ -386,18 +386,18 @@ fn main() {
 # Cargo.toml
 [dependencies]
 bevy = { version = "0.20", features = ["default"] }
-bevy_debugger_bevy = "0.2"
+bevy_fairy = "0.2"
 ```
 
-The plugin registers the BRP methods itself: `bevy_debugger/status`, `bevy_debugger/commands`,
-`bevy_debugger/screenshot`, `bevy_debugger/capture`, `bevy_debugger/input`, `bevy_debugger/scene`,
-`bevy_debugger/time` and `bevy_debugger/quit`. Do not register them by hand.
+The plugin registers the BRP methods itself: `bevy_fairy/status`, `bevy_fairy/commands`,
+`bevy_fairy/screenshot`, `bevy_fairy/capture`, `bevy_fairy/input`, `bevy_fairy/scene`,
+`bevy_fairy/time` and `bevy_fairy/quit`. Do not register them by hand.
 
 To let an agent drive the game, register your own commands with `add_debug_command` — the game
 tells the agent what they are, with their parameters and an example:
 
 ```rust
-use bevy_debugger_bevy::{DebugCommandInfo, DebugCommandsAppExt, DebuggerPlugin};
+use bevy_fairy::{DebugCommandInfo, DebugCommandsAppExt, DebuggerPlugin};
 
 fn main() {
     App::new()
@@ -434,7 +434,7 @@ fn main() {
 
 1. **Install the MCP Server** (v0.2.0 or later):
 ```bash
-cargo install bevy_debugger_mcp
+cargo install bevy_fairy
 ```
 
 2. **Configure Claude Code** - Add to your Claude Code settings:
@@ -446,7 +446,7 @@ cargo install bevy_debugger_mcp
 {
   "mcpServers": {
     "bevy-debugger": {
-      "command": "bevy-debugger-mcp",
+      "command": "bevy-fairy",
       "args": ["--stdio"],
       "type": "stdio",
       "env": {
@@ -462,14 +462,14 @@ cargo install bevy_debugger_mcp
 3. **Verify Installation**:
 ```bash
 # Check version
-bevy-debugger-mcp --help
+bevy-fairy --help
 
 # Test the MCP server responds correctly
-echo '{"jsonrpc": "2.0", "method": "initialize", "params": {"capabilities": {}}, "id": 1}' | bevy-debugger-mcp --stdio
+echo '{"jsonrpc": "2.0", "method": "initialize", "params": {"capabilities": {}}, "id": 1}' | bevy-fairy --stdio
 # Should return: {"id":1,"jsonrpc":"2.0","result":{"capabilities":...}}
 
 # Verify tools are available
-echo '{"jsonrpc": "2.0", "method": "tools/list", "id": 2}' | bevy-debugger-mcp --stdio
+echo '{"jsonrpc": "2.0", "method": "tools/list", "id": 2}' | bevy-fairy --stdio
 # Should list: observe, experiment, stress, anomaly, replay, hypothesis, screenshot
 ```
 
@@ -627,15 +627,15 @@ If Claude can't connect to your game:
 lsof -i :15702  # Should show your Bevy game process
 
 # 2. Test the MCP server standalone:
-bevy-debugger-mcp --help  # Should show version 0.2.0
-bevy-debugger-mcp --stdio  # Should wait for input (Ctrl+C to exit)
+bevy-fairy --help  # Should show version 0.2.0
+bevy-fairy --stdio  # Should wait for input (Ctrl+C to exit)
 
 # 3. Verify Claude Code configuration:
 cat ~/.config/claude/claude_code_config.json
 # Should contain the bevy-debugger configuration
 
 # 4. Test manual MCP connection:
-echo '{"jsonrpc": "2.0", "method": "tools/list", "id": 2}' | bevy-debugger-mcp --stdio
+echo '{"jsonrpc": "2.0", "method": "tools/list", "id": 2}' | bevy-fairy --stdio
 # Should return list of available tools
 
 # 5. Check direct Bevy connection:
@@ -645,7 +645,7 @@ curl -X POST http://localhost:15702/query \
 # Should return Bevy data
 
 # 6. Enable debug logging:
-RUST_LOG=debug bevy-debugger-mcp --stdio
+RUST_LOG=debug bevy-fairy --stdio
 
 # 7. Common issues:
 # - Port 15702 blocked by firewall
@@ -672,7 +672,7 @@ The debugger is designed for minimal impact on your game:
 | Issue | Solution |
 |-------|----------|
 | **"Failed to connect to BRP"** | Ensure your Bevy game is running with `DebuggerPlugin` enabled |
-| **"No tools available"** | Update to v0.2.0: `cargo install bevy_debugger_mcp --force` |
+| **"No tools available"** | Update to v0.2.0: `cargo install bevy_fairy --force` |
 | **High CPU usage** | Reduce monitoring frequency or use `--tcp` mode instead of stdio |
 | **Screenshot not working** | Add screenshot handler to your Bevy game (see setup example) |
 | **Memory leak detection false positives** | Adjust detection thresholds in anomaly tool |
@@ -692,7 +692,7 @@ export RUST_LOG=info              # Logging level
 ## 📁 Project Structure
 
 ```
-bevy_debugger_mcp/
+bevy_fairy/
 ├── src/
 │   ├── main.rs              # Entry point with stdio/TCP transport
 │   ├── mcp_server.rs        # MCP protocol implementation
@@ -717,7 +717,7 @@ bevy_debugger_mcp/
 // In your main.rs or lib.rs
 use bevy::prelude::*;
 use bevy::remote::http::RemoteHttpPlugin;
-use bevy_debugger_bevy::DebuggerPlugin;
+use bevy_fairy::DebuggerPlugin;
 
 fn main() {
     App::new()
@@ -735,13 +735,13 @@ fn main() {
 
 ```bash
 # Install the debugger
-cargo install bevy_debugger_mcp
+cargo install bevy_fairy
 
 # Add to Claude Code config (~/.config/claude/claude_code_config.json)
 {
   "mcpServers": {
     "bevy-debugger": {
-      "command": "bevy-debugger-mcp",
+      "command": "bevy-fairy",
       "args": []
     }
   }
@@ -816,8 +816,8 @@ We welcome contributions! Please see our [contribution guidelines](CONTRIBUTING.
 
 ```bash
 # Development setup
-git clone https://github.com/ladvien/bevy_debugger_mcp.git
-cd bevy_debugger_mcp
+git clone https://github.com/ladvien/bevy_fairy.git
+cd bevy_fairy
 cargo test                      # Run basic tests
 cargo test --ignored           # Run full integration tests
 cargo test screenshot_integration_wrapper::test_screenshot_ci_suite  # Fast screenshot tests
@@ -866,7 +866,7 @@ version:
 
 ### v0.2.0 - the plugin, and the tools that stopped lying
 
-- The companion Bevy plugin crate, `bevy_debugger_bevy`, published for the first time. It owns
+- The companion Bevy plugin crate, `bevy_fairy`, published for the first time. It owns
   the BRP `RemotePlugin`, so a game adds `DebuggerPlugin` and never a second `RemotePlugin`.
 - Game-registered commands, capture from an offscreen target or the window, injectable input
   that really arrives, a guide channel, and replayable scenes.
@@ -891,4 +891,4 @@ It was GPL-3.0 until it was adopted into [`Ladvien/foundation_vs_slop`](https://
 
 ---
 
-**Questions?** Open an [issue](https://github.com/ladvien/bevy_debugger_mcp/issues) or join the discussion in [Bevy's Discord](https://discord.gg/bevy).
+**Questions?** Open an [issue](https://github.com/ladvien/bevy_fairy/issues) or join the discussion in [Bevy's Discord](https://discord.gg/bevy).

@@ -8,7 +8,7 @@ This guide walks you through adding the debugger to your Bevy game so it can be 
 driven over the Bevy Remote Protocol (BRP) by the Bevy Debugger MCP server.
 
 The setup is one plugin. The plugin owns the BRP `RemotePlugin` and registers every
-`bevy_debugger/*` method, so there is nothing else to wire up.
+`bevy_fairy/*` method, so there is nothing else to wire up.
 
 ## Prerequisites
 
@@ -24,7 +24,7 @@ The setup is one plugin. The plugin owns the BRP `RemotePlugin` and registers ev
 # Cargo.toml
 [dependencies]
 bevy = { version = "0.20", features = ["default"] }
-bevy_debugger_bevy = "0.2"
+bevy_fairy = "0.2"
 ```
 
 ### Step 2: Add the plugin to your game
@@ -32,7 +32,7 @@ bevy_debugger_bevy = "0.2"
 ```rust
 use bevy::prelude::*;
 use bevy::remote::http::RemoteHttpPlugin;
-use bevy_debugger_bevy::DebuggerPlugin;
+use bevy_fairy::DebuggerPlugin;
 
 fn main() {
     App::new()
@@ -61,7 +61,7 @@ plugin by name — a game that adds it twice panics on start.
    ```
 3. **Test the connection**:
    ```bash
-   curl -X POST http://localhost:15702/bevy_debugger/status
+   curl -X POST http://localhost:15702/bevy_fairy/status
    ```
 
 If you see JSON output with your game's status, the setup is complete!

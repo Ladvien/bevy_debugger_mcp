@@ -315,8 +315,8 @@ const result = await vscode.debug.mcpClient.callTool("observe", {
 # GitHub Actions integration
 - name: Performance Regression Test
   run: |
-    bevy-debugger-mcp stress_test entity_spawn --max-entities=2000
-    bevy-debugger-mcp hypothesis "performance within baseline"
+    bevy-fairy stress_test entity_spawn --max-entities=2000
+    bevy-fairy hypothesis "performance within baseline"
 ```
 
 ### With Monitoring

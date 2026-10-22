@@ -1,42 +1,42 @@
 #!/bin/bash
 
-# Installation script for bevy-debugger-mcp
+# Installation script for bevy-fairy
 # This script installs the binary and sets up necessary symlinks for Claude Code compatibility
 
 set -e
 
-echo "Installing bevy-debugger-mcp..."
+echo "Installing bevy-fairy..."
 
 # Build the binary in release mode
-echo "Building bevy-debugger-mcp..."
-cargo build --release --bin bevy-debugger-mcp
+echo "Building bevy-fairy..."
+cargo build --release --bin bevy-fairy
 
 # Install to cargo bin directory
 echo "Installing to ~/.cargo/bin..."
-cp target/release/bevy-debugger-mcp ~/.cargo/bin/
-chmod +x ~/.cargo/bin/bevy-debugger-mcp
+cp target/release/bevy-fairy ~/.cargo/bin/
+chmod +x ~/.cargo/bin/bevy-fairy
 
 # Create symlink for Claude Code compatibility
 # Claude Code sometimes looks for binaries in ~/.local/bin
 echo "Creating symlink for Claude Code compatibility..."
 mkdir -p ~/.local/bin
-ln -sf ~/.cargo/bin/bevy-debugger-mcp ~/.local/bin/bevy-debugger-mcp
+ln -sf ~/.cargo/bin/bevy-fairy ~/.local/bin/bevy-fairy
 
 # Verify installation
-if command -v bevy-debugger-mcp &> /dev/null; then
-    echo "✅ bevy-debugger-mcp installed successfully!"
+if command -v bevy-fairy &> /dev/null; then
+    echo "✅ bevy-fairy installed successfully!"
     echo ""
     echo "Binary locations:"
-    echo "  - Main: ~/.cargo/bin/bevy-debugger-mcp"
-    echo "  - Symlink: ~/.local/bin/bevy-debugger-mcp"
+    echo "  - Main: ~/.cargo/bin/bevy-fairy"
+    echo "  - Symlink: ~/.local/bin/bevy-fairy"
     echo ""
     echo "To use with Claude Code, add to your MCP settings:"
     echo "  ~/.claude/mcp_settings.json (Claude Code CLI)"
     echo "  ~/Library/Application Support/Claude/claude_desktop_config.json (Claude Desktop)"
     echo ""
     echo "Example configuration:"
-    echo '  "bevy-debugger-mcp": {'
-    echo '    "command": "/Users/'$USER'/.cargo/bin/bevy-debugger-mcp",'
+    echo '  "bevy-fairy": {'
+    echo '    "command": "/Users/'$USER'/.cargo/bin/bevy-fairy",'
     echo '    "args": ["stdio"],'
     echo '    "env": {'
     echo '      "RUST_LOG": "info",'

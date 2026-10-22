@@ -8,8 +8,8 @@
  * JSON-RPC 2.0 envelope (`{ method, id, params }`), not a hand-rolled enum.
  */
 
-use bevy_debugger_mcp::brp_messages::{builtin_methods, BrpRequest};
-use bevy_debugger_mcp::brp_validation::{
+use bevy_fairy::server::brp_messages::{builtin_methods, BrpRequest};
+use bevy_fairy::server::brp_validation::{
     BrpValidator, ComponentRegistry, EntityTracker, PermissionLevel, ValidationConfig,
 };
 use std::collections::HashMap;
@@ -382,7 +382,7 @@ async fn test_session_management() {
 
     // The debug method maps to an Admin permission (unknown method -> Admin).
     let admin_request = request(
-        bevy_debugger_mcp::brp_messages::builtin_methods::BRP_QUERY_METHOD,
+        bevy_fairy::server::brp_messages::builtin_methods::BRP_QUERY_METHOD,
         None,
     );
 

@@ -1,7 +1,7 @@
 //! The agent-facing tools (`status`, `commands`, `run`, `screenshot`, `scene`, `quit`, `brp`),
 //! driven against an in-process fake of the game's BRP endpoint, so no Bevy game is needed.
 //!
-//! The fake answers the JSON-RPC shapes that the companion `bevy_debugger_bevy` serves. Each test
+//! The fake answers the JSON-RPC shapes that the companion `bevy_fairy` serves. Each test
 //! builds its own `Config` and client, so nothing reads or writes the process environment.
 
 use std::sync::{Arc, Mutex};
@@ -9,9 +9,9 @@ use std::time::{Duration, Instant};
 
 use axum::{extract::State, routing::post, Json, Router};
 use base64::Engine as _;
-use bevy_debugger_mcp::brp_client::BrpClient;
-use bevy_debugger_mcp::config::Config;
-use bevy_debugger_mcp::mcp_tools::{
+use bevy_fairy::server::brp_client::BrpClient;
+use bevy_fairy::server::config::Config;
+use bevy_fairy::server::mcp_tools::{
     BevyDebuggerTools, BrpCallRequest, NoArgs, RunRequest, SceneAction, SceneRequest, ScreenshotRequest,
 };
 use rmcp::handler::server::tool::Parameters;
@@ -28,10 +28,10 @@ const PNG_SIGNATURE: [u8; 8] = [0x89, b'P', b'N', b'G', b'\r', b'\n', 0x1a, b'\n
 #[derive(Default)]
 struct FakeGame {
     ready: bool,
-    /// How many `bevy_debugger/capture` polls answer `pending` before the capture is `done`.
+    /// How many `bevy_fairy/capture` polls answer `pending` before the capture is `done`.
     pending_polls: u32,
     polls_seen: u32,
-    /// The commands the game has recorded, as `bevy_debugger/scene get` returns them.
+    /// The commands the game has recorded, as `bevy_fairy/scene get` returns them.
     steps: Vec<Value>,
 }
 
@@ -68,14 +68,14 @@ async fn answer(State(game): State<SharedGame>, body: String) -> Json<Value> {
 
 fn dispatch(game: &mut FakeGame, method: &str, params: &Value) -> Result<Value, (i16, String)> {
     match method {
-        "bevy_debugger/status" => Ok(json!({
+        "bevy_fairy/status" => Ok(json!({
             "ready": game.ready,
             "frame": 1,
             "commands": 2,
             "capture": "offscreen",
             "replay": null
         })),
-        "bevy_debugger/commands" => Ok(json!({"commands": [
+        "bevy_fairy/commands" => Ok(json!({"commands": [
             {
                 "name": "sanctuary/light",
                 "description": "Set the palette.",
@@ -94,8 +94,8 @@ fn dispatch(game: &mut FakeGame, method: &str, params: &Value) -> Result<Value, 
             game.steps.push(json!({"method": method, "params": recorded}));
             Ok(json!({"ok": true}))
         }
-        "bevy_debugger/screenshot" => Ok(json!({"id": 7, "path": null})),
-        "bevy_debugger/capture" => {
+        "bevy_fairy/screenshot" => Ok(json!({"id": 7, "path": null})),
+        "bevy_fairy/capture" => {
             if game.polls_seen < game.pending_polls {
                 game.polls_seen += 1;
                 Ok(json!({"status": "pending"}))
@@ -103,16 +103,16 @@ fn dispatch(game: &mut FakeGame, method: &str, params: &Value) -> Result<Value, 
                 Ok(json!({"status": "done", "width": 1, "height": 1, "png_base64": PNG_1X1_BASE64}))
             }
         }
-        "bevy_debugger/scene" => match params.get("action").and_then(Value::as_str) {
-            Some("get") => Ok(json!({"format": "bevy_debugger_scene", "version": 1, "steps": game.steps})),
+        "bevy_fairy/scene" => match params.get("action").and_then(Value::as_str) {
+            Some("get") => Ok(json!({"format": "bevy_fairy_scene", "version": 1, "steps": game.steps})),
             Some("clear") => {
                 let cleared = game.steps.len();
                 game.steps.clear();
                 Ok(json!({"cleared": cleared}))
             }
-            _ => Err((-32602, "bevy_debugger/scene takes action get or clear".to_string())),
+            _ => Err((-32602, "bevy_fairy/scene takes action get or clear".to_string())),
         },
-        "bevy_debugger/quit" => Ok(json!({"quitting": true})),
+        "bevy_fairy/quit" => Ok(json!({"quitting": true})),
         other => Err((-32601, format!("method not found: {other}"))),
     }
 }
@@ -155,7 +155,7 @@ async fn unknown_command_is_refused_with_the_closest_known_name() {
     assert_eq!(result.is_error, Some(true));
     let text = text_of(&result);
     assert!(text.starts_with("unknown command `sanctuary/lite`; did you mean `sanctuary/light`?"), "{text}");
-    assert!(text.contains("known: sanctuary/clear, sanctuary/light, bevy_debugger/time"), "{text}");
+    assert!(text.contains("known: sanctuary/clear, sanctuary/light, bevy_fairy/time"), "{text}");
 }
 
 #[tokio::test]
@@ -249,7 +249,7 @@ async fn scene_save_writes_the_exact_file_format() {
     assert_eq!(
         written,
         json!({
-            "format": "bevy_debugger_scene",
+            "format": "bevy_fairy_scene",
             "version": 1,
             "steps": [{"method": "sanctuary/light", "params": {"palette": "moonlit_night"}}]
         })
@@ -284,7 +284,7 @@ async fn commands_lists_the_game_commands_then_the_built_in_time_last() {
         ),
         "{text}"
     );
-    assert!(blocks[2].starts_with("bevy_debugger/time — "), "{text}");
+    assert!(blocks[2].starts_with("bevy_fairy/time — "), "{text}");
 }
 
 #[tokio::test]

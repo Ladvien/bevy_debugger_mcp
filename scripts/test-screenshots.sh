@@ -63,7 +63,7 @@ echo "  - diffs/ (comparison diffs)"
 
 echo -e "${BLUE}🚀 To test with a real Bevy game:${NC}"
 echo "  1. Run: cargo run --example screenshot_setup"
-echo "  2. In another terminal: cargo run --bin bevy-debugger-mcp"
+echo "  2. In another terminal: cargo run --bin bevy-fairy"
 echo "  3. Test screenshot functionality via Claude Code"
 
 echo -e "${BLUE}📖 For more info, see:${NC}"

@@ -8,10 +8,10 @@ use std::time::Duration;
 use tokio::time::sleep;
 use serde_json::{json, Value};
 
-use bevy_debugger_mcp::{
-    config::Config,
-    brp_client::BrpClient,
-    error::{Error, Result},
+use bevy_fairy::{
+    server::config::Config,
+    server::brp_client::BrpClient,
+    server::error::{Error, Result},
 };
 
 /// Manages a Bevy game process for testing
@@ -95,7 +95,7 @@ impl TestGameProcess {
             // In a real implementation, this would send actual BRP requests
             // For testing, we'll simulate responses based on the method
             match method {
-                "bevy_debugger/get_entity_count" => {
+                "bevy_fairy/get_entity_count" => {
                     Ok(json!({
                         "total": 150,
                         "simple": 50,
@@ -103,7 +103,7 @@ impl TestGameProcess {
                         "complex": 40
                     }))
                 }
-                "bevy_debugger/get_performance_metrics" => {
+                "bevy_fairy/get_performance_metrics" => {
                     Ok(json!({
                         "average_frame_time": 0.016,
                         "fps": 60.0,
@@ -111,14 +111,14 @@ impl TestGameProcess {
                         "uptime": 30.0
                     }))
                 }
-                "bevy_debugger/spawn_entities" => {
+                "bevy_fairy/spawn_entities" => {
                     let count = params.get("count").and_then(|c| c.as_u64()).unwrap_or(10);
                     Ok(json!({
                         "spawned": count,
                         "success": true
                     }))
                 }
-                "bevy_debugger/stress_test" => {
+                "bevy_fairy/stress_test" => {
                     let test_type = params.get("type").and_then(|t| t.as_str()).unwrap_or("entity_spawn");
                     let intensity = params.get("intensity").and_then(|i| i.as_u64()).unwrap_or(1);
                     
@@ -129,7 +129,7 @@ impl TestGameProcess {
                         "success": true
                     }))
                 }
-                "bevy_debugger/query_entities" => {
+                "bevy_fairy/query_entities" => {
                     Ok(json!({
                         "entities": [
                             {"id": "entity_1", "type": "warrior", "health": 100.0},
@@ -172,12 +172,12 @@ impl TestGameProcess {
 
     /// Get the game's current performance metrics
     pub async fn get_performance_metrics(&mut self) -> Result<Value> {
-        self.send_command("bevy_debugger/get_performance_metrics", json!({})).await
+        self.send_command("bevy_fairy/get_performance_metrics", json!({})).await
     }
 
     /// Spawn entities in the test game
     pub async fn spawn_entities(&mut self, entity_type: &str, count: usize) -> Result<Value> {
-        self.send_command("bevy_debugger/spawn_entities", json!({
+        self.send_command("bevy_fairy/spawn_entities", json!({
             "type": entity_type,
             "count": count
         })).await
@@ -185,7 +185,7 @@ impl TestGameProcess {
 
     /// Run a stress test scenario
     pub async fn run_stress_test(&mut self, test_type: &str, intensity: usize) -> Result<Value> {
-        self.send_command("bevy_debugger/stress_test", json!({
+        self.send_command("bevy_fairy/stress_test", json!({
             "type": test_type,
             "intensity": intensity
         })).await
@@ -193,7 +193,7 @@ impl TestGameProcess {
 
     /// Query entities with filters
     pub async fn query_entities(&mut self, filters: Value) -> Result<Value> {
-        self.send_command("bevy_debugger/query_entities", filters).await
+        self.send_command("bevy_fairy/query_entities", filters).await
     }
 
     /// Wait for a specific condition to be met

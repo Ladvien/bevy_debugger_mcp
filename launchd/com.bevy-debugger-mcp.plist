@@ -4,13 +4,13 @@
 <dict>
     <!-- Service identifier - must be unique on the system -->
     <key>Label</key>
-    <string>com.bevy-debugger-mcp</string>
+    <string>com.bevy-fairy</string>
     
     <!-- Program to execute -->
     <!-- Note: Paths with HOME_DIR will be replaced during installation -->
     <key>ProgramArguments</key>
     <array>
-        <string>/usr/local/bin/bevy-debugger-mcp</string>
+        <string>/usr/local/bin/bevy-fairy</string>
         <string>serve</string>
         <string>--config</string>
         <string>HOME_DIR/.config/bevy-debugger/config.toml</string>

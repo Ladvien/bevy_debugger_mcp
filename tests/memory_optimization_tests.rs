@@ -3,14 +3,14 @@ use tokio::sync::RwLock;
 use criterion::{criterion_group, criterion_main, Criterion, BenchmarkId};
 use serde_json::json;
 
-use bevy_debugger_mcp::{
-    config::Config,
-    brp_client::BrpClient,
-    lazy_init::{LazyComponents, preload_critical_components},
-    semantic_analyzer::{SemanticAnalyzer, SemanticThresholds},
-    memory_optimization_tracker::{MemoryOptimizationTracker, OptimizationTarget},
-    memory_pools::{GameDebugPools, GAME_POOLS},
-    mcp_server::McpServer,
+use bevy_fairy::{
+    server::config::Config,
+    server::brp_client::BrpClient,
+    server::lazy_init::{LazyComponents, preload_critical_components},
+    server::semantic_analyzer::{SemanticAnalyzer, SemanticThresholds},
+    server::memory_optimization_tracker::{MemoryOptimizationTracker, OptimizationTarget},
+    server::memory_pools::{GameDebugPools, GAME_POOLS},
+    server::mcp_server::McpServer,
 };
 
 /// Benchmark memory usage of lazy initialization patterns

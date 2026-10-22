@@ -7,18 +7,18 @@
  * and `BrpResponse` is `{ id, payload: BrpPayload }`.
  */
 
-use bevy_debugger_mcp::brp_client::BrpClient;
-use bevy_debugger_mcp::brp_command_handler::{
+use bevy_fairy::server::brp_client::BrpClient;
+use bevy_fairy::server::brp_command_handler::{
     BrpCommandHandler, CommandHandlerMetadata, CommandHandlerRegistry, CommandVersion,
 };
-use bevy_debugger_mcp::brp_messages::{
+use bevy_fairy::server::brp_messages::{
     builtin_methods, BrpError, BrpPayload, BrpRequest, BrpResponse,
 };
-use bevy_debugger_mcp::brp_validation::{BrpValidator, ValidationConfig};
-use bevy_debugger_mcp::config::Config;
-use bevy_debugger_mcp::debug_brp_handler::DebugBrpHandler;
-use bevy_debugger_mcp::debug_command_processor::DebugCommandRouter;
-use bevy_debugger_mcp::error::Result;
+use bevy_fairy::server::brp_validation::{BrpValidator, ValidationConfig};
+use bevy_fairy::server::config::Config;
+use bevy_fairy::server::debug_brp_handler::DebugBrpHandler;
+use bevy_fairy::server::debug_command_processor::DebugCommandRouter;
+use bevy_fairy::server::error::Result;
 
 use async_trait::async_trait;
 use serde_json::{json, Value};
@@ -144,8 +144,8 @@ async fn test_brp_client_with_handlers() {
 
 #[tokio::test]
 async fn test_debug_handler_integration() {
-    use bevy_debugger_mcp::brp_messages::DebugCommand;
-    use bevy_debugger_mcp::debug_brp_handler::encode_debug_request;
+    use bevy_fairy::server::brp_messages::DebugCommand;
+    use bevy_fairy::server::debug_brp_handler::encode_debug_request;
 
     // Create debug router
     let debug_router = Arc::new(DebugCommandRouter::new());
@@ -253,7 +253,7 @@ async fn test_handler_validation() {
                     .and_then(Value::as_u64)
                     .unwrap_or(0);
                 if entity == 0 {
-                    return Err(bevy_debugger_mcp::error::Error::Validation(
+                    return Err(bevy_fairy::server::error::Error::Validation(
                         "Invalid entity ID: 0".to_string(),
                     ));
                 }

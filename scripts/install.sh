@@ -12,10 +12,10 @@ BLUE='\033[0;34m'
 NC='\033[0m' # No Color
 
 # Configuration
-REPO_URL="https://github.com/ladvien/bevy_debugger_mcp"
+REPO_URL="https://github.com/ladvien/bevy_fairy"
 INSTALL_DIR="/usr/local/bin"
 CONFIG_DIR="$HOME/.config/bevy-debugger"
-BINARY_NAME="bevy-debugger-mcp"
+BINARY_NAME="bevy-fairy"
 
 # Print colored output
 print_info() { echo -e "${BLUE}[INFO]${NC} $1"; }
@@ -144,10 +144,10 @@ build_from_source() {
     
     # Install binary
     if [ -w "$INSTALL_DIR" ]; then
-        mv "target/release/bevy_debugger_mcp" "$INSTALL_DIR/$BINARY_NAME"
+        mv "target/release/bevy_fairy" "$INSTALL_DIR/$BINARY_NAME"
     else
         print_info "Installing to $INSTALL_DIR requires sudo permission"
-        sudo mv "target/release/bevy_debugger_mcp" "$INSTALL_DIR/$BINARY_NAME"
+        sudo mv "target/release/bevy_fairy" "$INSTALL_DIR/$BINARY_NAME"
     fi
     
     chmod +x "$INSTALL_DIR/$BINARY_NAME"

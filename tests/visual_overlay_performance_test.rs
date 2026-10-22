@@ -4,7 +4,7 @@
 #[cfg(feature = "visual-debugging")]
 mod visual_overlay_tests {
     use bevy::prelude::*;
-    use bevy_debugger_mcp::visual_overlays::{
+    use bevy_fairy::server::visual_overlays::{
         VisualDebugOverlayPlugin,
         entity_highlight::{EntityHighlightOverlay, HighlightedEntity, HighlightMode},
         ViewportConfig, ViewportOverlaySettings, LodSettings,
@@ -105,7 +105,7 @@ mod visual_overlay_tests {
     
     #[test]
     fn test_lod_system_performance() {
-        use bevy_debugger_mcp::visual_overlays::entity_highlight::calculate_lod;
+        use bevy_fairy::server::visual_overlays::entity_highlight::calculate_lod;
         
         let lod_settings = LodSettings::default();
         

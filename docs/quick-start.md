@@ -13,10 +13,10 @@
 
 ```bash
 # Install from crates.io
-cargo install bevy_debugger_mcp
+cargo install bevy_fairy
 
 # Verify installation
-bevy-debugger-mcp --help
+bevy-fairy --help
 ```
 
 ### Step 2: Add the debugger plugin (1 minute)
@@ -26,7 +26,7 @@ Add this to your Bevy game's `main.rs`:
 ```rust
 use bevy::prelude::*;
 use bevy::remote::http::RemoteHttpPlugin;
-use bevy_debugger_bevy::DebuggerPlugin;
+use bevy_fairy::DebuggerPlugin;
 
 fn main() {
     App::new()
@@ -47,7 +47,7 @@ Add to your Claude Code configuration:
 {
   "mcpServers": {
     "bevy-debugger": {
-      "command": "bevy-debugger-mcp",
+      "command": "bevy-fairy",
       "args": ["--stdio"]
     }
   }
@@ -109,8 +109,8 @@ What happens if I spawn 10 new entities?
 - Check port 15702 isn't blocked by firewall
 
 **Tools not available?**
-- Update to latest version: `cargo install bevy_debugger_mcp --force`
-- Verify installation: `bevy-debugger-mcp --help`
+- Update to latest version: `cargo install bevy_fairy --force`
+- Verify installation: `bevy-fairy --help`
 
 ## 🎮 What's Next?
 

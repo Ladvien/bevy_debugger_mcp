@@ -94,17 +94,17 @@ fn the_crate_docs_name_the_bevy_version_the_crate_uses() {
 /// page. So it now walks every doc in the tree.
 #[test]
 fn no_doc_tells_the_reader_to_add_a_second_remote_plugin() {
-    let plugin = read("crates/bevy_debugger_bevy/src/lib.rs");
+    let plugin = read("crates/bevy_fairy/src/lib.rs");
 
     // The plugin registers these itself.
     for method in [
-        "bevy_debugger/screenshot",
-        "bevy_debugger/capture",
-        "bevy_debugger/input",
-        "bevy_debugger/commands",
-        "bevy_debugger/scene",
-        "bevy_debugger/quit",
-        "bevy_debugger/status",
+        "bevy_fairy/screenshot",
+        "bevy_fairy/capture",
+        "bevy_fairy/input",
+        "bevy_fairy/commands",
+        "bevy_fairy/scene",
+        "bevy_fairy/quit",
+        "bevy_fairy/status",
     ] {
         assert!(
             plugin.contains(&format!("\"{method}\"")),
@@ -164,7 +164,7 @@ fn assert_no_hand_registration(what: &str, text: &str) {
         let trimmed = line.trim();
         if let Some(rest) = trimmed.strip_prefix(".with_method(\"") {
             let name = rest.split('"').next().unwrap_or_default();
-            if name.starts_with("bevy_debugger/") {
+            if name.starts_with("bevy_fairy/") {
                 panic!(
                     "{what} tells the reader to register {name} by hand, but the plugin already \
                      registers it. Adding it again adds `RemotePlugin` twice, which Bevy rejects, so \

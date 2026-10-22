@@ -11,9 +11,9 @@
 use std::sync::{Arc, Mutex};
 
 use axum::{extract::State, routing::post, Json, Router};
-use bevy_debugger_mcp::brp_client::BrpClient;
-use bevy_debugger_mcp::config::Config;
-use bevy_debugger_mcp::hypothesis_system::PerformanceMetric;
+use bevy_fairy::server::brp_client::BrpClient;
+use bevy_fairy::server::config::Config;
+use bevy_fairy::server::hypothesis_system::PerformanceMetric;
 use rmcp::handler::server::tool::Parameters;
 use rmcp::model::CallToolResult;
 use serde_json::{json, Value};
@@ -180,9 +180,9 @@ async fn a_refused_metric_reaches_the_agent() {
     // The `hypothesis` tool with a `PerformanceWithin` assertion on frame time, and one action to
     // run. The action matters: the runner only evaluates the condition after the actions succeed,
     // so without one the condition is never reached and the refusal never happens.
-    let tools = bevy_debugger_mcp::mcp_tools::BevyDebuggerTools::new(client);
+    let tools = bevy_fairy::server::mcp_tools::BevyDebuggerTools::new(client);
     let status = tools
-        .status(Parameters(bevy_debugger_mcp::mcp_tools::NoArgs {}))
+        .status(Parameters(bevy_fairy::server::mcp_tools::NoArgs {}))
         .await
         .expect("status returns a result");
     assert!(!text_of(&status).contains("\"error\""), "the fake game should answer status");

@@ -6,7 +6,7 @@
  * JSON-RPC 2.0 envelope (`{ method, id, params }`), not a hand-rolled enum.
  */
 
-use bevy_debugger_mcp::brp_messages::{
+use bevy_fairy::server::brp_messages::{
     builtin_methods, BrpPayload, BrpRequest, BrpResponse, QueryFilter,
 };
 use serde_json::{json, Value};
@@ -199,7 +199,7 @@ async fn test_response_result_round_trip() {
 /// Verify a `BrpResponse` carrying an error decodes round-trip.
 #[tokio::test]
 async fn test_response_error_round_trip() {
-    use bevy_debugger_mcp::brp_messages::BrpError;
+    use bevy_fairy::server::brp_messages::BrpError;
 
     let response = BrpResponse {
         id: Some(json!(7)),

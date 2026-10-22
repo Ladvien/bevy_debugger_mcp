@@ -1,4 +1,4 @@
-# bevy_debugger_mcp — notes for agents
+# bevy_fairy — notes for agents
 
 > **This is our code. Edit it here.**
 >
@@ -10,7 +10,7 @@
 > The word "vendored" appears in the history because this arrived by `git subtree add` rather than
 > being written here. It says where the code came from, not who may change it. Every previous agent
 > that treated a missing feature here as a fixed constraint was wrong: the cursor-position gap in
-> `bevy_debugger/input` sat unfixed through two whole steps of work for exactly that reason, and it
+> `bevy_fairy/input` sat unfixed through two whole steps of work for exactly that reason, and it
 > was a forty-line change.
 
 An MCP server plus a companion Bevy plugin that let an agent inspect and drive a **running** Bevy game: live entity/component/resource queries, offscreen frame capture, and keyboard/mouse injection.
@@ -27,12 +27,12 @@ When one of these seems necessary, stop and ask. Name the exact command, what it
 
 ## Source of truth
 
-This standalone repo, `Ladvien/bevy_debugger_mcp`, is the source of truth for both crates, on Bevy 0.20 (Sanctuary decision 0232, 2026-10-19). It was a pinned git dependency, then vendored into `Ladvien/foundation_vs_slop` with `git subtree add` and mirrored back out of it. The monorepo's `crates/bevy_debugger_mcp` is now a frozen Bevy 0.19 copy that is never mirrored again, and `Ladvien/bevy_emerge` depends on this repo by git. A bug found while driving a game is an ordinary edit here, followed by a push.
+This standalone repo, `Ladvien/bevy_fairy`, is the source of truth for both crates, on Bevy 0.20 (Sanctuary decision 0232, 2026-10-19). It was a pinned git dependency, then vendored into `Ladvien/foundation_vs_slop` with `git subtree add` and mirrored back out of it. The monorepo's `crates/bevy_fairy` is now a frozen Bevy 0.19 copy that is never mirrored again, and `Ladvien/bevy_emerge` depends on this repo by git. A bug found while driving a game is an ordinary edit here, followed by a push.
 
 ## Two independent halves
 
-- **`src/`** — the MCP server binary `bevy-debugger-mcp`. A separate process: speaks MCP over stdio to an agent, BRP over JSON-RPC/HTTP (:15702) to the game. ~52k lines, 56 direct dependencies.
-- **`crates/bevy_debugger_bevy/`** — the Bevy plugin the game links. ~400 lines, five dependencies.
+- **`src/`** — the MCP server binary `bevy-fairy`. A separate process: speaks MCP over stdio to an agent, BRP over JSON-RPC/HTTP (:15702) to the game. ~52k lines, 56 direct dependencies.
+- **`crates/bevy_fairy/`** — the Bevy plugin the game links. ~400 lines, five dependencies.
 
 The server does **not** depend on the plugin. Do not introduce a dependency between them: an agent can use Bevy's built-in BRP methods against a game that never linked the plugin, and a game can link the plugin without anyone running the server.
 
@@ -44,7 +44,7 @@ So:
 
 - **Capture never reaches outside the game.** It reads either an `Image` a camera renders to
   (`offscreen`) or the game's own swapchain (`window`) — both are the game's own pixels, and
-  neither raises, focuses or captures the screen the way a window manager would. `bevy_debugger/
+  neither raises, focuses or captures the screen the way a window manager would. `bevy_fairy/
   screenshot` asks for `offscreen` when a `DebugCaptureTarget` is present, and falls back to
   `window` when it is not; an explicit `source: "offscreen"` with no target fails loudly. The
   fallback is not a focus-stealing path, but it is a weaker one: the OS keeps a window's surface
@@ -54,7 +54,7 @@ So:
 - **Input writes into Bevy's own input message stream**, inside the game process — the same
   `Messages<KeyboardInput>` / `Messages<MouseButtonInput>` buffers `bevy_winit` appends to.
 
-`crates/bevy_debugger_bevy/tests/leaf.rs` is the ratchet: it pins the plugin's dependency list and fails on any source mentioning `enigo`, `xdotool`, `CGEvent`, `SendInput`, `winit` or `unsafe`. That test is the enforcement of the paragraph above — widening it is a design decision and should cost a deliberate edit.
+`crates/bevy_fairy/tests/leaf.rs` is the ratchet: it pins the plugin's dependency list and fails on any source mentioning `enigo`, `xdotool`, `CGEvent`, `SendInput`, `winit` or `unsafe`. That test is the enforcement of the paragraph above — widening it is a design decision and should cost a deliberate edit.
 
 ## BRP handlers run in `RemoteLast` — after everything — and that has bitten input
 
@@ -68,13 +68,13 @@ A press written there therefore has its `just_pressed` flag cleared before any `
 
 `with_watching_method_main` (`bevy_remote-0.19.0/src/lib.rs:629`) re-runs a handler **every frame** in `RemoteLast` with exclusive `World`. `Ok(None)` means *not yet* and parks the request in `RemoteWatchingRequests`; `Ok(Some(v))`/`Err` sends a frame to the client and **keeps** the request open; `remove_closed_watching_requests` reaps it when the client goes away. The HTTP transport serves it as a `BrpHttpResponse::Stream` of `application/json` chunks, so `curl -N` consumes it — refused only inside a batch.
 
-`bevy_debugger/guide+watch` is the first user of this, and it is why the guide channel needed **zero new dependencies**: a condition-watcher with lifecycle management, already written and tested by the engine.
+`bevy_fairy/guide+watch` is the first user of this, and it is why the guide channel needed **zero new dependencies**: a condition-watcher with lifecycle management, already written and tested by the engine.
 
 The trap it walked into first: **the handler runs every frame, so any answer that does not change state is re-sent sixty times a second.** Both non-advancing answers (`waiting_on_a_person`, `done`) now announce once per step index and then park. See `Guide::announced`, and `tests/guide_steps.rs` for the two tests that exist because the first draft did not.
 
 ## The guide channel: the plugin talks to the *person*, not just the app
 
-`bevy_debugger/guide` posts a script and the host renders one step; `bevy_debugger/guide+watch` waits on a condition and records `k/n`. The design and its citations are in `docs/bevy_debugger_mcp.md`. The parts that constrain edits here:
+`bevy_fairy/guide` posts a script and the host renders one step; `bevy_fairy/guide+watch` waits on a condition and records `k/n`. The design and its citations are in `docs/bevy_fairy.md`. The parts that constrain edits here:
 
 - **The plugin never learns the host's vocabulary.** Checkpoints are one-shot systems the host registers by name (`Checkpoints`), the same seam `PendingInput`'s public `queue_*` methods are. Anything that made this crate know what a tile is would be the mistake.
 - **The overlay spawns no camera**, because a second one silently breaks any host `Single<&Camera>` query — the trap the mirror camera already argues about.
@@ -95,11 +95,11 @@ Two consequences worth knowing before you touch this:
 
 ## The cursor is a resource, not the window's
 
-`bevy_debugger/input` accepts `kind: "Cursor"` with `x`/`y` in logical window pixels, or `clear: true`. It writes `DebugCursor`, **not** `Window::set_cursor_position`.
+`bevy_fairy/input` accepts `kind: "Cursor"` with `x`/`y` in logical window pixels, or `clear: true`. It writes `DebugCursor`, **not** `Window::set_cursor_position`.
 
 That looks like the obvious call and it is the wrong one, read out of the pinned engine rather than guessed: `Window::set_cursor_position` writes an internal field, and Bevy's windowing backend diffs that field against a per-window cache every frame and asks the platform to **move the physical pointer** (`bevy_winit-0.19.0/src/system.rs:433`). The cache is `pub(crate)`, so a plugin cannot suppress the diff. Writing the window would drag the mouse out from under whoever is at the machine — the precise class of thing this crate exists to avoid, and it would pass `tests/leaf.rs` while defeating its whole purpose.
 
-**A host has to read the pointer through `bevy_debugger_bevy::cursor_position(&window, &debug_cursor)`** or the injected half never reaches it. A host that calls `Window::cursor_position` directly is undrivable by an agent, and that is not a bug in the plugin.
+**A host has to read the pointer through `bevy_fairy::cursor_position(&window, &debug_cursor)`** or the injected half never reaches it. A host that calls `Window::cursor_position` directly is undrivable by an agent, and that is not a bug in the plugin.
 
 Ordering is load-bearing and is handled in `apply_pending_input`: a move *after* a button, or a second move in one frame, is deferred to the next frame. Applying `press, move` together makes the game read the press at the new position — the click never happens where it was aimed — and two moves in one frame collapse a drag's path to its endpoint.
 
@@ -116,9 +116,9 @@ There is deliberately no `[profile.*]` in `Cargo.toml`; the manifest comment rec
 Both halves are members of this workspace, so `cargo test --workspace` covers them. Individually:
 
 ```sh
-cargo test -p bevy_debugger_bevy      # the plugin, including the dependency ratchet
-cargo test -p bevy_debugger_mcp       # the server
-cargo install --path .                # the bevy-debugger-mcp binary
+cargo test -p bevy_fairy      # the plugin, including the dependency ratchet
+cargo test -p bevy_fairy       # the server
+cargo install --path .                # the bevy-fairy binary
 ```
 
 - Consult Bevy documentation often. It can be found at codex_fs/offline_reference_docs/bevy-0.20-book/

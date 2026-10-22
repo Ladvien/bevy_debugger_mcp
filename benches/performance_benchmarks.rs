@@ -6,19 +6,19 @@ use std::time::Duration;
 use tokio::runtime::Runtime;
 use tokio::sync::RwLock;
 
-use bevy_debugger_mcp::{
-    config::Config,
-    brp_client::BrpClient,
-    mcp_server::McpServer,
-    lazy_init::LazyComponents,
-    query_optimization::{QueryOptimizer, QueryPerformanceMetrics},
-    parallel_query_executor::{ParallelQueryExecutor, ParallelExecutionConfig},
-    tools::{observe, observe_optimized},
-    brp_messages::{BrpRequest, QueryFilter},
+use bevy_fairy::{
+    server::config::Config,
+    server::brp_client::BrpClient,
+    server::mcp_server::McpServer,
+    server::lazy_init::LazyComponents,
+    server::query_optimization::{QueryOptimizer, QueryPerformanceMetrics},
+    server::parallel_query_executor::{ParallelQueryExecutor, ParallelExecutionConfig},
+    server::tools::{observe, observe_optimized},
+    server::brp_messages::{BrpRequest, QueryFilter},
 };
 
 #[cfg(feature = "visual-debugging")]
-use bevy_debugger_mcp::visual_overlays::{
+use bevy_fairy::server::visual_overlays::{
     VisualOverlayManager, 
     entity_highlight::{EntityHighlightOverlay, HighlightedEntity, HighlightMode},
     OverlayMetrics,
@@ -35,13 +35,13 @@ use std::collections::HashMap;
 
 // Conditionally import optimization features
 #[cfg(feature = "caching")]
-use bevy_debugger_mcp::command_cache::{CommandCache, CacheConfig};
+use bevy_fairy::server::command_cache::{CommandCache, CacheConfig};
 
 #[cfg(feature = "pooling")]
-use bevy_debugger_mcp::response_pool::{ResponsePool, ResponsePoolConfig};
+use bevy_fairy::server::response_pool::{ResponsePool, ResponsePoolConfig};
 
 #[cfg(feature = "profiling")]
-use bevy_debugger_mcp::profiling::{init_profiler, get_profiler};
+use bevy_fairy::server::profiling::{init_profiler, get_profiler};
 
 /// Benchmark configuration
 struct BenchConfig {
@@ -528,7 +528,7 @@ fn benchmark_visual_overlays(c: &mut Criterion) {
     // Create a minimal Bevy app for testing
     let mut app = App::new();
     app.add_plugins(MinimalPlugins)
-       .add_plugins(bevy_debugger_mcp::visual_overlays::VisualDebugOverlayPlugin::default());
+       .add_plugins(bevy_fairy::server::visual_overlays::VisualDebugOverlayPlugin::default());
     
     // Create test entities with highlights
     for i in 0..1000 {
@@ -573,7 +573,7 @@ fn benchmark_visual_overlays(c: &mut Criterion) {
     // Benchmark with multiple viewports
     let mut multi_viewport_app = App::new();
     multi_viewport_app.add_plugins(MinimalPlugins)
-                     .add_plugins(bevy_debugger_mcp::visual_overlays::VisualDebugOverlayPlugin::default());
+                     .add_plugins(bevy_fairy::server::visual_overlays::VisualDebugOverlayPlugin::default());
     
     // Create multiple cameras (viewports)
     for i in 0..4 {
@@ -621,7 +621,7 @@ fn benchmark_visual_overlays(c: &mut Criterion) {
     c.bench_function("visual_overlay_lod_performance", |b| {
         let mut lod_app = App::new();
         lod_app.add_plugins(MinimalPlugins)
-               .add_plugins(bevy_debugger_mcp::visual_overlays::VisualDebugOverlayPlugin::default());
+               .add_plugins(bevy_fairy::server::visual_overlays::VisualDebugOverlayPlugin::default());
         
         // Create entities at various distances
         for i in 0..100 {
@@ -694,7 +694,7 @@ fn benchmark_viewport_management(c: &mut Criterion) {
         let lod_settings = LodSettings::default();
         b.iter(|| {
             for distance in [5.0, 25.0, 75.0, 150.0, 300.0] {
-                let (level, factor) = bevy_debugger_mcp::visual_overlays::entity_highlight::calculate_lod(
+                let (level, factor) = bevy_fairy::server::visual_overlays::entity_highlight::calculate_lod(
                     distance, &lod_settings
                 );
                 black_box((level, factor));

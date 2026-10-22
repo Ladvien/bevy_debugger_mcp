@@ -29,7 +29,7 @@ Set up the Bevy Debugger MCP and perform your first debugging session.
 // main.rs
 use bevy::prelude::*;
 use bevy::remote::http::RemoteHttpPlugin;
-use bevy_debugger_bevy::DebuggerPlugin;
+use bevy_fairy::DebuggerPlugin;
 
 fn main() {
     App::new()
@@ -64,7 +64,7 @@ cargo run
 ### Step 3: Start MCP Server
 ```bash
 # In another terminal
-bevy-debugger-mcp --stdio
+bevy-fairy --stdio
 ```
 
 ### Step 4: First Debugging Commands
@@ -339,7 +339,7 @@ Generate a comprehensive test report covering the automated session. Include per
 #[cfg(test)]
 mod integration_tests {
     use super::*;
-    use bevy_debugger_mcp::testing::*;
+    use bevy_fairy::testing::*;
     
     #[tokio::test]
     async fn test_memory_leak_detection() {
@@ -436,7 +436,7 @@ Create an automated test suite that:
 
 ```rust
 // Advanced debugging workflow implementation
-use bevy_debugger_mcp::orchestration::*;
+use bevy_fairy::orchestration::*;
 
 async fn complex_debugging_workflow() -> Result<DebugReport> {
     let orchestrator = WorkflowOrchestrator::new();

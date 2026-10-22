@@ -21,7 +21,7 @@ This guide explains how to set up the Bevy Debugger MCP server as a background s
 
 The installation script will:
 1. Build the binary if needed
-2. Install to `/usr/local/bin/bevy-debugger-mcp`
+2. Install to `/usr/local/bin/bevy-fairy`
 3. Create configuration files
 4. Set up LaunchAgent for background operation
 5. Create log directories
@@ -41,8 +41,8 @@ If you prefer to understand each step:
 
 2. **Install the binary**:
    ```bash
-   sudo cp target/release/bevy_debugger_mcp /usr/local/bin/bevy-debugger-mcp
-   sudo chmod +x /usr/local/bin/bevy-debugger-mcp
+   sudo cp target/release/bevy_fairy /usr/local/bin/bevy-fairy
+   sudo chmod +x /usr/local/bin/bevy-fairy
    ```
 
 3. **Create directories**:
@@ -54,7 +54,7 @@ If you prefer to understand each step:
 
 4. **Install LaunchAgent**:
    ```bash
-   sed "s|HOME_DIR|${HOME}|g" launchd/com.bevy-debugger-mcp.plist > ~/Library/LaunchAgents/com.bevy-debugger-mcp.plist
+   sed "s|HOME_DIR|${HOME}|g" launchd/com.bevy-fairy.plist > ~/Library/LaunchAgents/com.bevy-fairy.plist
    ```
 
 ## 🛠️ Service Management
@@ -146,11 +146,11 @@ The LaunchAgent sets these environment variables:
 
 ```bash
 $ ./scripts/service.sh status
-INFO: Checking bevy-debugger-mcp status...
+INFO: Checking bevy-fairy status...
 STATUS: Service is RUNNING
-  LaunchAgent: 12345  0  com.bevy-debugger-mcp
+  LaunchAgent: 12345  0  com.bevy-fairy
   PID: 12345
-  Process: 0.1 0.2 00:05:30 bevy-debugger-mcp serve
+  Process: 0.1 0.2 00:05:30 bevy-fairy serve
 STATUS: MCP Server: LISTENING on port 3000
 WARNING: Bevy Game: NOT DETECTED on port 15702
 ```
@@ -186,12 +186,12 @@ tail -f ~/Library/Logs/bevy-debugger/stderr.log
 
 1. Check if binary exists:
    ```bash
-   ls -la /usr/local/bin/bevy-debugger-mcp
+   ls -la /usr/local/bin/bevy-fairy
    ```
 
 2. Validate LaunchAgent plist:
    ```bash
-   plutil -lint ~/Library/LaunchAgents/com.bevy-debugger-mcp.plist
+   plutil -lint ~/Library/LaunchAgents/com.bevy-fairy.plist
    ```
 
 3. Check logs:
@@ -246,7 +246,7 @@ If you get permission errors:
 
 1. Fix binary permissions:
    ```bash
-   sudo chmod +x /usr/local/bin/bevy-debugger-mcp
+   sudo chmod +x /usr/local/bin/bevy-fairy
    ```
 
 2. Fix directory permissions:
@@ -268,13 +268,13 @@ If you get permission errors:
 1. Stop and remove service:
    ```bash
    ./scripts/service.sh stop
-   launchctl unload ~/Library/LaunchAgents/com.bevy-debugger-mcp.plist
-   rm ~/Library/LaunchAgents/com.bevy-debugger-mcp.plist
+   launchctl unload ~/Library/LaunchAgents/com.bevy-fairy.plist
+   rm ~/Library/LaunchAgents/com.bevy-fairy.plist
    ```
 
 2. Remove binary:
    ```bash
-   sudo rm /usr/local/bin/bevy-debugger-mcp
+   sudo rm /usr/local/bin/bevy-fairy
    ```
 
 3. Remove directories (optional):
@@ -291,7 +291,7 @@ If you get permission errors:
 You can modify the LaunchAgent behavior by editing the plist file:
 
 ```bash
-vim ~/Library/LaunchAgents/com.bevy-debugger-mcp.plist
+vim ~/Library/LaunchAgents/com.bevy-fairy.plist
 ```
 
 Key settings:
@@ -329,7 +329,7 @@ You can run multiple configurations by:
 
 ```bash
 # Start with custom config
-bevy-debugger-mcp serve --config ~/.config/bevy-debugger/game1.toml
+bevy-fairy serve --config ~/.config/bevy-debugger/game1.toml
 ```
 
 ## 📚 Additional Resources

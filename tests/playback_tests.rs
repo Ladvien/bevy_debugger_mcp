@@ -1,7 +1,7 @@
-use bevy_debugger_mcp::brp_client::BrpClient;
-use bevy_debugger_mcp::config::Config;
-use bevy_debugger_mcp::playback_system::*;
-use bevy_debugger_mcp::recording_system::{Frame, Recording, RecordingConfig};
+use bevy_fairy::server::brp_client::BrpClient;
+use bevy_fairy::server::config::Config;
+use bevy_fairy::server::playback_system::*;
+use bevy_fairy::server::recording_system::{Frame, Recording, RecordingConfig};
 use std::collections::HashMap;
 use std::time::Duration;
 
@@ -252,7 +252,7 @@ async fn test_seek_to_marker() {
             checksum: None,
         }],
         delta_frames: Vec::new(),
-        markers: vec![bevy_debugger_mcp::recording_system::Marker {
+        markers: vec![bevy_fairy::server::recording_system::Marker {
             name: "test_marker".to_string(),
             frame_number: 0,
             timestamp: Duration::from_secs(0),

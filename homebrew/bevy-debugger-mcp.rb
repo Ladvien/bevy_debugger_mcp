@@ -1,10 +1,10 @@
 class BevyDebuggerMcp < Formula
   desc "AI-assisted debugging tools for Bevy games via Claude MCP"
-  homepage "https://github.com/ladvien/bevy_debugger_mcp"
-  url "https://github.com/ladvien/bevy_debugger_mcp/archive/v0.1.9.tar.gz"
+  homepage "https://github.com/ladvien/bevy_fairy"
+  url "https://github.com/ladvien/bevy_fairy/archive/v0.1.9.tar.gz"
   sha256 "PLACEHOLDER_SHA256"  # Update with actual SHA
   license "MIT"
-  head "https://github.com/ladvien/bevy_debugger_mcp.git", branch: "main"
+  head "https://github.com/ladvien/bevy_fairy.git", branch: "main"
 
   depends_on "rust" => :build
 
@@ -20,8 +20,8 @@ class BevyDebuggerMcp < Formula
     claude_local_bin = File.expand_path("~/.local/bin")
     FileUtils.mkdir_p(claude_local_bin)
     
-    binary_path = "#{HOMEBREW_PREFIX}/bin/bevy-debugger-mcp"
-    symlink_path = "#{claude_local_bin}/bevy-debugger-mcp"
+    binary_path = "#{HOMEBREW_PREFIX}/bin/bevy-fairy"
+    symlink_path = "#{claude_local_bin}/bevy-fairy"
     
     if File.exist?(binary_path) && !File.exist?(symlink_path)
       File.symlink(binary_path, symlink_path)
@@ -30,7 +30,7 @@ class BevyDebuggerMcp < Formula
 
   def caveats
     <<~EOS
-      bevy-debugger-mcp has been installed!
+      bevy-fairy has been installed!
 
       To complete setup for Claude Code/Desktop, run:
         bevy-debugger-setup
@@ -44,8 +44,8 @@ class BevyDebuggerMcp < Formula
       - Claude Desktop: ~/Library/Application Support/Claude/claude_desktop_config.json
 
       Example configuration:
-        "bevy-debugger-mcp": {
-          "command": "#{HOMEBREW_PREFIX}/bin/bevy-debugger-mcp",
+        "bevy-fairy": {
+          "command": "#{HOMEBREW_PREFIX}/bin/bevy-fairy",
           "args": ["stdio"],
           "env": {
             "RUST_LOG": "info",
@@ -57,6 +57,6 @@ class BevyDebuggerMcp < Formula
   end
 
   test do
-    system "#{bin}/bevy-debugger-mcp", "--version"
+    system "#{bin}/bevy-fairy", "--version"
   end
 end

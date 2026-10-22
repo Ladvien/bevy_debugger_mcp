@@ -4,15 +4,15 @@
 /// across different scenarios with mock clients, performance validation, and comprehensive
 /// coverage analysis.
 
-use bevy_debugger_mcp::{
-    mcp_server::McpServer,
-    brp_client::BrpClient,
-    config::Config,
-    brp_messages::{
+use bevy_fairy::{
+    server::mcp_server::McpServer,
+    server::brp_client::BrpClient,
+    server::config::Config,
+    server::brp_messages::{
         BrpError, BrpPayload, BrpRequest, BrpResponse, DebugCommand, DebugResponse,
     },
-    debug_command_processor::{DebugCommandRouter, DebugCommandRequest},
-    error::{Error, Result},
+    server::debug_command_processor::{DebugCommandRouter, DebugCommandRequest},
+    server::error::{Error, Result},
 };
 use serde_json::{json, Value};
 use std::collections::HashMap;

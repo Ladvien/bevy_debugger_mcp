@@ -8,13 +8,13 @@
 /// - Session persistence and cleanup
 /// - Integration with MCP debug command system
 
-use bevy_debugger_mcp::brp_messages::{DebugCommand, DebugResponse, SessionOperation, SessionState};
-use bevy_debugger_mcp::config::Config;
-use bevy_debugger_mcp::brp_client::BrpClient;
-use bevy_debugger_mcp::debug_command_processor::DebugCommandProcessor;
-use bevy_debugger_mcp::session_manager::{SessionManager, SessionManagerConfig};
-use bevy_debugger_mcp::session_processor::SessionProcessor;
-use bevy_debugger_mcp::error::{Error, Result};
+use bevy_fairy::server::brp_messages::{DebugCommand, DebugResponse, SessionOperation, SessionState};
+use bevy_fairy::server::config::Config;
+use bevy_fairy::server::brp_client::BrpClient;
+use bevy_fairy::server::debug_command_processor::DebugCommandProcessor;
+use bevy_fairy::server::session_manager::{SessionManager, SessionManagerConfig};
+use bevy_fairy::server::session_processor::SessionProcessor;
+use bevy_fairy::server::error::{Error, Result};
 use serde_json::json;
 use std::sync::Arc;
 use std::time::{Duration, Instant};

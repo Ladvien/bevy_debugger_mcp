@@ -535,7 +535,7 @@ Record baseline performance before optimization attempts:
 # Performance regression detection in CI
 - name: Stress Test Performance
   run: |
-    bevy-debugger-mcp stress_test entity_spawn --max-entities=2000 --duration=60
+    bevy-fairy stress_test entity_spawn --max-entities=2000 --duration=60
     if [ $ENTITY_LIMIT -lt 1800 ]; then exit 1; fi
 ```
 

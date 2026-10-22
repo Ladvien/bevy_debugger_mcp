@@ -418,7 +418,7 @@ jobs:
         run: cargo run --features=bevy/remote &
         
       - name: Start MCP Server
-        run: ./bevy_debugger_mcp &
+        run: ./bevy_fairy &
         
       - name: Run Debug Suite
         run: |

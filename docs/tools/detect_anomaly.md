@@ -483,7 +483,7 @@ Use anomaly detection as early warning, then investigate with other tools:
 ```yaml
 - name: Performance Regression Detection
   run: |
-    bevy-debugger-mcp detect_anomaly frame_time --baseline=ci-baseline.json
+    bevy-fairy detect_anomaly frame_time --baseline=ci-baseline.json
 ```
 
 ### Real-time Dashboard

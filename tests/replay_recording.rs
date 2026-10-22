@@ -11,9 +11,9 @@
 use std::sync::{Arc, Mutex};
 
 use axum::{extract::State, routing::post, Json, Router};
-use bevy_debugger_mcp::brp_client::BrpClient;
-use bevy_debugger_mcp::config::Config;
-use bevy_debugger_mcp::recording_system::RecordingBuffer;
+use bevy_fairy::server::brp_client::BrpClient;
+use bevy_fairy::server::config::Config;
+use bevy_fairy::server::recording_system::RecordingBuffer;
 use rmcp::handler::server::tool::Parameters;
 use rmcp::model::CallToolResult;
 use serde_json::{json, Value};
@@ -89,7 +89,7 @@ async fn a_recorded_frame_holds_the_games_entities() {
     let port = start_fake_game(game.clone()).await;
     let client = client_for(port);
 
-    let mut buffer = RecordingBuffer::new(bevy_debugger_mcp::recording_system::RecordingConfig::default());
+    let mut buffer = RecordingBuffer::new(bevy_fairy::server::recording_system::RecordingConfig::default());
     buffer.start_recording();
 
     let mut client_guard = client.write().await;
@@ -127,7 +127,7 @@ async fn a_frame_says_that_events_were_not_captured() {
     let port = start_fake_game(game.clone()).await;
     let client = client_for(port);
 
-    let mut buffer = RecordingBuffer::new(bevy_debugger_mcp::recording_system::RecordingConfig::default());
+    let mut buffer = RecordingBuffer::new(bevy_fairy::server::recording_system::RecordingConfig::default());
     buffer.start_recording();
 
     let mut client_guard = client.write().await;
@@ -156,9 +156,9 @@ async fn the_record_report_says_what_is_not_captured() {
     let port = start_fake_game(game.clone()).await;
     let client = client_for(port);
 
-    let tools = bevy_debugger_mcp::mcp_tools::BevyDebuggerTools::new(client);
+    let tools = bevy_fairy::server::mcp_tools::BevyDebuggerTools::new(client);
     let status = tools
-        .status(Parameters(bevy_debugger_mcp::mcp_tools::NoArgs {}))
+        .status(Parameters(bevy_fairy::server::mcp_tools::NoArgs {}))
         .await
         .expect("status returns a result");
     assert!(!text_of(&status).contains("\"error\""), "the fake game should answer status");

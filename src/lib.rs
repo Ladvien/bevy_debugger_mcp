@@ -1,5 +1,5 @@
 /*
- * Bevy Debugger MCP Server - Library
+ * bevy_fairy - an agentic debugger for Bevy games
  * Copyright (C) 2025 ladvien
  *
  * Licensed under either of MIT (LICENSE-MIT) or Apache-2.0 (LICENSE-APACHE), at your option.
@@ -8,34 +8,44 @@
  * crate in the Bevy ecosystem cannot be adopted, and being adoptable is why it is published.
  */
 
-//! # Bevy Debugger MCP
+//! # bevy_fairy
 //!
-//! AI-assisted debugging for Bevy games through Claude Code using Model Context Protocol.
+//! An agentic debugger for Bevy games. It has two halves, and a game uses one of them while
+//! an agent uses the other.
 //!
-//! This crate provides a comprehensive debugging toolkit for Bevy games, enabling natural
-//! language interaction with game state through Claude Code. It bridges the gap between
-//! AI assistance and game development by offering intelligent observation, experimentation,
-//! and analysis capabilities.
+//! - **The plugin** ([`plugin`]) is what a *game* links. It registers BRP methods
+//!   (`bevy_fairy/status`, `commands`, `screenshot`, `capture`, `input`, `scene`, `guide`,
+//!   `quit`) and lets the game register its own typed commands.
+//! - **The server** ([`server`]) is the `bevy-fairy` binary. It speaks the Model Context
+//!   Protocol to a coding agent and the Bevy Remote Protocol to a running game.
 //!
-//! ## Quick Start
+//! The two halves do not depend on each other. A game that has never heard of this crate can
+//! still be inspected with Bevy's own BRP methods, and a game that links the plugin can be
+//! driven by any BRP client, not only this one.
 //!
-//! 1. **Add the debugger plugin to your Bevy game:**
+//! ## Which feature do I want?
+//!
+//! | you are | you want | your dependency |
+//! |---|---|---|
+//! | a game | the plugin | `bevy_fairy = { version = "0.2", default-features = false, features = ["plugin"] }` |
+//! | an agent | the server | `cargo install bevy_fairy` |
+//!
+//! A game that takes the plugin as a dependency compiles **none** of the server's
+//! dependencies. That is not a promise about the future; `tests/plugin_leaf.rs` fails the
+//! build if it stops being true.
+//!
+//! ## Quick start: a game
+//!
 //! ```toml
 //! [dependencies]
 //! bevy = { version = "0.20", features = ["default"] }
-//! bevy_debugger_bevy = "0.2"
+//! bevy_fairy = { version = "0.2", default-features = false, features = ["plugin"] }
 //! ```
 //!
-//! 2. **Enable the debugger in your game:**
-//!
-//! This example belongs to the *game*, not to this crate: it uses `bevy` and
-//! `bevy_debugger_bevy`, neither of which this server crate depends on by default, so it is
-//! shown rather than compiled.
-//!
-//! ```text
+//! ```rust
 //! use bevy::prelude::*;
 //! use bevy::remote::http::RemoteHttpPlugin;
-//! use bevy_debugger_bevy::DebuggerPlugin;
+//! use bevy_fairy::plugin::DebuggerPlugin;
 //!
 //! fn main() {
 //!     App::new()
@@ -47,235 +57,55 @@
 //! }
 //! ```
 //!
-//! 3. **Install and configure the MCP server:**
-//! ```bash
-//! cargo install bevy_debugger_mcp
-//! bevy-debugger-mcp --help
+//! `DebuggerPlugin` needs `bevy::input::InputPlugin` in the app. `DefaultPlugins` includes it;
+//! `MinimalPlugins` does not.
+//!
+//! ## Quick start: an agent
+//!
+//! ```sh
+//! cargo install bevy_fairy
+//! bevy-fairy --help
 //! ```
 //!
-//! 4. **Configure Claude Code:**
-//! ```json
-//! {
-//!   "mcpServers": {
-//!     "bevy-debugger-mcp": {
-//!       "command": "bevy-debugger-mcp",
-//!       "args": [],
-//!       "type": "stdio"
-//!     }
-//!   }
-//! }
-//! ```
+//! Then point it at a running game. The game listens on `127.0.0.1:15702` by default; set
+//! `BEVY_BRP_HOST` and `BEVY_BRP_PORT` to change that.
 //!
-//! ## Features
+//! ## The tool contract
 //!
-//! - **🔍 Natural Language Queries**: Ask about your game state in plain English
-//! - **🧪 Controlled Experiments**: Test hypotheses with systematic variations
-//! - **📊 Performance Analysis**: Monitor and analyze game performance in real-time
-//! - **⏱️ Time-Travel Debugging**: Record, replay, and branch timelines
-//! - **🚨 Anomaly Detection**: Automatically detect unusual patterns in game behavior
-//! - **📈 Stress Testing**: Systematically test your game under various loads
-//! - **🔧 Tool Orchestration**: Chain debugging operations into complex workflows
-//!
-//! ## Core Modules
-//!
-//! ### Observation and Query
-//! - [`query_parser`] - Natural language to game queries
-//! - [`semantic_analyzer`] - Semantic understanding of game concepts
-//! - [`brp_client`] - Bevy Remote Protocol communication
-//!
-//! ### Experimentation and Testing
-//! - [`experiment_system`] - Controlled game state experiments
-//! - [`hypothesis_system`] - Property-based testing for games
-//! - [`stress_test_system`] - Systematic stress testing
-//!
-//! ### Time and State Management
-//! - [`recording_system`] - Game state recording and persistence
-//! - [`playback_system`] - Deterministic replay capabilities
-//! - [`timeline_branching`] - Multi-timeline debugging with branching
-//! - [`checkpoint`] - Save/restore debugging sessions
-//!
-//! ### Analysis and Monitoring
-//! - [`anomaly_detector`] - Pattern recognition for unusual behavior
-//! - [`state_diff`] - Intelligent state comparison and diffing
-//! - [`diagnostics`] - System health monitoring and reporting
-//!
-//! ### Infrastructure
-//! - [`mcp_server`] - Model Context Protocol server implementation
-//! - [`tool_orchestration`] - Complex debugging workflow coordination
-//! - [`error`] - Comprehensive error handling and recovery
-//! - [`config`] - Configuration management
-//!
-//! ## Example Usage
-//!
-//! ```rust,no_run
-//! use bevy_debugger_mcp::prelude::*;
-//! use bevy_debugger_mcp::config::Config;
-//!
-//! # #[tokio::main]
-//! # // `Result` here is this crate's own one-parameter alias, re-exported by the prelude — it
-//! # // shadows `std::result::Result`, so spelling it with two parameters does not compile.
-//! # async fn main() -> Result<()> {
-//! // The client is built from config and then initialised: `init` is what registers the core
-//! // command handler, and it is async, so a constructor cannot do it.
-//! let config = Config::default();
-//! let client = BrpClient::new(&config);
-//! client.init().await?;
-//!
-//! // Parse a natural-language query into a BRP request.
-//! let parser = RegexQueryParser::new()?;
-//! let request: BrpRequest = parser.parse("find entities with Transform and Velocity")?;
-//! println!("built request: {request:?}");
-//! # Ok(())
-//! # }
-//! ```
-//!
-//! The transport is JSON-RPC over HTTP (default port 15702). An earlier version of this example
-//! showed `BrpClient::connect("ws://…")`; the WebSocket transport was replaced in the Bevy 0.19
-//! upgrade and that method no longer exists.
-//!
-//! ## Architecture
-//!
-//! The system follows a modular architecture:
-//!
-//! ```text
-//! Claude Code ←→ MCP Protocol ←→ MCP Server ←→ BRP Protocol ←→ Bevy Game
-//!                                    ↓
-//!                              Tool Modules
-//!                           (observe, experiment,
-//!                            stress, replay, etc.)
-//! ```
-//!
-//! ## Error Handling
-//!
-//! All operations return [`Result<T, Error>`](error::Error) types. The system includes
-//! comprehensive error recovery with automatic reconnection, dead letter queues for
-//! failed operations, and checkpoint/restore capabilities.
+//! Every tool's advertised schema is generated from the same Rust type its handler parses, so
+//! the two cannot drift apart. Every result carries the frame it was observed on. A value that
+//! cannot be measured is refused with a reason, never answered with a plausible number.
 
-// Re-export commonly used types
-pub mod prelude {
-    //! Common imports for typical usage
-    pub use crate::brp_client::BrpClient;
-    pub use crate::brp_messages::{BrpRequest, BrpResponse};
-    pub use crate::error::{Error, Result};
-    pub use crate::query_parser::{QueryParser, RegexQueryParser};
-    pub use crate::query_builder::{QueryBuilder, QueryValidator, QueryCostEstimator, QueryOptimizer};
-    pub use crate::query_builder_processor::QueryBuilderProcessor;
-    pub use crate::mcp_server::McpServer;
-    pub use crate::experiment_system::{Action, ActionExecutor, ActionResult};
-    pub use crate::hypothesis_system::{Hypothesis, TestRunner, TestResult};
-    pub use crate::timeline_branching::{TimelineBranchManager, BranchId};
-    pub use crate::recording_system::{Recording, RecordingState};
-    pub use crate::playback_system::PlaybackState;
-    pub use crate::session_manager::{SessionManager, SessionManagerConfig, DebugSession};
-    pub use crate::session_processor::SessionProcessor;
-}
+/// The Bevy plugin: what a game links.
+#[cfg(feature = "plugin")]
+pub mod plugin;
 
-// Core functionality
-pub mod error;
-pub mod config;
-pub mod circuit_breaker;
-pub mod connection_pool;
-pub mod heartbeat;
+/// The MCP server: what an agent talks to.
+#[cfg(feature = "server")]
+pub mod server;
 
-// Communication
-pub mod brp;
-pub mod brp_client;
-pub mod brp_client_v2;
-pub mod brp_command_handler;
-pub mod brp_integration;
-pub mod brp_validation;
-pub mod debug_brp_handler;
-pub mod debug_command_processor;
-pub mod entity_inspector;
-pub mod mcp_server;
-pub mod mcp_server_v2;
-pub mod mcp_tools;
-pub mod query_builder_processor;
+// The plugin's own items are re-exported at the root, so a game writes
+// `use bevy_fairy::DebuggerPlugin` rather than `use bevy_fairy::plugin::DebuggerPlugin`. The
+// module is still there for anyone who wants to be explicit.
+#[cfg(feature = "plugin")]
+pub use plugin::{
+    apply_pending_input, cursor_position, handle_input, logical_for, typed, DebugCommandInfo,
+    DebugCommands, DebugCommandsAppExt, DebugCursor, DebugReady, DebuggerPlugin, InputAction,
+    InputCommand, InputKind, PendingInput, SceneLog, ScenePlayback, SceneStep,
+};
 
-// Performance profiling and visual debugging
-pub mod system_profiler;
-pub mod system_profiler_processor;
-pub mod memory_profiler;
-pub mod memory_profiler_processor;
-pub mod visual_debug_overlay;
-pub mod visual_debug_overlay_processor;
+// The guide overlay and the capture target, which are their own features.
+#[cfg(feature = "plugin-guide")]
+pub use plugin::{
+    handle_guide, watch_guide, Checkpoints, Guide, GuideOverlay, GuideOverlayPlugin, GuideParams,
+    Step, StepRecord,
+};
 
-// Issue detection
-pub mod issue_detector;
-pub mod issue_detector_processor;
+#[cfg(feature = "plugin-screenshot")]
+pub use plugin::{handle_screenshot, CaptureState, Captures, DebugCaptureTarget, ScreenshotParams};
 
-// Performance budget monitoring
-pub mod performance_budget;
-pub mod performance_budget_processor;
+#[cfg(feature = "server")]
+pub use server::prelude;
 
-#[cfg(feature = "visual_overlays")]
-pub mod visual_overlays;
-
-// Query and observation
-pub mod query_parser;
-pub mod query_builder;
-pub mod semantic_analyzer;
-
-// Experimentation and testing
-pub mod experiment_system;
-pub mod hypothesis_system;
-pub mod stress_test_system;
-
-// State management
-pub mod recording_system;
-pub mod playback_system;
-pub mod timeline_branching;
-pub mod checkpoint;
-pub mod state_diff;
-pub mod session_manager;
-pub mod session_processor;
-pub mod replay_actor;
-
-// Analysis and monitoring
-pub mod anomaly_detector;
-pub mod diagnostics;
-pub mod resource_manager;
-
-// Infrastructure
-pub mod tool_orchestration;
-pub mod dead_letter_queue;
-pub mod lazy_init;
-pub mod command_cache;
-pub mod response_pool;
-pub mod profiling;
-pub mod compile_opts;
-pub mod memory_optimization_tracker;
-pub mod memory_pools;
-pub mod deadlock_detector;
-pub mod lock_contention_benchmark;
-pub mod benchmark_runner;
-pub mod brp_client_refactored;
-pub mod tools;
-
-// Panic prevention and reliability testing
-#[cfg(test)]
-pub mod panic_prevention_tests;
-
-// Machine learning and pattern recognition (Epic BEVDBG-013)
-pub mod pattern_learning;
-pub mod suggestion_engine;
-pub mod workflow_automation;
-pub mod hot_reload;
-
-// Bevy reflection integration (Epic BEVDBG-012)
-pub mod bevy_reflection;
-
-// Query performance optimization (Epic BEVDBG-014)
-pub mod query_optimization;
-pub mod parallel_query_executor;
-pub mod query_optimization_guide;
-
-// Production features
-pub mod bevy_observability_integration;
-
-// Epic 6: Production features - Observability stack
-#[cfg(feature = "observability")]
-pub mod observability;
-
-// Legacy name for the `brp` module, removed hand-rolled `brp_messages` module.
-pub use brp as brp_messages;
+#[cfg(feature = "server")]
+pub use server::brp as brp_messages;

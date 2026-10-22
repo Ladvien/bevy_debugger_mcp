@@ -9,7 +9,7 @@ Claude Code is Anthropic's official CLI that supports the Model Context Protocol
 ## Prerequisites
 
 - Claude Code CLI installed
-- Bevy Debugger MCP server installed (`cargo install bevy_debugger_mcp`)
+- Bevy Debugger MCP server installed (`cargo install bevy_fairy`)
 - Basic familiarity with command line
 
 ## Configuration
@@ -29,7 +29,7 @@ Edit the configuration file and add the Bevy Debugger server:
 {
   "mcpServers": {
     "bevy-debugger": {
-      "command": "bevy-debugger-mcp",
+      "command": "bevy-fairy",
       "args": ["--stdio"],
       "type": "stdio",
       "env": {
@@ -49,7 +49,7 @@ Edit the configuration file and add the Bevy Debugger server:
 {
   "mcpServers": {
     "bevy-debugger": {
-      "command": "bevy-debugger-mcp",
+      "command": "bevy-fairy",
       "args": ["--stdio"]
     }
   }
@@ -61,7 +61,7 @@ Edit the configuration file and add the Bevy Debugger server:
 {
   "mcpServers": {
     "bevy-debugger": {
-      "command": "bevy-debugger-mcp",
+      "command": "bevy-fairy",
       "args": ["--stdio"],
       "type": "stdio",
       "env": {
@@ -83,7 +83,7 @@ Edit the configuration file and add the Bevy Debugger server:
 {
   "mcpServers": {
     "bevy-debugger": {
-      "command": "bevy-debugger-mcp",
+      "command": "bevy-fairy",
       "args": ["--stdio"],
       "env": {
         "BEVY_BRP_HOST": "192.168.1.100",
@@ -111,10 +111,10 @@ Edit the configuration file and add the Bevy Debugger server:
 
 ```bash
 # Test the server responds correctly
-bevy-debugger-mcp --help
+bevy-fairy --help
 
 # Test MCP protocol handshake
-echo '{"jsonrpc": "2.0", "method": "initialize", "params": {"capabilities": {}}, "id": 1}' | bevy-debugger-mcp --stdio
+echo '{"jsonrpc": "2.0", "method": "initialize", "params": {"capabilities": {}}, "id": 1}' | bevy-fairy --stdio
 ```
 
 Expected response:
@@ -126,7 +126,7 @@ Expected response:
 
 ```bash
 # List available tools
-echo '{"jsonrpc": "2.0", "method": "tools/list", "id": 2}' | bevy-debugger-mcp --stdio
+echo '{"jsonrpc": "2.0", "method": "tools/list", "id": 2}' | bevy-fairy --stdio
 ```
 
 Expected tools: `observe`, `experiment`, `stress_test`, `detect_anomaly`, `replay`, `hypothesis`
@@ -186,7 +186,7 @@ You can run multiple MCP servers simultaneously:
 {
   "mcpServers": {
     "bevy-debugger": {
-      "command": "bevy-debugger-mcp",
+      "command": "bevy-fairy",
       "args": ["--stdio"]
     },
     "other-tool": {
@@ -204,7 +204,7 @@ You can run multiple MCP servers simultaneously:
 {
   "mcpServers": {
     "bevy-debugger": {
-      "command": "bevy-debugger-mcp",
+      "command": "bevy-fairy",
       "args": ["--stdio"],
       "env": {
         "RUST_LOG": "debug",
@@ -220,7 +220,7 @@ You can run multiple MCP servers simultaneously:
 {
   "mcpServers": {
     "bevy-debugger": {
-      "command": "bevy-debugger-mcp",
+      "command": "bevy-fairy",
       "args": ["--stdio"],
       "env": {
         "RUST_LOG": "warn",
@@ -245,7 +245,7 @@ You can run multiple MCP servers simultaneously:
    ```
 3. **Verify server path**:
    ```bash
-   which bevy-debugger-mcp
+   which bevy-fairy
    ```
 
 ### Connection Timeouts
@@ -271,12 +271,12 @@ You can run multiple MCP servers simultaneously:
 **Solutions**:
 1. **Check executable permissions**:
    ```bash
-   ls -la $(which bevy-debugger-mcp)
-   chmod +x $(which bevy-debugger-mcp)
+   ls -la $(which bevy-fairy)
+   chmod +x $(which bevy-fairy)
    ```
 2. **Use absolute path**:
    ```json
-   "command": "/full/path/to/bevy-debugger-mcp"
+   "command": "/full/path/to/bevy-fairy"
    ```
 
 ### Logging and Debugging
@@ -287,10 +287,10 @@ Enable detailed logging to diagnose issues:
 {
   "mcpServers": {
     "bevy-debugger": {
-      "command": "bevy-debugger-mcp",
+      "command": "bevy-fairy",
       "args": ["--stdio"],
       "env": {
-        "RUST_LOG": "trace,bevy_debugger_mcp=trace"
+        "RUST_LOG": "trace,bevy_fairy=trace"
       }
     }
   }
@@ -299,7 +299,7 @@ Enable detailed logging to diagnose issues:
 
 View logs in Claude Code output or capture to file:
 ```bash
-RUST_LOG=debug bevy-debugger-mcp --stdio 2>&1 | tee debug.log
+RUST_LOG=debug bevy-fairy --stdio 2>&1 | tee debug.log
 ```
 
 ## Performance Impact
@@ -346,8 +346,8 @@ The MCP server is designed for minimal impact:
 # .github/workflows/debug-test.yml
 - name: Test MCP Integration
   run: |
-    cargo install bevy_debugger_mcp
-    echo '{"jsonrpc": "2.0", "method": "tools/list", "id": 1}' | bevy-debugger-mcp --stdio
+    cargo install bevy_fairy
+    echo '{"jsonrpc": "2.0", "method": "tools/list", "id": 1}' | bevy-fairy --stdio
 ```
 
 ### Project-Specific Config
@@ -357,7 +357,7 @@ Create `.claude/config.json` in your project:
 {
   "mcpServers": {
     "bevy-debugger": {
-      "command": "bevy-debugger-mcp",
+      "command": "bevy-fairy",
       "args": ["--stdio"],
       "env": {
         "BEVY_BRP_PORT": "15703",

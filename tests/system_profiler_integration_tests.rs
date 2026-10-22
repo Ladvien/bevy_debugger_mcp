@@ -1,18 +1,18 @@
 /// Integration tests for system profiler functionality
-use bevy_debugger_mcp::brp_messages::{
+use bevy_fairy::server::brp_messages::{
     DebugCommand, DebugResponse, SystemMetrics, ProfileSample, SystemProfile,
 };
-use bevy_debugger_mcp::system_profiler::{
+use bevy_fairy::server::system_profiler::{
     SystemProfiler, ProfilerConfig, ExportFormat, PerformanceAnomaly,
     MAX_FRAME_HISTORY, MAX_CONCURRENT_SYSTEMS, DEFAULT_PROFILE_DURATION_MS,
 };
-use bevy_debugger_mcp::system_profiler_processor::{
+use bevy_fairy::server::system_profiler_processor::{
     SystemProfilerProcessor, ExtendedProfilerProcessor,
 };
-use bevy_debugger_mcp::debug_command_processor::DebugCommandProcessor;
-use bevy_debugger_mcp::brp_client::BrpClient;
-use bevy_debugger_mcp::config::Config;
-use bevy_debugger_mcp::error::{Error, Result};
+use bevy_fairy::server::debug_command_processor::DebugCommandProcessor;
+use bevy_fairy::server::brp_client::BrpClient;
+use bevy_fairy::server::config::Config;
+use bevy_fairy::server::error::{Error, Result};
 use std::sync::Arc;
 use std::time::Duration;
 use tokio::sync::RwLock;

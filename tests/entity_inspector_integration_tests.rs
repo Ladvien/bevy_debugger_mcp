@@ -1,13 +1,13 @@
 /// Integration tests for entity inspector functionality
-use bevy_debugger_mcp::brp_messages::{
+use bevy_fairy::server::brp_messages::{
     builtin_methods, BrpError, BrpPayload, BrpRequest, BrpResponse, DebugCommand, DebugResponse,
     DetailedComponentTypeInfo, EntityData, EntityId, EntityInspectionResult, EntityLocationInfo,
     EntityMetadata, EntityRelationships,
 };
-use bevy_debugger_mcp::entity_inspector::{EntityInspector, MAX_BATCH_SIZE};
-use bevy_debugger_mcp::brp_client::BrpClient;
-use bevy_debugger_mcp::config::Config;
-use bevy_debugger_mcp::error::{Error, Result};
+use bevy_fairy::server::entity_inspector::{EntityInspector, MAX_BATCH_SIZE};
+use bevy_fairy::server::brp_client::BrpClient;
+use bevy_fairy::server::config::Config;
+use bevy_fairy::server::error::{Error, Result};
 use serde_json::{json, Value};
 use std::collections::HashMap;
 use std::sync::Arc;
@@ -579,7 +579,7 @@ async fn test_entity_id_extraction() {
 // Integration test with debug command processor
 #[tokio::test]
 async fn test_debug_command_integration() {
-    use bevy_debugger_mcp::debug_command_processor::{DebugCommandProcessor, EntityInspectionProcessor};
+    use bevy_fairy::server::debug_command_processor::{DebugCommandProcessor, EntityInspectionProcessor};
     
     let inspector = create_test_inspector().await;
     let processor = EntityInspectionProcessor::new(Arc::new(inspector));

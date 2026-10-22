@@ -1,17 +1,17 @@
 [package]
-name = "bevy_debugger_mcp"
+name = "bevy_fairy"
 version = "0.2.0"
 edition = "2021"
 authors = ["ladvien <ladvien@example.com>"]
-description = "AI-assisted debugging for Bevy games through Claude Code using Model Context Protocol"
-homepage = "https://github.com/ladvien/bevy_debugger_mcp"
-repository = "https://github.com/ladvien/bevy_debugger_mcp"
+description = "An agentic debugger for Bevy games: a Bevy plugin that exposes the game's state over BRP, and an MCP server that lets a coding agent read and drive it"
+homepage = "https://github.com/ladvien/bevy_fairy"
+repository = "https://github.com/ladvien/bevy_fairy"
 readme = "README.md"
 # Relicensed from GPL-3.0 to match the other `bevy_*` crates in this workspace. A GPL crate in the
 # Bevy ecosystem is unadoptable, and adoption is the whole point of mirroring these out; the GPL stays
 # with the `emerge-*` family and the game they were carved from.
 license = "MIT OR Apache-2.0"
-keywords = ["bevy", "debugging", "mcp", "claude", "gamedev"]
+keywords = ["bevy", "debugging", "mcp", "gamedev", "agents"]
 categories = ["game-development", "development-tools", "command-line-utilities"]
 rust-version = "1.95"
 build = "build.rs"
@@ -36,91 +36,178 @@ exclude = [
 ]
 
 [workspace]
-members = [".", "crates/bevy_debugger_bevy"]
+# One package, one published crate. The plugin and the server are two features of it.
 resolver = "2"
 
 [[bin]]
-name = "bevy-debugger-mcp"
+name = "bevy-fairy"
 path = "src/main.rs"
+# The binary is the server. A game that depends on this crate for the plugin does not need
+# it, and building it would drag the whole server tree into the game's build.
+required-features = ["server"]
 
 [dependencies]
-# MCP SDK for proper protocol implementation
-rmcp = { version = "0.2.1", features = ["server"] }
-rmcp-macros = "0.2.1"
+# --- The plugin's closure -------------------------------------------------------------
+#
+# This is the whole point of the `plugin` feature: a game that depends on `bevy_fairy` with
+# `--no-default-features --features plugin` compiles these and nothing else. No tokio, no
+# reqwest, no axum, no opentelemetry. The list is checked by `tests/plugin_leaf.rs`, which
+# fails if a crate that can synthesise an operating-system event ever appears here.
+#
+# `bevy`'s `default` feature is never turned on. A host game picks its own Bevy features, and
+# this crate adds only the few it cannot work without. `serialize` is what makes
+# `KeyCode`/`MouseButton` deserialise by name, which is how `bevy_fairy/input` accepts every
+# key Bevy knows instead of a hand-written table that goes stale.
+bevy = { version = "0.20.0", default-features = false, features = ["bevy_remote", "serialize", "bevy_window", "bevy_log"], optional = true }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+# Encodes the captured PNG.
+image = { version = "0.25", default-features = false, features = ["png"], optional = true }
+
+# --- The server's closure -------------------------------------------------------------
+#
+# These are all optional, and all behind the `server` feature. A game that only wants the
+# plugin never compiles them.
+rmcp = { version = "0.2.1", features = ["server"], optional = true }
+rmcp-macros = { version = "0.2.1", optional = true }
 # The `JsonSchema` derive, so a handler's own types can be the source of a tool's advertised
 # schema. `rmcp` re-exports `schemars`, but a derive path needs the crate by name, and the
 # version here is the one `rmcp` already resolves (0.8.22) -- no second copy.
-schemars = "0.8"
+schemars = { version = "0.8", optional = true }
 
-tokio = { version = "1", features = ["full"] }
-reqwest = { version = "0.12", default-features = false, features = ["json", "rustls-tls"] }
-bevy_remote = "0.20"
-serde = { version = "1.0", features = ["derive"] }
-serde_json = "1.0"
-thiserror = "2.0"
-tracing = "0.1"
-tracing-subscriber = { version = "0.3", features = ["env-filter"] }
-futures-util = "0.3"
-url = "2.0"
-chrono = { version = "0.4", features = ["serde"] }
-regex = "1.0"
-dashmap = "6.0"
-strsim = "0.11"
-rand = "0.9.2"
-rand_distr = "0.5.1"
-async-trait = "0.1.89"
-flate2 = "1.1.2"
-sha2 = "0.10.9"
-bincode = "1"
-tokio-stream = "0.1"
-uuid = { version = "1.0", features = ["v4", "serde"] }
-tokio-metrics = "0.3"
-sysinfo = "0.30"
-hostname = "0.3"
-rustc_version_runtime = "0.3"
-is-terminal = "0.4"
-notify = "6.0"
-once_cell = "1.20"
-num_cpus = "1.16"
-rayon = "1.10"
+tokio = { version = "1", features = ["full"], optional = true }
+reqwest = { version = "0.12", default-features = false, features = ["json", "rustls-tls"], optional = true }
+bevy_remote = { version = "0.20", optional = true }
+thiserror = { version = "2.0", optional = true }
+tracing = { version = "0.1", optional = true }
+tracing-subscriber = { version = "0.3", features = ["env-filter"], optional = true }
+futures-util = { version = "0.3", optional = true }
+url = { version = "2.0", optional = true }
+chrono = { version = "0.4", features = ["serde"], optional = true }
+regex = { version = "1.0", optional = true }
+dashmap = { version = "6.0", optional = true }
+strsim = { version = "0.11", optional = true }
+rand = { version = "0.9.2", optional = true }
+rand_distr = { version = "0.5.1", optional = true }
+async-trait = { version = "0.1.89", optional = true }
+flate2 = { version = "1.1.2", optional = true }
+sha2 = { version = "0.10.9", optional = true }
+bincode = { version = "1", optional = true }
+tokio-stream = { version = "0.1", optional = true }
+uuid = { version = "1.0", features = ["v4", "serde"], optional = true }
+tokio-metrics = { version = "0.3", optional = true }
+sysinfo = { version = "0.30", optional = true }
+hostname = { version = "0.3", optional = true }
+rustc_version_runtime = { version = "0.3", optional = true }
+is-terminal = { version = "0.4", optional = true }
+notify = { version = "6.0", optional = true }
+once_cell = { version = "1.20", optional = true }
+num_cpus = { version = "1.16", optional = true }
+rayon = { version = "1.10", optional = true }
 
 # Screenshot captures come back over BRP as base64-encoded PNG
-base64 = "0.22"
+base64 = { version = "0.22", optional = true }
 
 # Performance optimization dependencies
-ahash = "0.8"
+ahash = { version = "0.8", optional = true }
 
-# Observability dependencies  
-opentelemetry = "0.22"
-opentelemetry-otlp = "0.15"
-opentelemetry-prometheus = "0.15"
-opentelemetry-jaeger = "0.22"
-opentelemetry_sdk = { version = "0.22", features = ["rt-tokio"] }
-opentelemetry-stdout = "0.5"
-tracing-opentelemetry = "0.25"
-prometheus = "0.13"
-metrics = "0.23"
-metrics-exporter-prometheus = "0.15"
-lazy_static = "1.5"
+# Observability dependencies
+opentelemetry = { version = "0.22", optional = true }
+opentelemetry-otlp = { version = "0.15", optional = true }
+opentelemetry-prometheus = { version = "0.15", optional = true }
+opentelemetry-jaeger = { version = "0.22", optional = true }
+opentelemetry_sdk = { version = "0.22", features = ["rt-tokio"], optional = true }
+opentelemetry-stdout = { version = "0.5", optional = true }
+tracing-opentelemetry = { version = "0.25", optional = true }
+prometheus = { version = "0.13", optional = true }
+metrics = { version = "0.23", optional = true }
+metrics-exporter-prometheus = { version = "0.15", optional = true }
+lazy_static = { version = "1.5", optional = true }
 
 # Web server dependencies (shared by the observability endpoints)
-hyper = { version = "1.0", features = ["full"] }
-tower = { version = "0.5", features = ["full"] }
-tower-http = { version = "0.5", features = ["auth", "cors", "trace", "metrics"] }
-axum = { version = "0.7", features = ["macros", "json"] }
-
-# Optional Bevy dependency for visual overlays and reflection
-bevy = { version = "0.20", features = ["default", "bevy_remote"], optional = true }
+hyper = { version = "1.0", features = ["full"], optional = true }
+tower = { version = "0.5", features = ["full"], optional = true }
+tower-http = { version = "0.5", features = ["auth", "cors", "trace", "metrics"], optional = true }
+axum = { version = "0.7", features = ["macros", "json"], optional = true }
 
 [features]
-# Default features - minimal overhead
-default = ["basic-debugging"]
+# The default is the server: `cargo install bevy_fairy` gives you the MCP server, and that is
+# what an agent needs. A game opts into the plugin instead, and never pulls the server's tree.
+default = ["server"]
+
+# The MCP server, the half an agent talks to.
+server = [
+    "dep:rmcp",
+    "dep:rmcp-macros",
+    "dep:schemars",
+    "dep:tokio",
+    "dep:reqwest",
+    "dep:bevy_remote",
+    "dep:thiserror",
+    "dep:tracing",
+    "dep:tracing-subscriber",
+    "dep:futures-util",
+    "dep:url",
+    "dep:chrono",
+    "dep:regex",
+    "dep:dashmap",
+    "dep:strsim",
+    "dep:rand",
+    "dep:rand_distr",
+    "dep:async-trait",
+    "dep:flate2",
+    "dep:sha2",
+    "dep:bincode",
+    "dep:tokio-stream",
+    "dep:uuid",
+    "dep:tokio-metrics",
+    "dep:sysinfo",
+    "dep:hostname",
+    "dep:rustc_version_runtime",
+    "dep:is-terminal",
+    "dep:notify",
+    "dep:once_cell",
+    "dep:num_cpus",
+    "dep:rayon",
+    "dep:base64",
+    "dep:ahash",
+    "dep:lazy_static",
+    "dep:hyper",
+    "dep:tower",
+    "dep:tower-http",
+    "dep:axum",
+]
+
+# The Bevy plugin, the half a game links. `bevy` is `default-features = false` and picks up
+# only the Bevy features the plugin cannot work without.
+plugin = [
+    "dep:bevy",
+    "bevy/bevy_remote",
+    "bevy/serialize",
+    "bevy/bevy_window",
+    "bevy/bevy_log",
+]
+
+# `bevy_fairy/screenshot` and `bevy_fairy/capture`: offscreen or window capture, returned over
+# BRP. This is what turns on Bevy's renderer inside the plugin, so a headless host can leave
+# it off.
+plugin-screenshot = ["plugin", "bevy/bevy_render", "bevy/png", "dep:image"]
+
+# `bevy_fairy/guide`: the agent-to-human overlay and the guided steps. It spawns a UI node, so
+# a host that keeps its UI behind its own surfaces turns this off. `bevy_picking` is only for
+# `Pickable::IGNORE`, so the overlay never eats a host's clicks.
+plugin-guide = ["plugin", "bevy/ui_api", "bevy/default_font", "bevy/bevy_picking"]
+
+# --- The server's own feature flags, unchanged from before the merge --------------------
+#
+# These select which of the server's many modules are compiled in. They mean nothing to a game
+# that only wants the plugin.
 
 # Core debugging features
 basic-debugging = []
 full-debugging = [
     "basic-debugging",
-    "entity-inspection", 
+    "entity-inspection",
     "performance-profiling",
     "visual-debugging",
     "session-management",
@@ -131,8 +218,8 @@ full-debugging = [
 # Individual feature flags for granular control
 entity-inspection = []
 performance-profiling = []
-visual-debugging = ["bevy"]
-bevy-reflection = ["bevy"]
+visual-debugging = ["dep:bevy", "bevy/default"]
+bevy-reflection = ["dep:bevy", "bevy/default"]
 session-management = []
 issue-detection = []
 memory-profiling = []
@@ -182,3 +269,41 @@ harness = false
 name = "query_optimization_benchmarks"
 harness = false
 
+# The plugin's own tests need the plugin. `required-features` keeps them from being built when
+# the plugin is off, rather than failing to compile.
+[[test]]
+name = "plugin_commands"
+required-features = ["plugin"]
+
+[[test]]
+name = "plugin_guide_steps"
+required-features = ["plugin-guide"]
+
+[[test]]
+name = "plugin_input_edges"
+required-features = ["plugin"]
+
+[[test]]
+name = "plugin_leaf"
+required-features = ["plugin"]
+
+# The plugin's examples need the plugin's own feature set on.
+[[example]]
+name = "plugin_agent_scene"
+required-features = ["plugin-screenshot"]
+
+[[example]]
+name = "plugin_cursor_drag_lands"
+required-features = ["plugin"]
+
+[[example]]
+name = "plugin_guided_steps_land"
+required-features = ["plugin-guide"]
+
+[[example]]
+name = "plugin_injected_input_lands"
+required-features = ["plugin"]
+
+[[example]]
+name = "plugin_typed_text_lands"
+required-features = ["plugin"]

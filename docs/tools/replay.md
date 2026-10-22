@@ -522,8 +522,8 @@ function onBugReport() {
 # Replay regression tests in CI
 - name: Regression Test Replay
   run: |
-    bevy-debugger-mcp replay --action=replay --session=regression_test_baseline
-    bevy-debugger-mcp replay --action=compare --baseline=expected_behavior
+    bevy-fairy replay --action=replay --session=regression_test_baseline
+    bevy-fairy replay --action=compare --baseline=expected_behavior
 ```
 
 ## Related Tools

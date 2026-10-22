@@ -12,9 +12,9 @@
 use std::sync::{Arc, Mutex};
 
 use axum::{extract::State, routing::post, Json, Router};
-use bevy_debugger_mcp::brp_client::BrpClient;
-use bevy_debugger_mcp::config::Config;
-use bevy_debugger_mcp::mcp_tools::{
+use bevy_fairy::server::brp_client::BrpClient;
+use bevy_fairy::server::config::Config;
+use bevy_fairy::server::mcp_tools::{
     AnomalyRequest, BevyDebuggerTools, ExperimentRequest, HypothesisRequest, StressTestRequest,
 };
 use rmcp::handler::server::tool::Parameters;
@@ -108,7 +108,7 @@ fn request<T: DeserializeOwned>(value: Value) -> Parameters<T> {
 /// the test does the same instead of starting from a disconnected client.
 async fn connect(tools: &BevyDebuggerTools) {
     let result = tools
-        .status(Parameters(bevy_debugger_mcp::mcp_tools::NoArgs {}))
+        .status(Parameters(bevy_fairy::server::mcp_tools::NoArgs {}))
         .await
         .expect("status returns a result");
     assert!(!text_of(&result).contains("\"error\""), "the fake game should answer status");

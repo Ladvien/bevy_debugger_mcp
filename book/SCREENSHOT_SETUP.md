@@ -26,7 +26,7 @@ screenshot of your desktop.
 # Cargo.toml
 [dependencies]
 bevy = { version = "0.20", features = ["default"] }
-bevy_debugger_bevy = "0.2"
+bevy_fairy = "0.2"
 ```
 
 ### 2. Add the plugin to your game
@@ -37,7 +37,7 @@ Bevy rejects a duplicate plugin by name, and the game panics on start. Add a tra
 ```rust
 use bevy::prelude::*;
 use bevy::remote::http::RemoteHttpPlugin;
-use bevy_debugger_bevy::DebuggerPlugin;
+use bevy_fairy::DebuggerPlugin;
 
 fn main() {
     App::new()
@@ -49,7 +49,7 @@ fn main() {
 }
 ```
 
-The plugin registers `bevy_debugger/screenshot` and `bevy_debugger/capture` itself. Do not
+The plugin registers `bevy_fairy/screenshot` and `bevy_fairy/capture` itself. Do not
 register them by hand: adding them again adds a second `RemotePlugin`, and the game panics.
 
 ### 3. Give the plugin something to capture
@@ -60,7 +60,7 @@ own image, insert the target with the `Image` your camera renders to:
 ```rust
 use bevy::prelude::*;
 use bevy::render::view::RenderTarget;
-use bevy_debugger_bevy::{DebugCaptureTarget, DebuggerPlugin};
+use bevy_fairy::{DebugCaptureTarget, DebuggerPlugin};
 
 fn main() {
     App::new()
@@ -104,7 +104,7 @@ screenshot { "save_to": "shot.png", "source": "offscreen" }
 ```
 
 `source` is `offscreen` or `window`. `region` crops, and `zoom` magnifies. The server polls
-`bevy_debugger/capture` until the PNG is ready and writes it to `save_to`.
+`bevy_fairy/capture` until the PNG is ready and writes it to `save_to`.
 
 A capture that goes to the window is not flagged as possibly stale, because the server cannot know
 whether the window was on screen at the time. If that matters, insert a `DebugCaptureTarget` and

@@ -14,9 +14,9 @@ MAGENTA='\033[0;35m'
 NC='\033[0m' # No Color
 
 # Configuration
-SERVICE_NAME="bevy-debugger-mcp"
+SERVICE_NAME="bevy-fairy"
 PLIST_NAME="com.${SERVICE_NAME}.plist"
-BINARY_NAME="bevy-debugger-mcp"
+BINARY_NAME="bevy-fairy"
 CONFIG_DIR="${HOME}/.config/bevy-debugger"
 SUPPORT_DIR="${HOME}/Library/Application Support/bevy-debugger"
 LOG_DIR="${HOME}/Library/Logs/bevy-debugger"

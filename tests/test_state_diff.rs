@@ -1,5 +1,5 @@
-use bevy_debugger_mcp::brp_messages::EntityData;
-use bevy_debugger_mcp::state_diff::*;
+use bevy_fairy::server::brp_messages::EntityData;
+use bevy_fairy::server::state_diff::*;
 use serde_json::json;
 
 fn create_test_entity(id: u64, components: Vec<(&str, serde_json::Value)>) -> EntityData {

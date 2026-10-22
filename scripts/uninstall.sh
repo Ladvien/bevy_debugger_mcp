@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # Bevy Debugger MCP Server - Uninstaller Script
-# This script removes the bevy-debugger-mcp service and all related files
+# This script removes the bevy-fairy service and all related files
 
 set -euo pipefail
 
@@ -13,9 +13,9 @@ BLUE='\033[0;34m'
 NC='\033[0m' # No Color
 
 # Configuration
-SERVICE_NAME="bevy-debugger-mcp"
+SERVICE_NAME="bevy-fairy"
 PLIST_NAME="com.${SERVICE_NAME}.plist"
-BINARY_NAME="bevy-debugger-mcp"
+BINARY_NAME="bevy-fairy"
 CONFIG_DIR="${HOME}/.config/bevy-debugger"
 SUPPORT_DIR="${HOME}/Library/Application Support/bevy-debugger"
 LOG_DIR="${HOME}/Library/Logs/bevy-debugger"

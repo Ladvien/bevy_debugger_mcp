@@ -38,7 +38,7 @@ async fn start_mcp_server() -> Result<Child, Box<dyn std::error::Error>> {
 async fn test_mcp_stdio_handshake() -> Result<(), Box<dyn std::error::Error>> {
     // Skip if we don't have a working binary
     if Command::new("cargo")
-        .args(&["check", "--bin", "bevy-debugger-mcp"])
+        .args(&["check", "--bin", "bevy-fairy"])
         .output()
         .is_err()
     {
@@ -118,7 +118,7 @@ async fn test_brp_connectivity_validation() -> Result<(), Box<dyn std::error::Er
     // This test validates that the BRP client can attempt to connect to port 15702
     // even if there's no Bevy game running (it should fail gracefully)
     
-    use bevy_debugger_mcp::{config::Config, brp_client::BrpClient};
+    use bevy_fairy::{server::config::Config, server::brp_client::BrpClient};
     use std::sync::Arc;
     use tokio::sync::RwLock;
     
@@ -169,7 +169,7 @@ async fn test_graceful_shutdown() -> Result<(), Box<dyn std::error::Error>> {
     #[cfg(unix)]
     {
         if Command::new("cargo")
-            .args(&["check", "--bin", "bevy-debugger-mcp"])
+            .args(&["check", "--bin", "bevy-fairy"])
             .output()
             .is_err()
         {
@@ -211,7 +211,7 @@ async fn test_graceful_shutdown() -> Result<(), Box<dyn std::error::Error>> {
 /// Test that configuration is properly loaded
 #[test]
 fn test_configuration_loading() {
-    use bevy_debugger_mcp::config::Config;
+    use bevy_fairy::server::config::Config;
     
     // Test default configuration
     let config = Config::default();

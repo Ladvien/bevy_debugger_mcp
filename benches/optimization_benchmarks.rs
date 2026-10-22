@@ -11,19 +11,19 @@ use std::time::{Duration, Instant};
 use tokio::runtime::Runtime;
 use tokio::sync::RwLock;
 
-use bevy_debugger_mcp::{
-    config::Config,
-    brp_client::BrpClient,
-    mcp_server::McpServer,
-    lazy_init::LazyComponents,
+use bevy_fairy::{
+    server::config::Config,
+    server::brp_client::BrpClient,
+    server::mcp_server::McpServer,
+    server::lazy_init::LazyComponents,
 };
 
 // Conditionally import optimization features
 #[cfg(feature = "caching")]
-use bevy_debugger_mcp::command_cache::{CommandCache, CacheConfig};
+use bevy_fairy::server::command_cache::{CommandCache, CacheConfig};
 
 #[cfg(feature = "pooling")]
-use bevy_debugger_mcp::response_pool::{ResponsePool, ResponsePoolConfig};
+use bevy_fairy::server::response_pool::{ResponsePool, ResponsePoolConfig};
 
 /// Benchmark configuration for optimization tests
 struct OptimizationBenchConfig {

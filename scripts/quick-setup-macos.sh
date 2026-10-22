@@ -18,10 +18,10 @@ fi
 # Step 2: Install binary
 echo "📥 Installing binary..."
 INSTALL_DIR="/usr/local/bin"
-BINARY_NAME="bevy-debugger-mcp"
+BINARY_NAME="bevy-fairy"
 
 # Create symlink for easy updates
-ln -sf "$(pwd)/target/release/bevy_debugger_mcp" "$INSTALL_DIR/$BINARY_NAME"
+ln -sf "$(pwd)/target/release/bevy_fairy" "$INSTALL_DIR/$BINARY_NAME"
 echo "✅ Installed to $INSTALL_DIR/$BINARY_NAME"
 
 # Step 3: Configure Claude Desktop

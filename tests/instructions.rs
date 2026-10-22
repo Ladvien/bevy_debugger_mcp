@@ -9,13 +9,13 @@
 //! This is the drift check the loop's rules ask for: a test that fails when a doc names something
 //! the code does not have.
 
-use bevy_debugger_mcp::mcp_tools::COLLABORATION_PROTOCOL;
+use bevy_fairy::server::mcp_tools::COLLABORATION_PROTOCOL;
 
 /// Every tool the instructions point at must be a real tool. A name in the instructions that is
 /// not a tool sends the agent to nothing.
 #[test]
 fn every_tool_named_in_the_instructions_exists() {
-    let tools = bevy_debugger_mcp::mcp_tools::BevyDebuggerTools::tool_names();
+    let tools = bevy_fairy::server::mcp_tools::BevyDebuggerTools::tool_names();
     for name in [
         "status",
         "commands",

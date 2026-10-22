@@ -4,10 +4,10 @@
 /// without requiring actual MCP server connections. Used for testing MCP protocol
 /// compliance and tool orchestration.
 
-use bevy_debugger_mcp::{
-    mcp_server::McpServer,
-    config::Config,
-    error::{Error, Result},
+use bevy_fairy::{
+    server::mcp_server::McpServer,
+    server::config::Config,
+    server::error::{Error, Result},
 };
 use serde_json::{json, Value};
 use std::collections::HashMap;
@@ -56,7 +56,7 @@ impl MockMcpClient {
     /// Create a new mock MCP client
     pub async fn new(config: Config) -> Result<Self> {
         let brp_client = Arc::new(RwLock::new(
-            bevy_debugger_mcp::brp_client::BrpClient::new(&config)
+            bevy_fairy::server::brp_client::BrpClient::new(&config)
         ));
         
         let server = Arc::new(McpServer::new(config, brp_client));
@@ -190,7 +190,7 @@ impl MockMcpClient {
                     }
                 },
                 "serverInfo": {
-                    "name": "bevy-debugger-mcp",
+                    "name": "bevy-fairy",
                     "version": "0.1.0"
                 }
             }),
@@ -475,7 +475,7 @@ pub struct ProtocolCompliance {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use bevy_debugger_mcp::config::Config;
+    use bevy_fairy::server::config::Config;
 
     #[tokio::test]
     async fn test_mock_client_creation() {

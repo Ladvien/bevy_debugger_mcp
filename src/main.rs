@@ -16,13 +16,13 @@ use is_terminal::IsTerminal;
 
 // Modules are defined in lib.rs, no need to redeclare them here
 
-use bevy_debugger_mcp::brp_client::BrpClient;
-use bevy_debugger_mcp::config::Config;
-use bevy_debugger_mcp::error::Result;
-use bevy_debugger_mcp::{mcp_server, mcp_server_v2};
+use bevy_fairy::server::brp_client::BrpClient;
+use bevy_fairy::server::config::Config;
+use bevy_fairy::server::error::Result;
+use bevy_fairy::server::{mcp_server, mcp_server_v2};
 
 #[cfg(feature = "observability")]
-use bevy_debugger_mcp::observability::ObservabilityService;
+use bevy_fairy::server::observability::ObservabilityService;
 
 #[tokio::main]
 async fn main() -> Result<()> {
@@ -42,7 +42,7 @@ async fn main() -> Result<()> {
             "Unknown location".to_string()
         };
         
-        eprintln!("FATAL PANIC in bevy-debugger-mcp: {} at {}", payload, location);
+        eprintln!("FATAL PANIC in bevy-fairy: {} at {}", payload, location);
         eprintln!("This indicates a critical bug that should be reported.");
         eprintln!("Stack trace should appear above this message.");
         
@@ -169,7 +169,7 @@ async fn run_tcp_mode(config: Config) -> Result<()> {
     // Start TCP server
     let listener = tokio::net::TcpListener::bind(format!("127.0.0.1:{}", config.mcp_port))
         .await
-        .map_err(|e| bevy_debugger_mcp::error::Error::Connection(format!("Failed to bind TCP: {}", e)))?;
+        .map_err(|e| bevy_fairy::server::error::Error::Connection(format!("Failed to bind TCP: {}", e)))?;
     
     info!("MCP server listening on 127.0.0.1:{}", config.mcp_port);
     

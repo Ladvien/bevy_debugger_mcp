@@ -11,13 +11,13 @@ mod observability_tests {
     use std::time::Duration;
     use tokio::sync::RwLock;
     
-    use bevy_debugger_mcp::{
-        config::Config,
-        brp_client::BrpClient,
-        observability::{
+    use bevy_fairy::{
+        server::config::Config,
+        server::brp_client::BrpClient,
+        server::observability::{
             ObservabilityService, MetricsCollector, TracingService, HealthService, TelemetryService,
             HealthStatus, ComponentHealth, ObservabilityMetrics,
-            alerts::{AlertRules, AlertSeverity, GrafanaDashboard},
+            server::alerts::{AlertRules, AlertSeverity, GrafanaDashboard},
         },
     };
 
@@ -244,7 +244,7 @@ mod observability_tests {
         // Test Prometheus export
         let prometheus_rules = AlertRules::export_prometheus_rules();
         assert!(prometheus_rules.contains("groups:"));
-        assert!(prometheus_rules.contains("bevy_debugger_mcp_alerts"));
+        assert!(prometheus_rules.contains("bevy_fairy_alerts"));
         assert!(prometheus_rules.contains("HighErrorRate"));
         assert!(prometheus_rules.contains("for: "));
         assert!(prometheus_rules.contains("labels:"));
@@ -428,7 +428,7 @@ mod observability_tests {
 
 /// Tests that run even without observability feature
 mod basic_tests {
-    use bevy_debugger_mcp::config::Config;
+    use bevy_fairy::server::config::Config;
 
     #[test]
     fn test_config_with_observability() {

@@ -11,7 +11,7 @@ fn main() {
         .add_plugins(DefaultPlugins)
         .add_plugins(
             RemotePlugin::default()
-                .with_method_main("bevy_debugger/screenshot", screenshot_handler)
+                .with_method_main("bevy_fairy/screenshot", screenshot_handler)
         )
         .add_plugins(RemoteHttpPlugin::default())
         .add_systems(Startup, setup)

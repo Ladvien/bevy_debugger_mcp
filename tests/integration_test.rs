@@ -3,7 +3,7 @@ use tokio::time::timeout;
 
 #[tokio::test]
 async fn test_mcp_handshake() {
-    let mut config = bevy_debugger_mcp::config::Config::default();
+    let mut config = bevy_fairy::server::config::Config::default();
     config.bevy_brp_host = "localhost".to_string();
     config.bevy_brp_port = 15702;
     config.mcp_port = 3001; // Use different port for testing
@@ -11,10 +11,10 @@ async fn test_mcp_handshake() {
     // This is a basic test to ensure the server can be created
     // In a real test, we would simulate MCP handshake protocol
     let brp_client = std::sync::Arc::new(tokio::sync::RwLock::new(
-        bevy_debugger_mcp::brp_client::BrpClient::new(&config),
+        bevy_fairy::server::brp_client::BrpClient::new(&config),
     ));
 
-    let server = bevy_debugger_mcp::mcp_server::McpServer::new(config, brp_client);
+    let server = bevy_fairy::server::mcp_server::McpServer::new(config, brp_client);
 
     // Test tool call handling
     let result = timeout(

@@ -193,7 +193,7 @@ interface ReplayResponse {
 {
   "mcpServers": {
     "bevy-debugger": {
-      "command": "bevy-debugger-mcp",
+      "command": "bevy-fairy",
       "args": ["--stdio"],
       "type": "stdio",
       "env": {
@@ -448,17 +448,17 @@ ws.onmessage = (event) => {
 Expose metrics for monitoring systems:
 
 ```
-# HELP bevy_debugger_frame_time_seconds Current frame time
-# TYPE bevy_debugger_frame_time_seconds gauge
-bevy_debugger_frame_time_seconds 0.016
+# HELP bevy_fairy_frame_time_seconds Current frame time
+# TYPE bevy_fairy_frame_time_seconds gauge
+bevy_fairy_frame_time_seconds 0.016
 
-# HELP bevy_debugger_entity_count Total entity count
-# TYPE bevy_debugger_entity_count gauge  
-bevy_debugger_entity_count 1547
+# HELP bevy_fairy_entity_count Total entity count
+# TYPE bevy_fairy_entity_count gauge  
+bevy_fairy_entity_count 1547
 
-# HELP bevy_debugger_tool_calls_total Total tool calls
-# TYPE bevy_debugger_tool_calls_total counter
-bevy_debugger_tool_calls_total{tool="observe",status="success"} 234
+# HELP bevy_fairy_tool_calls_total Total tool calls
+# TYPE bevy_fairy_tool_calls_total counter
+bevy_fairy_tool_calls_total{tool="observe",status="success"} 234
 ```
 
 ## Data Types

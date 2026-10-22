@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # Setup Claude Code MCP Configuration Script
-# This script adds the bevy-debugger-mcp server to your Claude Code configuration
+# This script adds the bevy-fairy server to your Claude Code configuration
 
 set -euo pipefail
 
@@ -50,10 +50,10 @@ check_requirements() {
         exit 1
     fi
     
-    # Check if bevy-debugger-mcp binary exists
-    if ! command -v bevy-debugger-mcp &> /dev/null; then
-        print_error "bevy-debugger-mcp not found in PATH"
-        print_info "Please install bevy-debugger-mcp first or run: ./scripts/install.sh"
+    # Check if bevy-fairy binary exists
+    if ! command -v bevy-fairy &> /dev/null; then
+        print_error "bevy-fairy not found in PATH"
+        print_info "Please install bevy-fairy first or run: ./scripts/install.sh"
         exit 1
     fi
     
@@ -67,15 +67,15 @@ backup_config() {
 }
 
 add_mcp_server() {
-    print_info "Adding bevy-debugger-mcp server to Claude Code configuration..."
+    print_info "Adding bevy-fairy server to Claude Code configuration..."
     
     # Get the binary path
-    local binary_path=$(which bevy-debugger-mcp)
+    local binary_path=$(which bevy-fairy)
     print_info "Binary path: ${binary_path}"
     
     # Check if MCP server already exists
-    if jq -e '.mcpServers["bevy-debugger-mcp"]' "${CLAUDE_CONFIG_FILE}" &> /dev/null; then
-        print_warning "bevy-debugger-mcp already exists in configuration"
+    if jq -e '.mcpServers["bevy-fairy"]' "${CLAUDE_CONFIG_FILE}" &> /dev/null; then
+        print_warning "bevy-fairy already exists in configuration"
         read -p "Do you want to update it? (y/N): " -n 1 -r
         echo
         if [[ ! $REPLY =~ ^[Yy]$ ]]; then
@@ -101,7 +101,7 @@ EOF
     
     # Add the configuration using jq
     local temp_file=$(mktemp)
-    jq --argjson config "${mcp_config}" '.mcpServers["bevy-debugger-mcp"] = $config' "${CLAUDE_CONFIG_FILE}" > "${temp_file}"
+    jq --argjson config "${mcp_config}" '.mcpServers["bevy-fairy"] = $config' "${CLAUDE_CONFIG_FILE}" > "${temp_file}"
     
     # Verify the JSON is valid
     if jq empty "${temp_file}" 2>/dev/null; then
@@ -118,12 +118,12 @@ verify_configuration() {
     print_info "Verifying configuration..."
     
     # Check if the configuration was added
-    if jq -e '.mcpServers["bevy-debugger-mcp"]' "${CLAUDE_CONFIG_FILE}" &> /dev/null; then
+    if jq -e '.mcpServers["bevy-fairy"]' "${CLAUDE_CONFIG_FILE}" &> /dev/null; then
         print_success "Configuration verified successfully"
         
         # Show the configuration
         print_info "MCP Server Configuration:"
-        jq '.mcpServers["bevy-debugger-mcp"]' "${CLAUDE_CONFIG_FILE}"
+        jq '.mcpServers["bevy-fairy"]' "${CLAUDE_CONFIG_FILE}"
     else
         print_error "Configuration verification failed"
         exit 1
@@ -136,7 +136,7 @@ show_next_steps() {
     echo "  🎉 Claude Code Setup Complete!"
     echo "========================================="
     echo
-    echo "The bevy-debugger-mcp server has been added to your Claude Code configuration."
+    echo "The bevy-fairy server has been added to your Claude Code configuration."
     echo
     echo "📋 Next Steps:"
     echo "  1. Restart Claude Code if it's running"
@@ -168,7 +168,7 @@ main() {
     echo
     echo "╔══════════════════════════════════════════╗"
     echo "║     Claude Code MCP Setup Script        ║"
-    echo "║         bevy-debugger-mcp                ║"
+    echo "║         bevy-fairy                ║"
     echo "╚══════════════════════════════════════════╝"
     echo
     
@@ -182,7 +182,7 @@ main() {
 # Handle script arguments
 case "${1:-}" in
     --help|-h)
-        echo "Claude Code MCP Setup Script - bevy-debugger-mcp"
+        echo "Claude Code MCP Setup Script - bevy-fairy"
         echo
         echo "Usage: $0 [options]"
         echo
@@ -192,13 +192,13 @@ case "${1:-}" in
         echo "This script will:"
         echo "  1. Check if Claude Code configuration exists"
         echo "  2. Backup existing configuration"
-        echo "  3. Add bevy-debugger-mcp server to mcpServers"
+        echo "  3. Add bevy-fairy server to mcpServers"
         echo "  4. Verify the configuration"
         echo
         echo "Requirements:"
         echo "  • Claude Code installed and run at least once"
         echo "  • jq installed (brew install jq)"
-        echo "  • bevy-debugger-mcp installed"
+        echo "  • bevy-fairy installed"
         echo
         exit 0
         ;;

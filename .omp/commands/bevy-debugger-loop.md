@@ -1,12 +1,12 @@
 ---
-description: One iteration of the bevy_debugger_mcp improvement loop. Fix tools that mislead agents, then ship at most one verified change, prove it against a live fixture game and the agent eval suite, release, then stop.
+description: One iteration of the bevy_fairy improvement loop. Fix tools that mislead agents, then ship at most one verified change, prove it against a live fixture game and the agent eval suite, release, then stop.
 argument-hint: "[optional focus, e.g. honesty | capture | input | watch | cleanup | protocol]"
 disable-model-invocation: true
 ---
 
-# bevy_debugger_mcp: one loop iteration
+# bevy_fairy: one loop iteration
 
-Evidence base for this loop: `docs/loop/2026-10-21-bevy-debugger-mcp-loop-literature-critique.md`. It is the
+Evidence base for this loop: `docs/loop/2026-10-21-bevy-fairy-loop-literature-critique.md`. It is the
 record of which rules below are backed by literature and which are backed only by this crate's own history.
 Read it before Phase 1, and treat a rule's evidence as a hypothesis to check, not a fact to repeat.
 
@@ -25,11 +25,11 @@ Read these first. They are repeated as a checklist at the end.
 
 ## Context
 
-You are running one iteration of a long, repeated loop on **bevy_debugger_mcp**. Each iteration starts with a fresh context. Your only memory of earlier iterations is the backlog, the loop log, the metrics file, and git history.
+You are running one iteration of a long, repeated loop on **bevy_fairy**. Each iteration starts with a fresh context. Your only memory of earlier iterations is the backlog, the loop log, the metrics file, and git history.
 
 The crate has two halves:
-- **Plugin.** `crates/bevy_debugger_bevy` is a Bevy 0.20 plugin that adds debugging methods to the Bevy Remote Protocol (BRP): ECS inspection, capture, input injection, guide, and watch.
-- **Server.** `src/` holds the `bevy-debugger-mcp` binary. It is an MCP server that exposes tools to coding agents and talks to a running game over BRP.
+- **Plugin.** `crates/bevy_fairy` is a Bevy 0.20 plugin that adds debugging methods to the Bevy Remote Protocol (BRP): ECS inspection, capture, input injection, guide, and watch.
+- **Server.** `src/` holds the `bevy-fairy` binary. It is an MCP server that exposes tools to coding agents and talks to a running game over BRP.
 
 **Who the user is.** The primary user is a coding agent trying to understand a running Bevy game: what state it's in, what it shows, how it responds to input, and why it misbehaves. Its secondary user is the game developer who reads that agent's findings. The goal: an agent with only this MCP server and no source access can answer "what is happening in this game, and why?" with evidence it can trust.
 
@@ -75,7 +75,7 @@ Then stop.
    - build with default features and with each optional feature;
    - clippy;
    - the server test suite;
-   - `cargo test -p bevy_debugger_bevy --all-features`;
+   - `cargo test -p bevy_fairy --all-features`;
    - the ground-truth, contract and docs-drift tests, if they exist yet.
 
    Compare the results with the known-red baseline in `metrics.json`:
@@ -83,10 +83,10 @@ Then stop.
    - anything recorded there is old debt, governed by the ratchet.
 4. **Bring up the live setup.** Start the fixture game (see "Fixture game and ground truth") and the MCP server over stdio. Connect a real MCP client, list the tools, and call each working tool once against the fixture. Run the dev eval suite (see "Agent evals") and record the baseline.
 5. **Check the previous release:**
-   - `cargo info bevy_debugger_mcp` shows the version `LOG.md` says was published;
+   - `cargo info bevy_fairy` shows the version `LOG.md` says was published;
    - its docs.rs build succeeded;
    - its tag exists on the remote;
-   - `bevy-debugger-mcp --version` on the host matches.
+   - `bevy-fairy --version` on the host matches.
 
    A mismatch is a must-fix bug.
 
@@ -390,7 +390,7 @@ Release when this iteration changed published crate code or metadata. Do not rel
      - Do not bump again until it is published.
      - Run semver-checks against the last published version to confirm the pending number is enough.
      - Make sure the changelog covers everything since the last published version, not just this iteration.
-   - **Unpublished internal dependency.** If a published crate depends on an internal crate that has never been published (for example, `bevy_debugger_mcp` on `bevy_debugger_bevy`), crates.io will reject it. Stop, prepare both, and flag the first publish of the new name for the human.
+   - **Unpublished internal dependency.** If a published crate depends on an internal crate that has never been published (for example, `bevy_fairy` on `bevy_fairy`), crates.io will reject it. Stop, prepare both, and flag the first publish of the new name for the human.
    - **docs.rs features.** If `[package.metadata.docs.rs]` enables `all-features`, or lists a feature that doesn't compile, docs.rs will fail. That blocks the release until the feature compiles or is removed from the docs.rs list.
 1. **Decide the version** with `cargo semver-checks check-release` for each published crate. Install it with `cargo install cargo-semver-checks --locked` if missing.
    - These crates are pre-1.0, so a version is written 0.MINOR.PATCH.
@@ -419,10 +419,10 @@ Release when this iteration changed published crate code or metadata. Do not rel
    - **Local publish.** Use this only if no workflow exists, `AGENTS.md` permits local publishing, and `CARGO_REGISTRY_TOKEN` is set. Never print, log, or write the token.
    - **Neither.** Stop with the tag pushed, and log a must-fix item to set up trusted publishing. That needs the human for crates.io configuration.
 
-   **New crate names.** If a crate in the workspace has never been published (for example `bevy_debugger_bevy`), do not publish it. Prepare it, and flag it for the human, who must approve the first publish of a new name.
+   **New crate names.** If a crate in the workspace has never been published (for example `bevy_fairy`), do not publish it. Prepare it, and flag it for the human, who must approve the first publish of a new name.
 6. **Verify.**
    - `cargo info <crate>@<version>` resolves.
-   - `cargo install bevy_debugger_mcp --version <version> --locked` succeeds in a scratch `CARGO_HOME`, under the memory cap.
+   - `cargo install bevy_fairy --version <version> --locked` succeeds in a scratch `CARGO_HOME`, under the memory cap.
    - The installed binary answers `tools/list`.
    - Record the crates.io and docs.rs URLs. The next iteration checks the docs.rs build.
 
@@ -435,7 +435,7 @@ After a release, or after any merged change if no release was made:
   ```
   cargo install --path . --locked --force
   ```
-- Confirm `bevy-debugger-mcp --version` and its `tools/list` match the release.
+- Confirm `bevy-fairy --version` and its `tools/list` match the release.
 - Downstream copies of this crate in other repos are not yours to edit. Note in the report which ones will pick up the change and how (for example, a sync script on its next run).
 - Never delete stale checkouts or directories outside this repo unless the human approved that specific path.
 - Shut down every fixture game, server, and helper process you started. Confirm with `ps` that none are left running.
@@ -558,13 +558,13 @@ If `backlog.json` doesn't exist, seed it from the 2026-10-21 review. Confirm eac
 8. **Command-level scripts.** Scene scripts record commands, not input, and this isn't documented.
 9. **Stale docs.**
    - `lib.rs` says Bevy 0.12.
-   - The README and `SCREENSHOT_SETUP.md` tell users to hand-register `bevy_debugger/screenshot`, which now double-adds `RemotePlugin` and panics.
+   - The README and `SCREENSHOT_SETUP.md` tell users to hand-register `bevy_fairy/screenshot`, which now double-adds `RemotePlugin` and panics.
    - Plugin comments cite 0.19 engine paths and `Last` instead of `RemoteLast`.
 10. **Old protocol.** rmcp 0.2.1 on MCP protocol 2024-11-05. The current spec is 2026-07-28. Make this its own iteration.
 11. **Ignored test.** `test_profiling_history` is ignored ("Frame history implementation needs refactoring"). Fix it or delete it along with the feature.
 12. **`observability` doesn't compile.** `cargo build --all-features` fails with 48 errors at `e93da67`, 42 of them in `src/observability/`. First check whether anything uses it; if not, delete it. Must-fix, ranked after items 1–3.
 13. **Clippy debt.** About 707 default-level warnings at `e93da67`, 452 of them `result_large_err`. CI is red because it runs `-D warnings`. Freeze this in the ratchet and pay it down as files are touched.
-14. **Version drift.** The tree is at 0.2.0, crates.io at 0.1.8. `bevy_debugger_bevy` has never been published. Resolve with Phase 6, step 0.
+14. **Version drift.** The tree is at 0.2.0, crates.io at 0.1.8. `bevy_fairy` has never been published. Resolve with Phase 6, step 0.
 
 **Measured counts for items 12 and 13.** The seed text above is the 2026-10-21 review's wording and its
 numbers are rough. `scripts/ratchet.sh --record` measured the same tree at `e93da67`:

@@ -1,0 +1,138 @@
+name: Release
+
+# Publishes to crates.io through trusted publishing: the workflow authenticates with the
+# repository's OIDC token and crates.io checks that the token came from this repository, so
+# no long-lived secret is ever stored in GitHub.
+#
+# A tag of the form `v<version>` triggers a publish of every workspace crate whose
+# version in `Cargo.toml` matches that tag. The versions are read from the manifests, so
+# the tag and the manifests cannot disagree.
+#
+# Setting this up needs two things that only the repository owner can do:
+#
+#   1. On crates.io, for each crate: Settings -> Trusted Publishing -> add a GitHub
+#      publisher for this repository, with the workflow filename
+#      `.github/workflows/release.yml` and any branch or tag pattern you want to allow.
+#   2. Nothing in GitHub. Trusted publishing needs no secret.
+#
+# Until step 1 is done, a tag push fails this workflow at the publish step with an
+# authentication error. The dry run below still passes, so a failure here is a
+# configuration problem, not a packaging problem.
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: 'Run everything except the publish'
+        type: boolean
+        default: true
+
+env:
+  CARGO_TERM_COLOR: always
+  RUST_BACKTRACE: 1
+
+jobs:
+  publish:
+    name: Publish to crates.io
+    runs-on: ubuntu-latest
+    permissions:
+      # Trusted publishing needs this to mint the OIDC token.
+      id-token: write
+      # The publish step reads the manifests and the lockfile.
+      contents: read
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Install Rust
+      uses: dtolnay/rust-toolchain@stable
+      with:
+        toolchain: stable
+
+    - name: Cache dependencies
+      uses: actions/cache@v4
+      with:
+        path: |
+          ~/.cargo/registry
+          target/
+        key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
+
+    # The tag names the version. A tag that does not match a manifest is a mistake, and
+    # publishing a version the manifests do not agree with is worse than not publishing.
+    - name: Read the version from the tag
+      id: version
+      run: |
+        tag="${GITHUB_REF_NAME}"
+        version="${tag#v}"
+        if [ "$version" = "$tag" ]; then
+          echo "::error::The tag $tag does not start with 'v'. It must be v<version>."
+          exit 1
+        fi
+        echo "version=$version" >> "$GITHUB_OUTPUT"
+
+    - name: Check the manifests agree with the tag
+      run: |
+        version="${{ steps.version.outputs.version }}"
+        failed=0
+        for manifest in Cargo.toml crates/*/Cargo.toml; do
+          [ -f "$manifest" ] || continue
+          name=$(sed -n 's/^name = "\(.*\)"/\1/p' "$manifest" | head -1)
+          crate_version=$(sed -n 's/^version = "\(.*\)"/\1/p' "$manifest" | head -1)
+          if [ "$crate_version" = "$version" ]; then
+            echo "publishing $name $crate_version"
+          else
+            echo "::error::$manifest is version $crate_version, not $version."
+            failed=1
+          fi
+        done
+        exit $failed
+
+    # The gate that has to pass before anything is uploaded. This is the same gate the
+    # improvement loop runs: the ratchet, then the test suite, then the docs.
+    - name: Install system dependencies
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y libasound2-dev libudev-dev pkg-config
+
+    - name: Run the clippy ratchet
+      run: ./scripts/ratchet.sh
+
+    - name: Run the test suite
+      run: cargo test --workspace --no-fail-fast
+
+    - name: Build the documentation
+      run: cargo doc --no-deps --workspace
+      env:
+        RUSTDOCFLAGS: "-D warnings"
+
+    - name: Check the package contents
+      run: |
+        cargo package --list --workspace | tee packages.txt
+        if grep -E '^\.env|(^|/)\.cargo/credentials|secrets?\.' packages.txt; then
+          echo "::error::The package list contains something that looks like a secret."
+          exit 1
+        fi
+
+    # `--dry-run` does everything the real publish does except upload. It is run first so
+    # that a packaging problem is reported as a packaging problem, not as an upload failure.
+    - name: Dry run
+      run: cargo publish --workspace --dry-run
+
+    # No token is set here, and that is the point. Cargo 1.85 and later detect the CI
+    # environment, exchange the OIDC token this job's `id-token: write` permission mints
+    # for a short-lived crates.io token, and publish. There is no long-lived secret in
+    # GitHub and none on the machine.
+    - name: Publish
+      if: ${{ !inputs.dry_run }}
+      run: cargo publish --workspace
+
+    - name: Verify the release
+      if: ${{ !inputs.dry_run }}
+      run: |
+        version="${{ steps.version.outputs.version }}"
+        for crate in bevy_fairy bevy_fairy; do
+          echo "--- $crate@$version"
+          cargo info "$crate@$version" || echo "::error::$crate@$version did not resolve."
+        done

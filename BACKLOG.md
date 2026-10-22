@@ -107,7 +107,7 @@ Claude Code requires stdio transport but server returns "not implemented" error.
 {
   "mcpServers": {
     "bevy-debugger": {
-      "command": "bevy-debugger-mcp",
+      "command": "bevy-fairy",
       "args": ["--stdio"],
       "env": {
         "RUST_LOG": "debug"

@@ -2,7 +2,7 @@
 
 ## Problem
 
-When running bevy-debugger-mcp with Claude Desktop, you may encounter "Unexpected token" JSON parsing errors in the logs:
+When running bevy-fairy with Claude Desktop, you may encounter "Unexpected token" JSON parsing errors in the logs:
 
 ```
 SyntaxError: Unexpected token '\x1B', "\x1B[2m2025-0"... is not valid JSON
@@ -48,12 +48,12 @@ if is_stdio_mode {
 
 ### 2. Python Wrapper Script (Workaround)
 
-Until the rmcp library is fixed, use the Python wrapper script at `/Users/ladvien/.local/bin/bevy-debugger-mcp-stdio`:
+Until the rmcp library is fixed, use the Python wrapper script at `/Users/ladvien/.local/bin/bevy-fairy-stdio`:
 
 ```python
 #!/usr/bin/env python3
 """
-Wrapper for bevy-debugger-mcp that filters out log lines from stdout.
+Wrapper for bevy-fairy that filters out log lines from stdout.
 This fixes the stdio mode for Claude Desktop integration.
 """
 import sys
@@ -79,7 +79,7 @@ Update your Claude Desktop config at `~/Library/Application Support/Claude/claud
 {
   "mcpServers": {
     "bevy-debugger": {
-      "command": "/Users/ladvien/.local/bin/bevy-debugger-mcp-stdio",
+      "command": "/Users/ladvien/.local/bin/bevy-fairy-stdio",
       "args": [],
       "env": {
         "RUST_LOG": "off",
@@ -95,7 +95,7 @@ Update your Claude Desktop config at `~/Library/Application Support/Claude/claud
 
 1. Ensure the wrapper script is executable:
    ```bash
-   chmod +x /Users/ladvien/.local/bin/bevy-debugger-mcp-stdio
+   chmod +x /Users/ladvien/.local/bin/bevy-fairy-stdio
    ```
 
 2. Restart Claude Desktop to load the new configuration
@@ -107,7 +107,7 @@ Update your Claude Desktop config at `~/Library/Application Support/Claude/claud
 Test the stdio mode manually:
 ```bash
 echo '{"jsonrpc":"2.0","method":"initialize","params":{"protocolVersion":"2024-11-05","capabilities":{}},"id":1}' | \
-  /Users/ladvien/.local/bin/bevy-debugger-mcp-stdio
+  /Users/ladvien/.local/bin/bevy-fairy-stdio
 ```
 
 You should see only JSON output, no log messages.

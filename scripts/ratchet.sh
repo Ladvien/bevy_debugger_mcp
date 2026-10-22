@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Ratchet gate for the bevy_debugger_mcp improvement loop.
+# Ratchet gate for the bevy_fairy improvement loop.
 #
 # The loop started with `main` already red: `cargo build --all-features` fails inside the
 # `observability` feature, and clippy reports hundreds of warnings. Fixing all of that first would

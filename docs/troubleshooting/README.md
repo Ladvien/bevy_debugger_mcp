@@ -33,7 +33,7 @@ This guide helps you diagnose and resolve common issues when using the Bevy Debu
    ```rust
    use bevy::prelude::*;
    use bevy::remote::http::RemoteHttpPlugin;
-use bevy_debugger_bevy::DebuggerPlugin;
+use bevy_fairy::DebuggerPlugin;
    
    fn main() {
        App::new()
@@ -85,7 +85,7 @@ use bevy_debugger_bevy::DebuggerPlugin;
 
 2. **Enable connection logging**:
    ```bash
-   RUST_LOG=debug bevy-debugger-mcp --stdio
+   RUST_LOG=debug bevy-fairy --stdio
    ```
 
 3. **Increase reconnection timeout**:
@@ -208,7 +208,7 @@ use bevy_debugger_bevy::DebuggerPlugin;
 
 3. **Use debug mode for detailed errors**:
    ```bash
-   RUST_LOG=debug,bevy_debugger_mcp=trace bevy-debugger-mcp
+   RUST_LOG=debug,bevy_fairy=trace bevy-fairy
    ```
 
 ---
@@ -251,7 +251,7 @@ use bevy_debugger_bevy::DebuggerPlugin;
    ```bash
    # Install virtual display for CI
    sudo apt-get install xvfb
-   xvfb-run -a bevy-debugger-mcp
+   xvfb-run -a bevy-fairy
    ```
 
 ---
@@ -368,7 +368,7 @@ use bevy_debugger_bevy::DebuggerPlugin;
 3. **Check service configuration** (macOS):
    ```bash
    launchctl list | grep bevy-debugger
-   cat ~/Library/LaunchAgents/com.bevy-debugger-mcp.plist
+   cat ~/Library/LaunchAgents/com.bevy-fairy.plist
    ```
 
 ---
@@ -382,18 +382,18 @@ use bevy_debugger_bevy::DebuggerPlugin;
 **Solutions**:
 1. **Check service status**:
    ```bash
-   launchctl list com.bevy-debugger-mcp
+   launchctl list com.bevy-fairy
    ```
 
 2. **Reload service**:
    ```bash
-   launchctl unload ~/Library/LaunchAgents/com.bevy-debugger-mcp.plist
-   launchctl load ~/Library/LaunchAgents/com.bevy-debugger-mcp.plist
+   launchctl unload ~/Library/LaunchAgents/com.bevy-fairy.plist
+   launchctl load ~/Library/LaunchAgents/com.bevy-fairy.plist
    ```
 
 3. **Check service logs**:
    ```bash
-   tail -f /tmp/bevy-debugger-mcp.log
+   tail -f /tmp/bevy-fairy.log
    ```
 
 ---
@@ -405,13 +405,13 @@ use bevy_debugger_bevy::DebuggerPlugin;
 **Solutions**:
 1. **Check file permissions**:
    ```bash
-   ls -la ~/.config/bevy-debugger-mcp/
+   ls -la ~/.config/bevy-fairy/
    ```
 
 2. **Fix permissions**:
    ```bash
-   chmod 755 ~/.config/bevy-debugger-mcp/
-   chmod 644 ~/.config/bevy-debugger-mcp/config.toml
+   chmod 755 ~/.config/bevy-fairy/
+   chmod 644 ~/.config/bevy-fairy/config.toml
    ```
 
 ---
@@ -640,7 +640,7 @@ use bevy_debugger_bevy::DebuggerPlugin;
    ```rust
    // Bevy 0.12+
    use bevy::remote::http::RemoteHttpPlugin;
-use bevy_debugger_bevy::DebuggerPlugin;
+use bevy_fairy::DebuggerPlugin;
    
    fn main() {
        App::new()
@@ -658,7 +658,7 @@ use bevy_debugger_bevy::DebuggerPlugin;
    // Create minimal test case
    use bevy::prelude::*;
    use bevy::remote::http::RemoteHttpPlugin;
-use bevy_debugger_bevy::DebuggerPlugin;
+use bevy_fairy::DebuggerPlugin;
    
    #[derive(Component, Reflect)]
    #[reflect(Component)]
@@ -845,7 +845,7 @@ use bevy_debugger_bevy::DebuggerPlugin;
 **Diagnostic Steps**:
 1. **Enable comprehensive logging**:
    ```bash
-   RUST_LOG=trace,tokio=debug bevy-debugger-mcp --stdio 2>&1 | tee debug.log
+   RUST_LOG=trace,tokio=debug bevy-fairy --stdio 2>&1 | tee debug.log
    ```
 
 2. **Monitor network activity**:
@@ -860,7 +860,7 @@ use bevy_debugger_bevy::DebuggerPlugin;
 3. **Check system resources**:
    ```bash
    # Monitor during issues
-   top -p $(pgrep bevy-debugger-mcp)
+   top -p $(pgrep bevy-fairy)
    iostat 1
    ```
 
@@ -873,21 +873,21 @@ use bevy_debugger_bevy::DebuggerPlugin;
 **Diagnostic Steps**:
 1. **Run with debug symbols**:
    ```bash
-   RUST_BACKTRACE=full cargo run --bin bevy-debugger-mcp
+   RUST_BACKTRACE=full cargo run --bin bevy-fairy
    ```
 
 2. **Use memory debugging tools**:
    ```bash
    # Linux
-   valgrind --tool=memcheck ./target/debug/bevy-debugger-mcp
+   valgrind --tool=memcheck ./target/debug/bevy-fairy
    
    # macOS
-   leaks -atExit -- ./target/debug/bevy-debugger-mcp
+   leaks -atExit -- ./target/debug/bevy-fairy
    ```
 
 3. **Enable additional runtime checks**:
    ```bash
-   RUSTFLAGS="-Z sanitizer=address" cargo run --bin bevy-debugger-mcp
+   RUSTFLAGS="-Z sanitizer=address" cargo run --bin bevy-fairy
    ```
 
 ---
@@ -902,14 +902,14 @@ use bevy_debugger_bevy::DebuggerPlugin;
 **Profiling Steps**:
 1. **CPU profiling with perf** (Linux):
    ```bash
-   perf record -g --call-graph=dwarf ./target/release/bevy-debugger-mcp
+   perf record -g --call-graph=dwarf ./target/release/bevy-fairy
    perf report
    ```
 
 2. **Memory profiling with heaptrack**:
    ```bash
-   heaptrack ./target/release/bevy-debugger-mcp
-   heaptrack_gui heaptrack.bevy-debugger-mcp.*.zst
+   heaptrack ./target/release/bevy-fairy
+   heaptrack_gui heaptrack.bevy-fairy.*.zst
    ```
 
 3. **Built-in performance monitoring**:
@@ -927,17 +927,17 @@ If nothing else works, perform a complete reset:
 
 ```bash
 # Stop all services
-launchctl unload ~/Library/LaunchAgents/com.bevy-debugger-mcp.plist
+launchctl unload ~/Library/LaunchAgents/com.bevy-fairy.plist
 
 # Clear all state
-rm -rf ~/.local/share/bevy-debugger-mcp/
+rm -rf ~/.local/share/bevy-fairy/
 rm -rf debug_sessions/
 
 # Reinstall  
-cargo install --force bevy-debugger-mcp
+cargo install --force bevy-fairy
 
 # Reconfigure
-bevy-debugger-mcp --help
+bevy-fairy --help
 ```
 
 ### Data Recovery
@@ -945,11 +945,11 @@ If you need to recover debugging session data:
 
 ```bash
 # Session data locations
-ls ~/.local/share/bevy-debugger-mcp/sessions/
+ls ~/.local/share/bevy-fairy/sessions/
 ls debug_sessions/checkpoints/
 
 # Export session data
-cargo run --bin bevy-debugger-mcp -- export-sessions --output sessions_backup.json
+cargo run --bin bevy-fairy -- export-sessions --output sessions_backup.json
 ```
 
 ---
@@ -964,7 +964,7 @@ cargo run --bin bevy-debugger-mcp -- export-sessions --output sessions_backup.js
    cargo --version
    rustc --version
    ```
-4. **File an issue** at: https://github.com/anthropics/bevy-debugger-mcp/issues
+4. **File an issue** at: https://github.com/anthropics/bevy-fairy/issues
 
 ### Useful Commands for Bug Reports
 
@@ -975,13 +975,13 @@ echo "Rust: $(rustc --version)"
 echo "Cargo: $(cargo --version)"
 
 # Configuration
-echo "Config: $(cat ~/.config/bevy-debugger-mcp/config.toml)"
+echo "Config: $(cat ~/.config/bevy-fairy/config.toml)"
 
 # Service status (macOS)
-echo "Service: $(launchctl list com.bevy-debugger-mcp)"
+echo "Service: $(launchctl list com.bevy-fairy)"
 
 # Process info
-echo "Process: $(ps aux | grep bevy-debugger-mcp)"
+echo "Process: $(ps aux | grep bevy-fairy)"
 
 # Network connections
 echo "Network: $(lsof -i :15702 -i :3000)"

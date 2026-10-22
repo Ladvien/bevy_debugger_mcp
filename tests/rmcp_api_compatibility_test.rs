@@ -5,7 +5,7 @@
  * Tests for rmcp 0.2.1 API compatibility and ServerHandler implementation
  */
 
-use bevy_debugger_mcp::{brp_client::BrpClient, config::Config, mcp_tools::BevyDebuggerTools};
+use bevy_fairy::{server::brp_client::BrpClient, server::config::Config, server::mcp_tools::BevyDebuggerTools};
 use rmcp::{
     handler::server::ServerHandler,
     model::*,
@@ -25,7 +25,7 @@ async fn test_server_handler_implementation() {
     let server_info = tools.get_info();
     
     assert_eq!(server_info.protocol_version, ProtocolVersion::V_2024_11_05);
-    assert_eq!(server_info.server_info.name, "bevy-debugger-mcp");
+    assert_eq!(server_info.server_info.name, "bevy-fairy");
     assert!(server_info.server_info.version.len() > 0);
     assert!(server_info.capabilities.tools.is_some());
     // **The instructions carry the collaboration protocol, not a tagline.** This asserted a brand
@@ -88,7 +88,7 @@ async fn test_server_handler_traits() {
     assert!(caps.tools.is_some());
     
     // Verify server info is correct
-    assert_eq!(server_info.server_info.name, "bevy-debugger-mcp");
+    assert_eq!(server_info.server_info.name, "bevy-fairy");
 }
 
 /// Integration test for MCP tool schema generation
@@ -96,7 +96,7 @@ async fn test_server_handler_traits() {
 async fn test_tool_schema_generation() {
     // TODO: Add schemars dependency if schema validation is needed
     // use schemars::JsonSchema;
-    use bevy_debugger_mcp::mcp_tools::{ObserveRequest, ExperimentRequest, HypothesisRequest};
+    use bevy_fairy::server::mcp_tools::{ObserveRequest, ExperimentRequest, HypothesisRequest};
     
     // Test that our request structures can be created (basic structure validation)
     // let observe_schema = schemars::schema_for!(ObserveRequest);

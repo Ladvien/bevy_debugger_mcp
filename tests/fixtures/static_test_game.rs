@@ -24,7 +24,7 @@ pub fn run_static_test_game() {
         }))
         .add_plugins(
             RemotePlugin::default()
-                .with_method_main("bevy_debugger/screenshot", screenshot_handler)
+                .with_method_main("bevy_fairy/screenshot", screenshot_handler)
         )
         .add_plugins(RemoteHttpPlugin::default())
         .add_systems(Startup, setup_static_scene)

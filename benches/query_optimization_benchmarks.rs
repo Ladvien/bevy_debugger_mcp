@@ -15,13 +15,13 @@ use std::time::Duration;
 use tokio::runtime::Runtime;
 use tokio::sync::RwLock;
 
-use bevy_debugger_mcp::{
-    config::Config,
-    brp_client::BrpClient,
-    query_optimization::{QueryOptimizer, QueryPerformanceMetrics},
-    parallel_query_executor::{ParallelQueryExecutor, ParallelExecutionConfig},
-    tools::{observe, observe_optimized},
-    brp_messages::{builtin_methods, query_params, BrpRequest, QueryFilter},
+use bevy_fairy::{
+    server::config::Config,
+    server::brp_client::BrpClient,
+    server::query_optimization::{QueryOptimizer, QueryPerformanceMetrics},
+    server::parallel_query_executor::{ParallelQueryExecutor, ParallelExecutionConfig},
+    server::tools::{observe, observe_optimized},
+    server::brp_messages::{builtin_methods, query_params, BrpRequest, QueryFilter},
 };
 
 struct BenchConfig {
