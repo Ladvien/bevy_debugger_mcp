@@ -255,6 +255,38 @@
       "evidence": "B-007 fixed the instructions string. The per-tool descriptions were not audited the same way: `observe` does not name the field it reads.",
       "last_failure": "",
       "first_seen": "2026-10-21"
+    },
+    {
+      "id": "B-029",
+      "kind": "change",
+      "area": "release",
+      "title": "the `bevy_fairy` crate has never been published; publishing a new name is the human's decision",
+      "must_fix": {
+        "misleads": false,
+        "blocks": true,
+        "common_no_workaround": false,
+        "evidence": "crates.io returns 404 for `bevy_fairy`; `cargo publish --dry-run` passes"
+      },
+      "status": "open",
+      "evidence": "Prepared: the manifest, the changelog, the README's install section, and `.github/workflows/release.yml` for trusted publishing. The tag is not pushed and nothing is published. The human must (a) publish the crate name and (b) add the crates.io trusted publisher for the workflow.",
+      "last_failure": "",
+      "first_seen": "2026-10-21"
+    },
+    {
+      "id": "B-030",
+      "kind": "change",
+      "area": "server",
+      "title": "the server's 72 public modules are one directory now, and most of them are unreachable from the 14 tools",
+      "must_fix": {
+        "misleads": false,
+        "blocks": false,
+        "common_no_workaround": false,
+        "evidence": "src/server/mod.rs declares 72 modules; the tool router reaches about a dozen"
+      },
+      "status": "open",
+      "evidence": "The merge moved the server's modules into `src/server/`, which makes the dead ones visible as a list in one file. B-013 is the same finding from before the merge; this is the place to act on it.",
+      "last_failure": "",
+      "first_seen": "2026-10-21"
     }
   ]
 }

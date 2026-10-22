@@ -1,19 +1,22 @@
 {
   "measured_at": "2026-10-21",
-  "sha": "3198e6f",
+  "sha": "7ce4e68",
   "server": {
-    "loc": 51568,
-    "direct_dependencies": 52,
+    "loc": 51212,
+    "direct_dependencies": 53,
     "public_modules": 72,
     "mcp_tools": 14,
-    "release_binary_bytes": 99925248
+    "release_binary_bytes": 99925248,
+    "note": "The server half of the one crate, in src/server/. Its dependencies are all optional and behind the `server` feature."
   },
   "plugin": {
-    "loc": 2603,
-    "direct_dependencies": 5
+    "loc": 2604,
+    "direct_dependencies": 4,
+    "closure_packages": 319,
+    "note": "The plugin half, in src/plugin/, behind the `plugin` feature. A game that takes it compiles 319 packages, none of which can synthesise an operating-system event; tests/plugin_leaf.rs checks the resolved graph."
   },
   "quality": {
-    "clippy_warnings_default": 1452,
+    "clippy_warnings_default": 1451,
     "clippy_warnings_all_features_errors": 42,
     "all_features_build": "fails: src/observability/ (42 errors); 'full-debugging' includes observability, so it fails too",
     "server_tests_passed": 542,
@@ -40,9 +43,11 @@
     "CI runs `scripts/ratchet.sh` instead of plain `-D warnings`, so a red build means something new broke.",
     "The metrics ratchet may not let any of these numbers go up without a logged reason.",
     "public_modules went 73 -> 72: the count is `pub mod` in src/lib.rs, and one declaration was removed while the tools were moved onto generated schemas.",
-    "server loc went 51268 -> 51568 (+300): the four tools' request structs, the handler-side JsonSchema derives, the measurement code that replaced the constants, the recording fix, and the BoxedResult alias. The tests are counted separately and are not in this number.",
-    "clippy went 1462 -> 1452 (-10): four dead `default_*` functions removed, two `result_large_err` sites boxed away, and the undeclared `ahash` feature gates removed (which had silenced a dead arm).",
-    "The release gate's doc step -- `RUSTDOCFLAGS=\"-D warnings\" cargo doc --no-deps --workspace` -- now passes for both crates. It did not before this iteration."
+    "The release gate's doc step -- `RUSTDOCFLAGS=\"-D warnings\" cargo doc --no-deps --workspace` -- now passes for both crates. It did not before this iteration.",
+    "The crate was merged and renamed on 2026-10-21: one package, `bevy_fairy`, with the plugin behind the `plugin` feature and the server behind `server`. The two halves are one published crate, not two.",
+    "server loc 51268 -> 51212 and plugin loc 2603 -> 2604. The merge moved files and did not write new logic; the plugin's one line is the `text` fence on its example.",
+    "clippy 1452 -> 1451. The `unused_mut` in `get_active_feature_flags` is gone, and a doctest that was `ignore` is a text block now.",
+    "direct dependencies 52 -> 53: `image`, promoted from the plugin crate. A game that takes the plugin compiles 4 direct dependencies, not 53 -- Cargo resolves dependencies per feature."
   ],
   "known_red": {
     "recorded_at": "2026-10-21",
