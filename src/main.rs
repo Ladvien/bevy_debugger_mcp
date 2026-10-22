@@ -50,7 +50,23 @@ async fn main() -> Result<()> {
         std::io::Write::flush(&mut std::io::stderr()).unwrap_or(());
     }));
     let args: Vec<String> = std::env::args().collect();
-    
+
+    // Every argument this binary understands. Anything else is refused by name: it used to
+    // fall through to "start the MCP server", so `--version` or a typo looked like a server
+    // crash ("connection closed: initialized request") rather than a usage error.
+    const KNOWN_ARGS: &[&str] = &["--stdio", "--tcp", "--server", "--help", "-h", "--version", "-V"];
+    if let Some(unknown) = args.iter().skip(1).find(|arg| !KNOWN_ARGS.contains(&arg.as_str())) {
+        eprintln!("bevy-fairy: unknown argument `{unknown}`");
+        eprintln!("valid arguments: {}", KNOWN_ARGS.join(", "));
+        eprintln!("try `bevy-fairy --help`");
+        std::process::exit(2);
+    }
+
+    if args.iter().any(|arg| arg == "--version" || arg == "-V") {
+        println!("bevy-fairy {}", env!("CARGO_PKG_VERSION"));
+        return Ok(());
+    }
+
     // Check for help flag
     if args.iter().any(|arg| arg == "--help" || arg == "-h") {
         println!("bevy-fairy v{}", env!("CARGO_PKG_VERSION"));
@@ -59,6 +75,7 @@ async fn main() -> Result<()> {
         println!("  --stdio              Run in stdio mode (default for Claude Code)");
         println!("  --tcp, --server      Run as TCP server on port {}", Config::from_env().unwrap_or_default().mcp_port);
         println!("  --help, -h           Show this help message");
+        println!("  --version, -V        Print the version and exit");
         println!("\nEnvironment variables:");
         println!("  BEVY_BRP_HOST        Bevy Remote Protocol host (default: localhost)");
         println!("  BEVY_BRP_PORT        Bevy Remote Protocol port (default: 15702)");
