@@ -8,16 +8,16 @@ name: Release
 # version in `Cargo.toml` matches that tag. The versions are read from the manifests, so
 # the tag and the manifests cannot disagree.
 #
-# Setting this up needs two things that only the repository owner can do:
+# Setting this up needs one thing that only the repository owner can do, once the crate
+# exists on crates.io (trusted publishing cannot create a crate, so the first version is
+# published locally with an API token):
 #
-#   1. On crates.io, for each crate: Settings -> Trusted Publishing -> add a GitHub
-#      publisher for this repository, with the workflow filename
-#      `.github/workflows/release.yml` and any branch or tag pattern you want to allow.
-#   2. Nothing in GitHub. Trusted publishing needs no secret.
+#   On crates.io: bevy_fairy -> Settings -> Trusted Publishing -> add a GitHub publisher for
+#   this repository, with the workflow filename `release.yml`.
 #
-# Until step 1 is done, a tag push fails this workflow at the publish step with an
-# authentication error. The dry run below still passes, so a failure here is a
-# configuration problem, not a packaging problem.
+# Nothing is needed in GitHub. Until the publisher is added, a tag push for a new version
+# fails at "Authenticate with crates.io". The dry run before it still passes, so a failure
+# there is a configuration problem, not a packaging problem.
 
 on:
   push:
@@ -115,24 +115,47 @@ jobs:
           exit 1
         fi
 
+    # A version already on crates.io is not published again: the first version of a crate goes
+    # out by a local publish (trusted publishing cannot create a crate), and the tag for it
+    # still triggers this workflow. Every later version is new here and goes through. The
+    # registry is asked over its API, because `cargo info` run inside this workspace reports
+    # the local manifest for a name that is a workspace member.
+    - name: Is this version already on crates.io?
+      id: published
+      run: |
+        version="${{ steps.version.outputs.version }}"
+        if curl -sf -A "bevy_fairy release workflow (github.com/Ladvien/bevy_fairy)" \
+            "https://crates.io/api/v1/crates/bevy_fairy/$version" >/dev/null; then
+          echo "bevy_fairy@$version is already on crates.io; nothing to publish."
+          echo "already=true" >> "$GITHUB_OUTPUT"
+        else
+          echo "already=false" >> "$GITHUB_OUTPUT"
+        fi
+
     # `--dry-run` does everything the real publish does except upload. It is run first so
     # that a packaging problem is reported as a packaging problem, not as an upload failure.
     - name: Dry run
+      if: ${{ steps.published.outputs.already != 'true' }}
       run: cargo publish --workspace --dry-run
 
-    # No token is set here, and that is the point. Cargo 1.85 and later detect the CI
-    # environment, exchange the OIDC token this job's `id-token: write` permission mints
-    # for a short-lived crates.io token, and publish. There is no long-lived secret in
-    # GitHub and none on the machine.
+    # Cargo does not mint a crates.io token from the job's OIDC token by itself. This action
+    # exchanges it for a token that lives 30 minutes and is revoked when the job ends, so no
+    # long-lived secret is stored in GitHub.
+    - name: Authenticate with crates.io
+      id: auth
+      if: ${{ !inputs.dry_run && steps.published.outputs.already != 'true' }}
+      uses: rust-lang/crates-io-auth-action@v1
+
     - name: Publish
-      if: ${{ !inputs.dry_run }}
+      if: ${{ !inputs.dry_run && steps.published.outputs.already != 'true' }}
       run: cargo publish --workspace
+      env:
+        CARGO_REGISTRY_TOKEN: ${{ steps.auth.outputs.token }}
 
     - name: Verify the release
       if: ${{ !inputs.dry_run }}
       run: |
         version="${{ steps.version.outputs.version }}"
-        for crate in bevy_fairy; do
-          echo "--- $crate@$version"
-          cargo info "$crate@$version" || echo "::error::$crate@$version did not resolve."
-        done
+        curl -sf -A "bevy_fairy release workflow (github.com/Ladvien/bevy_fairy)" \
+          "https://crates.io/api/v1/crates/bevy_fairy/$version" >/dev/null \
+          || { echo "::error::bevy_fairy@$version is not on crates.io."; exit 1; }
