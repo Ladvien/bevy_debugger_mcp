@@ -106,6 +106,10 @@ Bevy plugin that was not published at all until now.
   answered a bare "Method `bevy_fairy/screenshot` not found", and `guide` told the agent to
   build with `--features debugger`, a feature this crate does not have. Both now say which of
   `plugin`, `plugin-screenshot` or `plugin-guide` the game was built without.
+- **A refusal comes back as a tool error.** `observe`, `detect_anomaly`, `hypothesis`,
+  `experiment`, `replay` and `guide` answered an unknown action or an unparseable query as a
+  successful result whose body held `"error": ...`, so a client that branches on `isError`
+  took "Query parsing failed" for an answer. Such a result now has `isError` set.
 - **The docs match the code.** `CLAUDE.md`, the README and `book/SCREENSHOT_SETUP.md` no
   longer tell a reader to hand-register a method the plugin already registers, and the
   capture description says what the code does: the fallback is to window capture, which is

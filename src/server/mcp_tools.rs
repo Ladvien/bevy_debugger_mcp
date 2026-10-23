@@ -325,6 +325,18 @@ fn tool_err(text: impl Into<String>) -> Result<CallToolResult, McpError> {
     Ok(CallToolResult::error(vec![Content::text(text.into())]))
 }
 
+/// A tool handler's answer as a tool result. The handlers report a refusal -- an unknown action,
+/// a query they cannot parse, a game that said no -- as `Ok` with a top-level `"error"` key. That
+/// is a failed call, so it goes back with `isError` set: a client that branches on `isError`
+/// would otherwise take "Query parsing failed" for an answer.
+fn handler_result(result: Value) -> Result<CallToolResult, McpError> {
+    if result.get("error").is_some_and(|error| !error.is_null()) {
+        tool_err(result.to_string())
+    } else {
+        tool_ok(result.to_string())
+    }
+}
+
 fn command_block(entry: &CommandEntry) -> String {
     let params = if entry.params.is_empty() { "(none)" } else { entry.params.as_str() };
     format!("{} — {}\n  params: {}\n  example: {}", entry.name, entry.description, params, entry.example)
@@ -483,7 +495,7 @@ impl BevyDebuggerTools {
         });
         
         match observe::handle(arguments, self.brp_client.clone()).await {
-            Ok(result) => Ok(CallToolResult::success(vec![Content::text(result.to_string())])),
+            Ok(result) => handler_result(result),
             Err(e) => {
                 error!("Observe tool error: {}", e);
                 Err(McpError::internal_error(format!("Observe tool error: {}", e), None))
@@ -513,7 +525,7 @@ impl BevyDebuggerTools {
         debug!("Guide request: {} key(s)", arguments.len());
 
         match guide::handle(Value::Object(arguments), self.brp_client.clone()).await {
-            Ok(result) => Ok(CallToolResult::success(vec![Content::text(result.to_string())])),
+            Ok(result) => handler_result(result),
             Err(e) => {
                 error!("Guide tool error: {}", e);
                 Err(McpError::internal_error(format!("Guide tool error: {}", e), None))
@@ -532,7 +544,7 @@ impl BevyDebuggerTools {
         });
 
         match experiment::handle(arguments, self.brp_client.clone()).await {
-            Ok(result) => Ok(CallToolResult::success(vec![Content::text(result.to_string())])),
+            Ok(result) => handler_result(result),
             Err(e) => {
                 error!("Experiment tool error: {}", e);
                 Err(McpError::internal_error(format!("Experiment tool error: {}", e), None))
@@ -563,7 +575,7 @@ impl BevyDebuggerTools {
         });
 
         match hypothesis::handle(arguments, self.brp_client.clone()).await {
-            Ok(result) => Ok(CallToolResult::success(vec![Content::text(result.to_string())])),
+            Ok(result) => handler_result(result),
             Err(e) => {
                 error!("Hypothesis tool error: {}", e);
                 Err(McpError::internal_error(format!("Hypothesis tool error: {}", e), None))
@@ -589,7 +601,7 @@ impl BevyDebuggerTools {
         });
 
         match anomaly::handle(arguments, self.brp_client.clone()).await {
-            Ok(result) => Ok(CallToolResult::success(vec![Content::text(result.to_string())])),
+            Ok(result) => handler_result(result),
             Err(e) => {
                 error!("Anomaly detection error: {}", e);
                 Err(McpError::internal_error(format!("Anomaly detection error: {}", e), None))
@@ -609,7 +621,7 @@ impl BevyDebuggerTools {
         });
         
         match replay::handle(arguments, self.brp_client.clone()).await {
-            Ok(result) => Ok(CallToolResult::success(vec![Content::text(result.to_string())])),
+            Ok(result) => handler_result(result),
             Err(e) => {
                 error!("Replay tool error: {}", e);
                 Err(McpError::internal_error(format!("Replay tool error: {}", e), None))

@@ -237,4 +237,31 @@ async fn an_unknown_action_is_refused_with_the_valid_ones() {
     let text = text_of(&result);
     assert!(text.contains("Unknown action"), "text: {text}");
     assert!(text.contains("quick_test"), "the error should list the valid actions; text: {text}");
+    assert_eq!(
+        result.is_error,
+        Some(true),
+        "a refusal is a failed call, and the client must be told so; text: {text}"
+    );
+}
+
+/// A query the tool cannot parse is a failed call. `observe` answered it as a success whose body
+/// was `{"error": "Query parsing failed", ...}`, so a client that branches on `isError` -- which
+/// is what the field is for -- took the refusal for an answer.
+#[tokio::test]
+async fn an_unparseable_observe_query_comes_back_as_a_tool_error() {
+    let game: SharedGame = Arc::new(Mutex::new(FakeGame::default()));
+    let port = start_fake_game(game.clone()).await;
+    let tools = tools_for(port);
+    connect(&tools).await;
+
+    let result = tools
+        .observe(request::<bevy_fairy::server::mcp_tools::ObserveRequest>(json!({
+            "query": "teleport the moon to mars",
+        })))
+        .await
+        .expect("observe returns a result");
+
+    let text = text_of(&result);
+    assert!(text.contains("Query parsing failed"), "text: {text}");
+    assert_eq!(result.is_error, Some(true), "the refusal must set isError; text: {text}");
 }
