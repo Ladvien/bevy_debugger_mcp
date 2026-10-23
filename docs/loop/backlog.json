@@ -305,22 +305,6 @@
       "first_seen": "2026-10-23"
     },
     {
-      "id": "B-039",
-      "kind": "bug",
-      "area": "detect_anomaly",
-      "title": "detect_anomaly's description says `detect` looks for the kind named in `detection_type`; AnomalyRequest has no such field and denies unknown fields",
-      "must_fix": {
-        "misleads": true,
-        "blocks": false,
-        "common_no_workaround": false,
-        "evidence": "src/server/mcp_tools.rs `#[tool(description = ...)]` on detect_anomaly vs `pub struct AnomalyRequest` (deny_unknown_fields)"
-      },
-      "status": "open",
-      "evidence": "Loud, not silent: an agent that follows the description is refused, then has to guess. Logged rather than fixed this iteration for budget (4 must-fix bugs fixed plus the eval suite). A general check would compare every backticked name in a tool description with the tool's schema.",
-      "last_failure": "",
-      "first_seen": "2026-10-23"
-    },
-    {
       "id": "B-040",
       "kind": "bug",
       "area": "docs",
@@ -333,22 +317,6 @@
       },
       "status": "open",
       "evidence": "The stress_test prune (B-034) touched these files and left the rest; docs_drift does not check tool names in prose.",
-      "last_failure": "",
-      "first_seen": "2026-10-23"
-    },
-    {
-      "id": "B-041",
-      "kind": "bug",
-      "area": "brp",
-      "title": "a `+watch` method sent through `brp` fails with \"no game answering\" while the game is answering",
-      "must_fix": {
-        "misleads": true,
-        "blocks": false,
-        "common_no_workaround": false,
-        "evidence": "eval transcript evals/transcripts/2026-10-23-dcd9805/dev-spinner_stops.jsonl: brp `world.get_components+watch` -> \"bevy-fairy: no game answering at http://127.0.0.1:45783\"; the fixture was up and answered the next call. BrpClient::send_request_internal reads one JSON body (`response.json()`), a watching method streams, and call_game maps every client error to no_game_text"
-      },
-      "status": "open",
-      "evidence": "Found in this iteration's evals and logged for budget (Phase 1 already had five fixes). Fix: refuse `+watch` methods in `brp` with a message that names the limit, and keep no_game_text for connection failures only. A watch tool is the capability that would make these useful (B-045).",
       "last_failure": "",
       "first_seen": "2026-10-23"
     },
@@ -477,6 +445,22 @@
       },
       "status": "open",
       "evidence": "Hypothesis, unconfirmed: measure_clippy_files attributes a warning to `.message.spans[0].file_name`, which need not be the primary span (result_large_err may list the large variant's span first). Fix: select the span with is_primary == true, then re-check that every per-file count still matches known_red. The guide.rs warning itself was fixed after the release.",
+      "last_failure": "",
+      "first_seen": "2026-10-23"
+    },
+    {
+      "id": "B-052",
+      "kind": "change",
+      "area": "server",
+      "title": "box the crate's Error so result_large_err (937 at baseline) goes away in one sweep; it changes public signatures, so it belongs in a minor release",
+      "must_fix": {
+        "misleads": false,
+        "blocks": false,
+        "common_no_workaround": false,
+        "evidence": "71adcb4 boxed guide::handle's error to clear one result_large_err and was reverted (8d73f17): `bevy_fairy::server::tools::guide::handle` is public and 0.2.0 was published with `-> Result<Value>`"
+      },
+      "status": "open",
+      "evidence": "",
       "last_failure": "",
       "first_seen": "2026-10-23"
     }
