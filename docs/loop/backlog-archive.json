@@ -203,6 +203,40 @@
       "last_failure": "",
       "first_seen": "2026-10-21",
       "fixed_at": "2026-10-21"
+    },
+    {
+      "id": "B-032",
+      "kind": "bug",
+      "area": "cli",
+      "title": "`bevy-fairy --version` started the MCP server instead of printing the version; any unknown argument did the same",
+      "must_fix": {
+        "misleads": true,
+        "blocks": true,
+        "common_no_workaround": false,
+        "evidence": "`bevy-fairy --version` -> 'MCP stdio server error: connection closed: initialized request', exit 1"
+      },
+      "status": "fixed",
+      "evidence": "src/main.rs refuses unknown arguments by name (exit 2) and answers --version/-V. Proof: tests/cli_args.rs, 2 tests: 0 passed before, 2 after.",
+      "last_failure": "",
+      "first_seen": "2026-10-22",
+      "fixed_at": "2026-10-22"
+    },
+    {
+      "id": "B-033",
+      "kind": "bug",
+      "area": "docs",
+      "title": "the loop prompt named docs/loop/2026-10-21-bevy-fairy-loop-literature-critique.md, which did not exist",
+      "must_fix": {
+        "misleads": true,
+        "blocks": false,
+        "common_no_workaround": false,
+        "evidence": ".omp/commands/bevy-debugger-loop.md:9 vs `ls docs/loop/`"
+      },
+      "status": "fixed",
+      "evidence": "The rename sweep updated the reference but not the file. The file is renamed to match, and LOG.md's link with it.",
+      "last_failure": "",
+      "first_seen": "2026-10-22",
+      "fixed_at": "2026-10-22"
     }
   ]
 }

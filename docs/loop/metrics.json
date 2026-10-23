@@ -1,6 +1,6 @@
 {
-  "measured_at": "2026-10-21",
-  "sha": "da090f1",
+  "measured_at": "2026-10-22",
+  "sha": "adcbdf0",
   "server": {
     "loc": 51212,
     "direct_dependencies": 53,
@@ -19,14 +19,14 @@
     "clippy_warnings_default": 1451,
     "clippy_warnings_all_features_errors": 42,
     "all_features_build": "fails: src/observability/ (42 errors); 'full-debugging' includes observability, so it fails too",
-    "server_tests_passed": 523,
+    "server_tests_passed": 531,
     "server_tests_failed": 0,
     "server_tests_ignored": 4,
     "plugin_tests_passed": 59,
     "plugin_tests_failed": 0,
     "plugin_tests_ignored": 1,
     "clippy_warnings_note": "Counted by the ratchet: lint occurrences across the workspace and all targets. An earlier grep counted distinct warning lines and undercounted (707 vs 1462). The ratchet number is what the gate uses.",
-    "server_tests_note": "523 is the whole workspace, server and plugin together, counted from the gate log. The default feature set is `server` and `plugin` together, so `cargo test --workspace` covers both halves.",
+    "server_tests_note": "531 is the whole workspace, server and plugin together (default features), counted from the gate log at adcbdf0: 523 before plus 3 CLI tests and 5 fixture ground-truth tests.",
     "ignored_tests_note": "5 ignored, and the set of names is identical to known_red: test_profiling_history and four doctests. The baseline's count of 4 was a miscount; known_red always listed five.",
     "direct_dependencies_note": "The baseline said 50; the manifest at e93da67 actually had 51. The count is the number of entries in [dependencies], by name. The one added since is `schemars`, which `rmcp` already depended on and which resolves to 0.8.22 in the lockfile, so there is one copy, not two."
   },
@@ -47,7 +47,8 @@
     "The crate was merged and renamed on 2026-10-21: one package, `bevy_fairy`, with the plugin behind the `plugin` feature and the server behind `server`. The two halves are one published crate, not two.",
     "server loc 51268 -> 51212 and plugin loc 2603 -> 2604. The merge moved files and did not write new logic; the plugin's one line is the `text` fence on its example.",
     "clippy 1452 -> 1451. The `unused_mut` in `get_active_feature_flags` is gone, and a doctest that was `ignore` is a text block now.",
-    "direct dependencies 52 -> 53: `image`, promoted from the plugin crate. A game that takes the plugin compiles 4 direct dependencies, not 53 -- Cargo resolves dependencies per feature."
+    "direct dependencies 52 -> 53: `image`, promoted from the plugin crate. A game that takes the plugin compiles 4 direct dependencies, not 53 -- Cargo resolves dependencies per feature.",
+    "2026-10-22: the fixture game and its ground-truth tests exist. They are the only behavioural gate until the eval suite exists."
   ],
   "known_red": {
     "recorded_at": "2026-10-21",
@@ -217,5 +218,11 @@
       "src/server/query_optimization_guide.rs - server::query_optimization_guide (line 60)|ignored",
       "test_profiling_history|ignored, Frame history implementation needs refactoring"
     ]
+  },
+  "fixture": {
+    "path": "examples/fixture_game.rs",
+    "loc": 162,
+    "ground_truth_tests": 5,
+    "note": "Headless fixture whose state is pub consts. tests/fixture_ground_truth.rs checks the brp and status tools against it; mutants of the brp handler and of the plugin's status handler are each caught."
   }
 }
