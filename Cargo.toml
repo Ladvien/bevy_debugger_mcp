@@ -314,6 +314,12 @@ required-features = ["plugin"]
 name = "fixture_game"
 required-features = ["plugin"]
 
+# The fixture game rendered offscreen, headless, for the README's GIFs. It renders, so it needs
+# the capture feature.
+[[example]]
+name = "demo_game"
+required-features = ["plugin-screenshot"]
+
 # Runs the fixture in-process, so it needs both halves.
 [[test]]
 name = "fixture_ground_truth"

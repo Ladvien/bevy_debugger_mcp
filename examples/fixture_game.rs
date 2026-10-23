@@ -112,7 +112,7 @@ pub fn build_app(port: u16, fps: f64) -> App {
     app
 }
 
-fn spawn_world(mut commands: Commands) {
+pub fn spawn_world(mut commands: Commands) {
     for weight in CRATE_WEIGHTS {
         commands.spawn((Name::new("crate"), Crate { weight }));
     }
@@ -126,7 +126,7 @@ fn spawn_world(mut commands: Commands) {
     ));
 }
 
-fn move_mover(time: Res<Time>, mut movers: Query<&mut Transform, With<Mover>>) {
+pub fn move_mover(time: Res<Time>, mut movers: Query<&mut Transform, With<Mover>>) {
     for mut transform in &mut movers {
         transform.translation.x += MOVER_SPEED * time.delta_secs();
     }
@@ -135,7 +135,7 @@ fn move_mover(time: Res<Time>, mut movers: Query<&mut Transform, With<Mover>>) {
 /// The planted bug. It counts frames and turns the spinner, but stops turning once the count
 /// passes [`SPINNER_STOPS_AFTER_FRAMES`] -- while still counting, so the frame counter keeps
 /// going and only the angle freezes.
-fn spin(mut spinners: Query<&mut Spinner>) {
+pub fn spin(mut spinners: Query<&mut Spinner>) {
     for mut spinner in &mut spinners {
         spinner.frames += 1;
         if spinner.frames <= SPINNER_STOPS_AFTER_FRAMES {
@@ -147,7 +147,7 @@ fn spin(mut spinners: Query<&mut Spinner>) {
 /// The value of an environment variable, or `default` when it is unset. A value that is set but
 /// does not parse is refused rather than quietly replaced: a fixture that silently ran at a
 /// different frame cap than the one asked for would make every frame-time check wrong.
-fn env_or<T: std::str::FromStr>(name: &str, default: T) -> T {
+pub fn env_or<T: std::str::FromStr>(name: &str, default: T) -> T {
     match std::env::var(name) {
         Err(_) => default,
         Ok(value) => value
