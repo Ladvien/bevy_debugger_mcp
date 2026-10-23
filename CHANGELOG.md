@@ -107,7 +107,7 @@ Bevy plugin that was not published at all until now.
   build with `--features debugger`, a feature this crate does not have. Both now say which of
   `plugin`, `plugin-screenshot` or `plugin-guide` the game was built without.
 - **A refusal comes back as a tool error.** `observe`, `detect_anomaly`, `hypothesis`,
-  `experiment`, `replay` and `guide` answered an unknown action or an unparseable query as a
+  `experiment` and `replay` answered an unknown action or an unparseable query as a
   successful result whose body held `"error": ...`, so a client that branches on `isError`
   took "Query parsing failed" for an answer. Such a result now has `isError` set.
 - **The docs match the code.** `CLAUDE.md`, the README and `book/SCREENSHOT_SETUP.md` no
