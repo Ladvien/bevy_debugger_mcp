@@ -149,6 +149,8 @@ cargo test --no-default-features --features plugin --test plugin_leaf
                                           # the OS-boundary ratchet, on its own
 cargo install --path . --no-default-features --features server
                                           # the bevy-fairy binary, without Bevy
+UPDATE_TOOL_REFERENCE=1 cargo test --test tool_list
+                                          # regenerate docs/mcp-tools.md after a tool changes
 ```
 
 The plugin's examples need their own features: `plugin-screenshot` for the capture example,

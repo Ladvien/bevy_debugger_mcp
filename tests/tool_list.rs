@@ -123,3 +123,68 @@ fn every_name_a_tool_description_puts_in_backticks_exists() {
     );
 }
 
+/// `docs/mcp-tools.md` is generated from `tools/list`, so the reference cannot say anything the
+/// server does not. Regenerate it with `UPDATE_TOOL_REFERENCE=1 cargo test --test tool_list`.
+#[test]
+fn the_tool_reference_is_generated_from_tools_list() {
+    let path = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("docs/mcp-tools.md");
+    let generated = render_tool_reference(&listed_tools());
+    if std::env::var_os("UPDATE_TOOL_REFERENCE").is_some() {
+        std::fs::write(&path, &generated).expect("write docs/mcp-tools.md");
+        return;
+    }
+    let committed = std::fs::read_to_string(&path).unwrap_or_default();
+    assert!(
+        committed == generated,
+        "docs/mcp-tools.md is not what tools/list says; regenerate it with \
+         `UPDATE_TOOL_REFERENCE=1 cargo test --test tool_list`"
+    );
+}
+
+/// The reference page: one section per tool, in `tools/list` order, with its description and a
+/// table of the arguments its schema advertises.
+fn render_tool_reference(tools: &[Value]) -> String {
+    let mut out = String::from(
+        "# MCP tools\n\n\
+         Generated from the server's `tools/list` by `tests/tool_list.rs`; do not edit by hand.\n\
+         Regenerate with `UPDATE_TOOL_REFERENCE=1 cargo test --test tool_list`.\n",
+    );
+    for tool in tools {
+        let name = tool["name"].as_str().unwrap_or_default();
+        let description = tool["description"].as_str().unwrap_or_default();
+        out.push_str(&format!("\n## `{name}`\n\n{description}\n"));
+        let schema = &tool["inputSchema"];
+        let required: Vec<&str> = schema["required"]
+            .as_array()
+            .map(|r| r.iter().filter_map(Value::as_str).collect())
+            .unwrap_or_default();
+        let Some(props) = schema["properties"].as_object().filter(|p| !p.is_empty()) else {
+            out.push_str("\nNo arguments.\n");
+            continue;
+        };
+        out.push_str("\n| Argument | Type | Required | Description |\n|---|---|---|---|\n");
+        let mut names: Vec<&String> = props.keys().collect();
+        names.sort();
+        for arg in names {
+            let prop = &props[arg.as_str()];
+            let kind = match &prop["type"] {
+                Value::String(s) => s.clone(),
+                Value::Array(kinds) => kinds
+                    .iter()
+                    .filter_map(Value::as_str)
+                    .filter(|k| *k != "null")
+                    .collect::<Vec<_>>()
+                    .join(" or "),
+                _ => "any".to_string(),
+            };
+            let doc = prop["description"]
+                .as_str()
+                .unwrap_or_default()
+                .replace('\n', " ")
+                .replace('|', "\\|");
+            let req = if required.contains(&arg.as_str()) { "yes" } else { "no" };
+            out.push_str(&format!("| `{arg}` | {kind} | {req} | {doc} |\n"));
+        }
+    }
+    out
+}

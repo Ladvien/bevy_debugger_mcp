@@ -291,6 +291,8 @@ All 13, as `tools/list` returns them (sorted by name):
 
 The server cannot see frame time, CPU or memory: BRP does not report them, and a tool that would need them says so instead of answering with a number.
 
+Every tool's full description and arguments are in [`docs/mcp-tools.md`](https://github.com/Ladvien/bevy_fairy/blob/main/docs/mcp-tools.md), generated from the server's own `tools/list`.
+
 ## Configuration
 
 The server reads environment variables; there is no config file.
