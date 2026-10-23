@@ -21,7 +21,7 @@ Read these first. They are repeated as a checklist at the end.
 5. **At most one change per iteration, and shipping nothing is allowed.** If you cannot prove the change, commit only the bug fixes, log what blocked you, and stop.
 6. **Stop on repeated failure.** If two attempts at the same step fail, stop, log your hypothesis and the evidence, and end the iteration.
 7. **Be a good neighbour on a shared host.** Builds and tests run under a memory cap with limited parallelism. Never kill, restart, or reconfigure processes or services you didn't start. Leave no stray processes or open ports behind. Never delete anything outside the repo without the human's explicit OK naming that path.
-8. **Publishing is irreversible.** Publish only from a green gate, a clean working tree, and a pushed, tagged commit. Never use `--allow-dirty`, never yank, and never publish a crate name for the first time without the human's OK.
+8. **Every iteration ends pushed and published, and publishing is irreversible.** Push to `origin/main` every iteration. Publish only from a green gate, a clean working tree, and a pushed, tagged commit. Never use `--allow-dirty`, never yank, never force-push. The human approved the first publish of `bevy_fairy` (2026-10-23); any other crate name's first publish still needs the human's OK.
 
 ## Context
 
@@ -63,7 +63,7 @@ This iteration is done when all of the following are true, or when you have take
 4. The full deterministic gate passes. The eval suite shows no regression, and the change's own eval task or ground-truth test improved.
 5. Docs (CLAUDE.md, README, server instructions, generated tool reference) match the code, and the docs-drift test proves it.
 6. The iteration report, `metrics.json`, `LOG.md` and `backlog.json` are committed with the code.
-7. If published crate code changed, a release is published and verified, or the report says why not (see "Phase 6"). The installed server on the dev host matches the release (see "Phase 7").
+7. The iteration's commits are pushed to `origin/main`, a release is published and verified (see "Phase 6"), and the installed server on the dev host matches it (see "Phase 7"). The only iteration without a release is one where nothing that goes into the package changed, and its report says so.
 
 Then stop.
 
@@ -380,17 +380,18 @@ If the change can't be proven, take the "ship nothing" exit.
 - Regenerate `docs/mcp-tools.md`. Update CLAUDE.md, the README, and the server instructions so they match the code, deleting stale text.
 - Write the iteration report: `docs/loop/iterations/<YYYY-MM-DD>-<area>-<short-sha>.md`, using the template below. Keep it concise. Include the eval table and one short transcript excerpt showing the before and after behaviour. For capture or input changes, embed the contact sheet or a GIF, committed under `docs/loop/iterations/assets/<date>-<sha>/`. Commit only the images the report embeds.
 - Update `LOG.md`, `backlog.json`, `metrics.json` and `evals.jsonl`. Commit the docs with the code.
+- Updating the documentation is part of every iteration, not only of iterations that changed a tool: the README, `CHANGELOG.md` (an entry for what this iteration ships), CLAUDE.md, and the guides under `docs/` describe the code as it now is.
 
 ## Phase 6: Release to crates.io
 
-Release when this iteration changed published crate code or metadata. Do not release for docs-only, eval-only or loop-state-only changes, or when nothing shipped.
+Every iteration releases. Publish a new version whenever anything that goes into the package changed: code, metadata, the README, the CHANGELOG, or any other packaged doc. Only when nothing packaged changed (loop state under `docs/loop/`, evals) is there no new version to publish; then push, and the report says so.
 
 0. **Check version drift and blockers first:**
    - **Unreleased bump.** If `Cargo.toml` is already ahead of crates.io (for example, the tree says 0.2.0 while 0.1.8 is published), that version is the pending release.
      - Do not bump again until it is published.
      - Run semver-checks against the last published version to confirm the pending number is enough.
      - Make sure the changelog covers everything since the last published version, not just this iteration.
-   - **Unpublished internal dependency.** If a published crate depends on an internal crate that has never been published (for example, `bevy_fairy` on `bevy_fairy`), crates.io will reject it. Stop, prepare both, and flag the first publish of the new name for the human.
+   - **Pushed but unpublished.** If `origin/main` is ahead of the last published version, this release covers everything since then, and the changelog says so.
    - **docs.rs features.** If `[package.metadata.docs.rs]` enables `all-features`, or lists a feature that doesn't compile, docs.rs will fail. That blocks the release until the feature compiles or is removed from the docs.rs list.
 1. **Decide the version** with `cargo semver-checks check-release` for each published crate. Install it with `cargo install cargo-semver-checks --locked` if missing.
    - These crates are pre-1.0, so a version is written 0.MINOR.PATCH.
@@ -413,24 +414,24 @@ Release when this iteration changed published crate code or metadata. Do not rel
 4. **Tag and push.**
    - Create an annotated tag `v<version>`, or `<crate>-v<version>` per crate.
    - Push the commit and tag to the default branch.
-   - If `AGENTS.md` forbids pushing, stop here with the release prepared.
+   - Pushing is part of every iteration, release or not. If `origin/main` has commits you don't have, merge them in (never rebase pushed history, never force-push), rerun the gate if the merge touched code, then push.
 5. **Publish**, using the first channel that applies:
    - **CI with trusted publishing.** Preferred. Use it if `.github/workflows/release.yml` exists and runs `rust-lang/crates-io-auth-action` on tag push. Pushing the tag triggers it. Watch with `gh run watch`. On failure, report it, and never fall back to a local publish of the same version.
-   - **Local publish.** Use this only if no workflow exists, `AGENTS.md` permits local publishing, and `CARGO_REGISTRY_TOKEN` is set. Never print, log, or write the token.
-   - **Neither.** Stop with the tag pushed, and log a must-fix item to set up trusted publishing. That needs the human for crates.io configuration.
+   - **Local publish.** Use this when no trusted-publishing workflow exists, or for a crate's first version (see below), with the token from `CARGO_REGISTRY_TOKEN` or `cargo login`'s credentials file. Never print, log, or write the token.
+   - **Neither.** If no channel works (no workflow, no usable token), stop with the tag pushed, and log a must-fix item naming what the human must provide.
 
-   **New crate names.** If a crate in the workspace has never been published (for example `bevy_fairy`), do not publish it. Prepare it, and flag it for the human, who must approve the first publish of a new name.
+   **First publish of a crate name.** crates.io trusted publishing cannot create a crate: its OIDC tokens are refused for a name that does not exist yet, and a trusted publisher can only be configured for a crate that does. So a crate's first version goes out by local publish. The human approved publishing `bevy_fairy` for the first time (2026-10-23). Any *other* new crate name still needs the human's OK.
 6. **Verify.**
    - `cargo info <crate>@<version>` resolves.
    - `cargo install bevy_fairy --version <version> --locked` succeeds in a scratch `CARGO_HOME`, under the memory cap.
    - The installed binary answers `tools/list`.
    - Record the crates.io and docs.rs URLs. The next iteration checks the docs.rs build.
 
-**After publishing:** fix a broken release forward with a patch, and flag it so the human can decide about yanking. Never reuse a version number.
+**After publishing:** fix a broken release forward with a patch, and flag it so the human can decide about yanking. Never reuse a version number. After the first publish of a crate name, log a must-fix item for the human to add the trusted publisher on crates.io, so later releases go through CI.
 
 ## Phase 7: Update the installed server
 
-After a release, or after any merged change if no release was made:
+After every iteration, from the commit you pushed:
 - Rebuild the installed server from the commit you just pushed, under the memory cap:
   ```
   cargo install --path . --locked --force
@@ -588,5 +589,6 @@ iteration report.
 - [ ] No step was retried more than twice. Repeated failures are logged in `last_failure`.
 - [ ] Docs and server instructions match the code, and stale text was deleted.
 - [ ] Metrics updated. Every increase has a reason.
-- [ ] Release published and verified, or the reason there wasn't one is recorded. No new crate name was published without the human's OK. Nothing was yanked, republished, or published dirty.
+- [ ] The iteration's commits are pushed to `origin/main`. A release is published and verified, or nothing that goes into the package changed and the report says so. Nothing was yanked, republished, force-pushed, or published dirty.
+- [ ] README, CHANGELOG, CLAUDE.md and the docs under `docs/` describe what this iteration shipped.
 - [ ] Installed server matches. No processes left running. Nothing outside the repo was deleted.
