@@ -9,7 +9,8 @@ use std::process::{Command, Stdio};
 
 use serde_json::{json, Value};
 
-fn tool_names() -> Vec<String> {
+/// The tools as the real binary lists them over stdio.
+fn listed_tools() -> Vec<Value> {
     let mut child = Command::new(env!("CARGO_BIN_EXE_bevy-fairy"))
         .arg("--stdio")
         // Nothing listens here; listing tools does not need a game.
@@ -48,9 +49,11 @@ fn tool_names() -> Vec<String> {
     let _ = child.kill();
     let _ = child.wait();
 
-    reply["result"]["tools"]
-        .as_array()
-        .expect("tools/list returns tools")
+    reply["result"]["tools"].as_array().expect("tools/list returns tools").clone()
+}
+
+fn tool_names() -> Vec<String> {
+    listed_tools()
         .iter()
         .map(|tool| tool["name"].as_str().expect("a tool has a name").to_string())
         .collect()
@@ -85,3 +88,38 @@ fn stress_test_is_not_offered() {
         "stress_test is listed again: {names:?}"
     );
 }
+
+/// Every name a tool's description puts in backticks must exist: a field of that tool, a value its
+/// schema lists, or another tool. An agent reads the description first and sends what it names.
+/// `detect_anomaly` said `detect` "looks for the kind named in `detection_type`", a field its
+/// request type does not have and refuses as unknown.
+#[test]
+fn every_name_a_tool_description_puts_in_backticks_exists() {
+    let tools = listed_tools();
+    let tool_names: Vec<&str> = tools.iter().filter_map(|t| t["name"].as_str()).collect();
+    let mut missing = Vec::new();
+    for tool in &tools {
+        let name = tool["name"].as_str().unwrap_or_default();
+        let description = tool["description"].as_str().unwrap_or_default();
+        let schema = &tool["inputSchema"];
+        let schema_text = schema.to_string();
+        let fields: Vec<&str> = schema["properties"]
+            .as_object()
+            .map(|props| props.keys().map(String::as_str).collect())
+            .unwrap_or_default();
+        for quoted in description.split('`').skip(1).step_by(2) {
+            let word = quoted.split_whitespace().next().unwrap_or_default();
+            let known = fields.contains(&word)
+                || tool_names.contains(&word)
+                || schema_text.contains(&format!("`{word}`"));
+            if !known {
+                missing.push(format!("`{name}` names `{word}`"));
+            }
+        }
+    }
+    assert!(
+        missing.is_empty(),
+        "tool descriptions name things the tools do not have: {missing:?}"
+    );
+}
+

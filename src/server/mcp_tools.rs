@@ -593,7 +593,7 @@ impl BevyDebuggerTools {
     }
 
     /// Detect anomalies in game behavior
-    #[tool(description = "Detect anomalies in game behavior, performance, and state. `action` picks the operation; `detect` looks for the kind named in `detection_type`, with the thresholds below.")]
+    #[tool(description = "Look for anomalies in the game's entities. `action` picks the operation; `detect` reads every entity once and runs the detectors over them with the thresholds below. A detection is a lead to check, not a verdict.")]
     pub async fn detect_anomaly(&self, Parameters(req): Parameters<AnomalyRequest>) -> Result<CallToolResult, McpError> {
         debug!("Running anomaly action: {}", req.action);
 
