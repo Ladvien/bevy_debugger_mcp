@@ -15,7 +15,7 @@ use axum::{extract::State, routing::post, Json, Router};
 use bevy_fairy::server::brp_client::BrpClient;
 use bevy_fairy::server::config::Config;
 use bevy_fairy::server::mcp_tools::{
-    AnomalyRequest, BevyDebuggerTools, ExperimentRequest, HypothesisRequest,
+    AnomalyRequest, BevyDebuggerTools, BrpCallRequest, ExperimentRequest, HypothesisRequest,
 };
 use rmcp::handler::server::tool::Parameters;
 use rmcp::model::CallToolResult;
@@ -41,6 +41,11 @@ async fn answer(State(game): State<SharedGame>, body: String) -> Json<Value> {
     {
         let mut game = game.lock().expect("fake game lock");
         game.calls.push((method.clone(), params.clone()));
+    }
+
+    // A game that answers, but not with a JSON-RPC reply this server can read.
+    if method == "fake.unreadable" {
+        return Json(json!({"not": "a json-rpc reply"}));
     }
 
     let result = match method.as_str() {
@@ -264,4 +269,27 @@ async fn an_unparseable_observe_query_comes_back_as_a_tool_error() {
     let text = text_of(&result);
     assert!(text.contains("Query parsing failed"), "text: {text}");
     assert_eq!(result.is_error, Some(true), "the refusal must set isError; text: {text}");
+}
+
+/// A game that answered did answer, even when this server cannot read the reply. `brp` used to
+/// map every client error to "no game answering", so an agent concluded the game was down and
+/// stopped looking (eval transcript, spinner_stops, 2026-10-23).
+#[tokio::test]
+async fn an_unreadable_answer_is_not_reported_as_no_game() {
+    let game: SharedGame = Arc::new(Mutex::new(FakeGame::default()));
+    let port = start_fake_game(game.clone()).await;
+    let tools = tools_for(port);
+
+    let result = tools
+        .brp(request::<BrpCallRequest>(json!({"method": "fake.unreadable"})))
+        .await
+        .expect("brp returns a result");
+
+    let text = text_of(&result);
+    assert_eq!(result.is_error, Some(true), "an unreadable answer is a failed call; text: {text}");
+    assert!(
+        !text.contains("no game answering"),
+        "the fake game answered, so the error must not say nothing did; text: {text}"
+    );
+    assert!(text.contains("fake.unreadable"), "the error should name the method; text: {text}");
 }

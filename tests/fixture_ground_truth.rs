@@ -339,3 +339,30 @@ async fn a_missing_screenshot_method_names_the_feature_that_registers_it() {
         "the error must name the `plugin-screenshot` feature that registers the method; got: {text}"
     );
 }
+
+/// A watching method (`world.get_components+watch`) streams a new answer every time the value
+/// changes; `brp` returns one answer per call. It used to time out reading the stream and report
+/// "no game answering" while the fixture was answering every other call -- an eval agent read that
+/// and concluded the game was down. The refusal must say what the method is and what to call.
+#[tokio::test(flavor = "multi_thread")]
+async fn a_watching_method_through_brp_is_refused_for_what_it_is() {
+    let port = start_fixture();
+    let tools = tools_for(port);
+    wait_until_ready(&tools).await;
+
+    let request: BrpCallRequest = serde_json::from_value(json!({
+        "method": "world.get_components+watch",
+        "params": {"entity": 0, "components": ["fixture_game::Spinner"]},
+    }))
+    .expect("the request deserialises");
+    let text = agent_visible_text(tools.brp(Parameters(request)).await);
+
+    assert!(
+        !text.contains("no game answering"),
+        "the fixture is answering, so the refusal must not say it is not; got: {text}"
+    );
+    assert!(
+        text.contains("+watch") && text.contains("world.get_components`"),
+        "the refusal must name the watching method and the one-shot method to call instead; got: {text}"
+    );
+}

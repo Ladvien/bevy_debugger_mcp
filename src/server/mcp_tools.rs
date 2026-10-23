@@ -373,7 +373,8 @@ fn default_capture_path() -> PathBuf {
 
 impl BevyDebuggerTools {
     /// One BRP call to the game. The `Err` is the text an agent reads: the no-game message when
-    /// nothing answers, or the game's own error message verbatim.
+    /// nothing answers, the game's own error message verbatim, or -- when the game answered with
+    /// something this server cannot read as one JSON-RPC reply -- a message that says exactly that.
     async fn call_game(&self, method: &str, params: Option<Value>) -> Result<Value, String> {
         let request = BrpRequest { method: method.to_string(), id: Some(Value::from(1)), params };
         let mut client = self.brp_client.write().await;
@@ -382,6 +383,14 @@ impl BevyDebuggerTools {
                 BrpPayload::Result(value) => Ok(value),
                 BrpPayload::Error(err) => Err(crate::server::brp::refusal_text(method, &err)),
             },
+            // The client marks itself connected once the game has answered with a success
+            // status; a reply it then fails to read is still an answer, and "no game answering"
+            // would send the agent off to restart a game that is running.
+            Err(e) if client.is_connected() => Err(format!(
+                "bevy-fairy: the game at {} answered `{method}`, but not with one JSON-RPC reply \
+                 this server can read: {e}",
+                client.url()
+            )),
             Err(e) => {
                 debug!("BRP call {method} did not reach the game: {e}");
                 Err(no_game_text(client.url()))
@@ -676,8 +685,18 @@ impl BevyDebuggerTools {
     }
 
     /// Call any Bevy Remote Protocol method the game serves
-    #[tool(description = "Call any Bevy Remote Protocol method the game serves, for example world.query or registry.schema, and return its result. Use `run` for the game's own commands.")]
+    #[tool(description = "Call any Bevy Remote Protocol method the game serves, for example world.query or registry.schema, and return its result. Use `run` for the game's own commands. Watching methods (names ending in +watch) are refused: they stream, and this returns one answer per call.")]
     pub async fn brp(&self, Parameters(req): Parameters<BrpCallRequest>) -> Result<CallToolResult, McpError> {
+        // A watching method answers with a stream that never ends; reading it as one reply timed
+        // out and was reported as "no game answering". Say what it is and what to call instead.
+        if let Some(one_shot) = req.method.strip_suffix("+watch") {
+            return tool_err(format!(
+                "`{}` is a watching method: the game streams a new answer every time the value \
+                 changes, and `brp` returns one answer per call, so it cannot read it. Call \
+                 `{one_shot}` again to see a later value.",
+                req.method
+            ));
+        }
         match self.call_game(&req.method, req.params).await {
             Ok(value) => tool_ok(value.to_string()),
             Err(text) => tool_err(text),
