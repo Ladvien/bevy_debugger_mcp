@@ -36,7 +36,7 @@ use tracing::debug;
 
 use crate::server::brp::{refusal_text, BrpPayload, BrpRequest};
 use crate::server::brp_client::BrpClient;
-use crate::server::error::Error;
+use crate::server::error::{Error, Result};
 
 /// The BRP method the companion plugin registers.
 const GUIDE_METHOD: &str = "bevy_fairy/guide";
@@ -45,13 +45,7 @@ const GUIDE_METHOD: &str = "bevy_fairy/guide";
 ///
 /// Thin on purpose: the plugin owns the script, the transcript and the overlay, so a second copy of
 /// any of that here would be a second source of truth for the state a person is looking at.
-///
-/// The error is boxed: `Error` is large enough that clippy's `result_large_err` flags returning it
-/// by value, and this is the one place in this file that returns it.
-pub async fn handle(
-    arguments: Value,
-    brp_client: Arc<RwLock<BrpClient>>,
-) -> std::result::Result<Value, Box<Error>> {
+pub async fn handle(arguments: Value, brp_client: Arc<RwLock<BrpClient>>) -> Result<Value> {
     debug!("guide request: {arguments}");
 
     let request = BrpRequest {
@@ -69,9 +63,9 @@ pub async fn handle(
         BrpPayload::Result(value) => Ok(value),
         // `refusal_text` names the feature that registers the method, because "method not found"
         // has exactly one cause here and an agent that reads it bare debugs its own JSON instead.
-        BrpPayload::Error(err) => Err(Box::new(Error::Validation(format!(
+        BrpPayload::Error(err) => Err(Error::Validation(format!(
             "the app refused `{GUIDE_METHOD}`: {}",
             refusal_text(GUIDE_METHOD, &err)
-        )))),
+        ))),
     }
 }
