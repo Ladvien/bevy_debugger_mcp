@@ -118,7 +118,9 @@ fn dress_mover(
         transform.translation.z = 2.0;
         commands.entity(entity).insert((
             Mesh3d(meshes.add(Sphere::new(0.5))),
-            MeshMaterial3d(materials.add(StandardMaterial::from_color(Color::srgb(0.25, 0.45, 0.9)))),
+            MeshMaterial3d(
+                materials.add(StandardMaterial::from_color(Color::srgb(0.25, 0.45, 0.9))),
+            ),
         ));
     }
 }
@@ -133,7 +135,9 @@ fn dress_spinner(
     for entity in &spinners {
         commands.entity(entity).insert((
             Mesh3d(meshes.add(Cuboid::new(1.5, 1.5, 1.5))),
-            MeshMaterial3d(materials.add(StandardMaterial::from_color(Color::srgb(0.3, 0.75, 0.4)))),
+            MeshMaterial3d(
+                materials.add(StandardMaterial::from_color(Color::srgb(0.3, 0.75, 0.4))),
+            ),
             Transform::from_xyz(2.0, 3.0, 0.0),
         ));
     }
@@ -166,7 +170,9 @@ fn main() {
                 // WinitPlugin panics without a display server; ScheduleRunnerPlugin drives frames.
                 .disable::<WinitPlugin>(),
         )
-        .add_plugins(ScheduleRunnerPlugin::run_loop(Duration::from_secs_f64(1.0 / fps)))
+        .add_plugins(ScheduleRunnerPlugin::run_loop(Duration::from_secs_f64(
+            1.0 / fps,
+        )))
         // Owns the BRP RemotePlugin. Never add a second RemotePlugin next to it.
         .add_plugins(DebuggerPlugin::default())
         .add_plugins(RemoteHttpPlugin::default().with_port(port))
@@ -179,9 +185,12 @@ fn main() {
         })
         .insert_resource(ClearColor(Color::srgb(0.10, 0.11, 0.15)))
         .add_debug_command(
-            DebugCommandInfo::new("demo/spawn_cube", "Spawn a purple cube at a world position in metres")
-                .params("at: [x, y, z], the cube's centre in metres")
-                .example(json!({ "at": [0.0, 0.5, 0.0] })),
+            DebugCommandInfo::new(
+                "demo/spawn_cube",
+                "Spawn a purple cube at a world position in metres",
+            )
+            .params("at: [x, y, z], the cube's centre in metres")
+            .example(json!({ "at": [0.0, 0.5, 0.0] })),
             spawn_cube,
         )
         .add_systems(Startup, (fixture_game::spawn_world, setup_view))
