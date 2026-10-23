@@ -31,6 +31,34 @@ pub use bevy_remote::BrpPayload;
 
 pub use bevy_remote::builtin_methods;
 
+/// The plugin feature that registers a `bevy_fairy/*` method, or `None` for a method this crate
+/// does not own.
+fn feature_registering(method: &str) -> Option<&'static str> {
+    match method {
+        "bevy_fairy/screenshot" | "bevy_fairy/capture" => Some("plugin-screenshot"),
+        "bevy_fairy/guide" | "bevy_fairy/guide+watch" => Some("plugin-guide"),
+        other if other.starts_with("bevy_fairy/") => Some("plugin"),
+        _ => None,
+    }
+}
+
+/// What an agent reads when the game refused `method`.
+///
+/// A bare "Method `bevy_fairy/screenshot` not found" names neither the cause nor the fix, and an
+/// agent that reads it starts debugging its own JSON. There is exactly one cause for a missing
+/// `bevy_fairy/*` method: the game did not add `DebuggerPlugin`, or built it without the feature
+/// that registers that method. So name the feature.
+pub fn refusal_text(method: &str, error: &BrpError) -> String {
+    match (error.code, feature_registering(method)) {
+        (bevy_remote::error_codes::METHOD_NOT_FOUND, Some(feature)) => format!(
+            "{} — the game does not register `{method}`: add DebuggerPlugin, from bevy_fairy \
+             built with the `{feature}` feature",
+            error.message
+        ),
+        _ => error.message.clone(),
+    }
+}
+
 // ---------------------------------------------------------------------------
 // Wire response decoders/encoders
 //

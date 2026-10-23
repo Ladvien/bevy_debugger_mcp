@@ -34,7 +34,7 @@ use std::sync::Arc;
 use tokio::sync::RwLock;
 use tracing::debug;
 
-use crate::server::brp::{BrpPayload, BrpRequest};
+use crate::server::brp::{refusal_text, BrpPayload, BrpRequest};
 use crate::server::brp_client::BrpClient;
 use crate::server::error::{Error, Result};
 
@@ -61,15 +61,11 @@ pub async fn handle(arguments: Value, brp_client: Arc<RwLock<BrpClient>>) -> Res
 
     match response.payload {
         BrpPayload::Result(value) => Ok(value),
-        // **Name the likely cause, because there is exactly one that matters.** The method is
-        // registered by `DebuggerPlugin`, which the game and the editor only add behind their
-        // `debugger` feature. An agent that reads "method not found" and starts debugging its own
-        // JSON is looking in the wrong place.
+        // `refusal_text` names the feature that registers the method, because "method not found"
+        // has exactly one cause here and an agent that reads it bare debugs its own JSON instead.
         BrpPayload::Error(err) => Err(Error::Validation(format!(
-            "the app refused `{GUIDE_METHOD}`: {} — if this says the method is unknown, the app is \
-             running without DebuggerPlugin (the game needs `--features debugger`; the editor has \
-             it on by default)",
-            err.message
+            "the app refused `{GUIDE_METHOD}`: {}",
+            refusal_text(GUIDE_METHOD, &err)
         ))),
     }
 }

@@ -13,7 +13,9 @@ use std::time::{Duration, Instant};
 
 use bevy_fairy::server::brp_client::BrpClient;
 use bevy_fairy::server::config::Config;
-use bevy_fairy::server::mcp_tools::{BevyDebuggerTools, BrpCallRequest, NoArgs};
+use bevy_fairy::server::mcp_tools::{
+    BevyDebuggerTools, BrpCallRequest, GuideRequest, NoArgs, ScreenshotRequest,
+};
 use fixture_game::{CRATE_WEIGHTS, SCORE_POINTS};
 use rmcp::handler::server::tool::Parameters;
 use rmcp::model::CallToolResult;
@@ -281,5 +283,55 @@ async fn the_mover_travels_at_no_more_than_its_speed() {
         "the mover travelled {travelled} in {elapsed:.3} s of wall time; at {} units/s it can \
          travel at most {most:.3}",
         fixture_game::MOVER_SPEED
+    );
+}
+
+/// The text an agent sees, whether the tool answered with an error result or an RPC error.
+fn agent_visible_text(outcome: Result<CallToolResult, rmcp::Error>) -> String {
+    match outcome {
+        Ok(result) => text_of(&result),
+        Err(error) => error.message.to_string(),
+    }
+}
+
+/// The fixture is built with the plugin but without `plugin-guide`, so `bevy_fairy/guide` is
+/// not registered. The error must name that cause. It used to tell the agent "the game needs
+/// `--features debugger`; the editor has it on by default" -- a feature this crate does not
+/// have, for an editor this crate does not ship.
+#[tokio::test(flavor = "multi_thread")]
+async fn a_missing_guide_method_names_the_feature_that_registers_it() {
+    let port = start_fixture();
+    let tools = tools_for(port);
+    wait_until_ready(&tools).await;
+
+    let request: GuideRequest =
+        serde_json::from_value(json!({"read": true})).expect("the request deserialises");
+    let text = agent_visible_text(tools.guide(Parameters(request)).await);
+
+    assert!(
+        text.contains("plugin-guide"),
+        "the error must name the `plugin-guide` feature that registers the method; got: {text}"
+    );
+    assert!(
+        !text.contains("--features debugger") && !text.contains("editor"),
+        "the error must not prescribe a feature or an editor this crate does not have; got: {text}"
+    );
+}
+
+/// Same for capture: the fixture is built without `plugin-screenshot`. The error used to be
+/// the bare "Method `bevy_fairy/screenshot` not found", which names no cause and no fix.
+#[tokio::test(flavor = "multi_thread")]
+async fn a_missing_screenshot_method_names_the_feature_that_registers_it() {
+    let port = start_fixture();
+    let tools = tools_for(port);
+    wait_until_ready(&tools).await;
+
+    let request: ScreenshotRequest =
+        serde_json::from_value(json!({})).expect("the request deserialises");
+    let text = agent_visible_text(tools.screenshot(Parameters(request)).await);
+
+    assert!(
+        text.contains("plugin-screenshot"),
+        "the error must name the `plugin-screenshot` feature that registers the method; got: {text}"
     );
 }

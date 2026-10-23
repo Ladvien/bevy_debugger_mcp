@@ -418,7 +418,7 @@ impl BevyDebuggerTools {
         match client.send_request(&request).await {
             Ok(response) => match response.payload {
                 BrpPayload::Result(value) => Ok(value),
-                BrpPayload::Error(err) => Err(err.message),
+                BrpPayload::Error(err) => Err(crate::server::brp::refusal_text(method, &err)),
             },
             Err(e) => {
                 debug!("BRP call {method} did not reach the game: {e}");

@@ -97,6 +97,10 @@ Bevy plugin that was not published at all until now.
   "nothing happened".
 - **`tools/list` returns the tools sorted by name.** The order came from a `HashMap` in the
   router, so it changed on every launch — four launches gave four orders.
+- **A missing `bevy_fairy/*` method names the feature that registers it.** `screenshot`
+  answered a bare "Method `bevy_fairy/screenshot` not found", and `guide` told the agent to
+  build with `--features debugger`, a feature this crate does not have. Both now say which of
+  `plugin`, `plugin-screenshot` or `plugin-guide` the game was built without.
 - **The docs match the code.** `CLAUDE.md`, the README and `book/SCREENSHOT_SETUP.md` no
   longer tell a reader to hand-register a method the plugin already registers, and the
   capture description says what the code does: the fallback is to window capture, which is
