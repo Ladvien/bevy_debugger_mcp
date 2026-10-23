@@ -257,22 +257,6 @@
       "first_seen": "2026-10-21"
     },
     {
-      "id": "B-029",
-      "kind": "change",
-      "area": "release",
-      "title": "the `bevy_fairy` crate has never been published; publishing a new name is the human's decision",
-      "must_fix": {
-        "misleads": false,
-        "blocks": true,
-        "common_no_workaround": false,
-        "evidence": "crates.io returns 404 for `bevy_fairy`; `cargo publish --dry-run` passes"
-      },
-      "status": "open",
-      "evidence": "Prepared: the manifest, the changelog, the README's install section, and `.github/workflows/release.yml` for trusted publishing. The tag is not pushed and nothing is published. The human must (a) publish the crate name and (b) add the crates.io trusted publisher for the workflow.",
-      "last_failure": "",
-      "first_seen": "2026-10-21"
-    },
-    {
       "id": "B-030",
       "kind": "change",
       "area": "server",
@@ -303,6 +287,198 @@
       "evidence": "Before B-032 the plist silently fell into stdio mode with a closed stdin and exited; now it exits 2 naming `serve`. Fix with B-011/B-012: decide whether the server runs as a service at all (MCP clients spawn stdio servers), then delete or correct the plist and the doc.",
       "last_failure": "",
       "first_seen": "2026-10-22"
+    },
+    {
+      "id": "B-038",
+      "kind": "debt",
+      "area": "server",
+      "title": "delete the stress modules nothing reaches: src/server/tools/stress.rs, src/server/stress_test_system.rs, and their registrations in mcp_server.rs, tool_orchestration.rs and tools/orchestration.rs",
+      "must_fix": {
+        "misleads": false,
+        "blocks": false,
+        "common_no_workaround": false,
+        "evidence": "stress_test left tools/list in B-034; the only other caller is the legacy McpServer behind --tcp, which drops every connection (B-012)"
+      },
+      "status": "open",
+      "evidence": "A pure deletion, natural to do with the --tcp/legacy-server deletion.",
+      "last_failure": "",
+      "first_seen": "2026-10-23"
+    },
+    {
+      "id": "B-039",
+      "kind": "bug",
+      "area": "detect_anomaly",
+      "title": "detect_anomaly's description says `detect` looks for the kind named in `detection_type`; AnomalyRequest has no such field and denies unknown fields",
+      "must_fix": {
+        "misleads": true,
+        "blocks": false,
+        "common_no_workaround": false,
+        "evidence": "src/server/mcp_tools.rs `#[tool(description = ...)]` on detect_anomaly vs `pub struct AnomalyRequest` (deny_unknown_fields)"
+      },
+      "status": "open",
+      "evidence": "Loud, not silent: an agent that follows the description is refused, then has to guess. Logged rather than fixed this iteration for budget (4 must-fix bugs fixed plus the eval suite). A general check would compare every backticked name in a tool description with the tool's schema.",
+      "last_failure": "",
+      "first_seen": "2026-10-23"
+    },
+    {
+      "id": "B-040",
+      "kind": "bug",
+      "area": "docs",
+      "title": "README and docs/tools describe tools and features that do not exist: 'Internal Debug Commands (11 Integrated Tools)', 'all 6 debugging tools', `detect_anomaly \"frame_time\"`, a `bevy-fairy <tool>` CLI",
+      "must_fix": {
+        "misleads": true,
+        "blocks": false,
+        "common_no_workaround": false,
+        "evidence": "README.md 'Internal Debug Commands' section; docs/tools/README.md intro and quick-start"
+      },
+      "status": "open",
+      "evidence": "The stress_test prune (B-034) touched these files and left the rest; docs_drift does not check tool names in prose.",
+      "last_failure": "",
+      "first_seen": "2026-10-23"
+    },
+    {
+      "id": "B-041",
+      "kind": "bug",
+      "area": "brp",
+      "title": "a `+watch` method sent through `brp` fails with \"no game answering\" while the game is answering",
+      "must_fix": {
+        "misleads": true,
+        "blocks": false,
+        "common_no_workaround": false,
+        "evidence": "eval transcript evals/transcripts/2026-10-23-dcd9805/dev-spinner_stops.jsonl: brp `world.get_components+watch` -> \"bevy-fairy: no game answering at http://127.0.0.1:45783\"; the fixture was up and answered the next call. BrpClient::send_request_internal reads one JSON body (`response.json()`), a watching method streams, and call_game maps every client error to no_game_text"
+      },
+      "status": "open",
+      "evidence": "Found in this iteration's evals and logged for budget (Phase 1 already had five fixes). Fix: refuse `+watch` methods in `brp` with a message that names the limit, and keep no_game_text for connection failures only. A watch tool is the capability that would make these useful (B-045).",
+      "last_failure": "",
+      "first_seen": "2026-10-23"
+    },
+    {
+      "id": "B-042",
+      "kind": "debt",
+      "area": "ci",
+      "title": "`cargo fmt --all --check` reports 2689 diffs, so CI's fmt step is red on old code",
+      "must_fix": {
+        "misleads": false,
+        "blocks": false,
+        "common_no_workaround": false,
+        "evidence": "cargo fmt --all --check at 67d219d: exit 1, 2689 'Diff in' hunks; the step is in both PR #4's ci.yml and the loop's"
+      },
+      "status": "open",
+      "evidence": "A mechanical `cargo fmt --all` sweep is one iteration's change (generated, so outside the diff cap). Not in known_red, so the ratchet does not cover it.",
+      "last_failure": "",
+      "first_seen": "2026-10-23"
+    },
+    {
+      "id": "B-043",
+      "kind": "bug",
+      "area": "release",
+      "title": "add the crates.io trusted publisher for bevy_fairy, so releases after the first go through CI",
+      "must_fix": {
+        "misleads": false,
+        "blocks": true,
+        "common_no_workaround": false,
+        "evidence": "crates.io trusted publishing cannot create a crate; release.yml now authenticates with rust-lang/crates-io-auth-action, which fails until a publisher is configured"
+      },
+      "status": "blocked",
+      "evidence": "Needs the human: crates.io -> bevy_fairy -> Settings -> Trusted Publishing -> GitHub, repository Ladvien/bevy_fairy, workflow release.yml. Possible only once the first version is published.",
+      "last_failure": "",
+      "first_seen": "2026-10-23"
+    },
+    {
+      "id": "B-044",
+      "kind": "bug",
+      "area": "observe",
+      "title": "agents keep sending `observe` short queries it refuses (\"crate\", \"score\", \"all entities\")",
+      "must_fix": {
+        "misleads": false,
+        "blocks": false,
+        "common_no_workaround": false,
+        "evidence": "evals 2026-10-23: 3 of the 5 isError results in the dcd9805 dev run, and 1 of the 2 hidden refusals at a497577, are observe 'Query parsing failed' on short noun queries; every agent recovered through brp"
+      },
+      "status": "open",
+      "evidence": "Either the description should say the query grammar (it lists none) or observe should accept a bare component name. Candidate change; measure with the dev evals' invalid-call count.",
+      "last_failure": "",
+      "first_seen": "2026-10-23"
+    },
+    {
+      "id": "B-045",
+      "kind": "change",
+      "area": "watch",
+      "title": "a watch tool: agents poll the same query dozens of times to see a value change over frames",
+      "must_fix": {
+        "misleads": false,
+        "blocks": false,
+        "common_no_workaround": false,
+        "evidence": "evals 2026-10-23 spinner_stops: 52 calls with 31 repeats at a497577, 37 calls with 16 repeats at dcd9805; mover_speed 4-7 repeats"
+      },
+      "status": "open",
+      "evidence": "The plugin already serves streaming `+watch` methods (bevy_remote's watching requests); the server cannot read them (B-041). Capability change, priority 4, measured by spinner_stops and mover_speed tool calls.",
+      "last_failure": "",
+      "first_seen": "2026-10-23"
+    },
+    {
+      "id": "B-047",
+      "kind": "bug",
+      "area": "brp",
+      "title": "agents guess `registry.schema` params (`with_crates: null`) and get refused; `brp`'s description gives no shape for any method's params",
+      "must_fix": {
+        "misleads": false,
+        "blocks": false,
+        "common_no_workaround": false,
+        "evidence": "evals 2026-10-23: 8 brp game refusals over six dev runs, 4 of them registry.schema 'invalid type: null, expected a sequence' or 'boolean false, expected a sequence'"
+      },
+      "status": "open",
+      "evidence": "Every agent recovered on the next call. A one-line example per common method in the description, or a pointer to `rpc.discover`, would cut it; measure with the dev evals' isError count.",
+      "last_failure": "",
+      "first_seen": "2026-10-23"
+    },
+    {
+      "id": "B-048",
+      "kind": "bug",
+      "area": "tools",
+      "title": "handler `Err`s (guide refusals, experiment's missing `actions`, ...) come back as JSON-RPC internal errors, not as tool results with isError",
+      "must_fix": {
+        "misleads": false,
+        "blocks": false,
+        "common_no_workaround": false,
+        "evidence": "src/server/mcp_tools.rs: every wrapper maps `Err(e)` to `McpError::internal_error`; src/server/tools/guide.rs returns `Error::Validation` for an app refusal. Found by the 2026-10-23 review"
+      },
+      "status": "open",
+      "evidence": "Still an error signal, so not a lie, but MCP clients may hide protocol errors from the model while they always show isError results. Map Validation to tool_err.",
+      "last_failure": "",
+      "first_seen": "2026-10-23"
+    },
+    {
+      "id": "B-049",
+      "kind": "bug",
+      "area": "evals",
+      "title": "held-out `entities_with_game_components` has a disputed truth (8 or 9) and passed on a hedge; the held-out set overlaps what dev sessions read",
+      "must_fix": {
+        "misleads": true,
+        "blocks": false,
+        "common_no_workaround": false,
+        "evidence": "2026-10-23 review: both held-out runs answered **9** (the Score resource entity counts in Bevy 0.20, where resources are entities) and passed on a trailing 'the number is 8'; number facts pass if any number in the answer is in range (evals/run.py score_fact)"
+      },
+      "status": "blocked",
+      "evidence": "Held-out tasks are protected checks: changing one needs the human. Proposed: settle the truth (reword to 'spawned entities, not resources' or accept 9), score the headline number, and base held-out tasks on fixture state the dev tasks never read. Until then held-out reads 2/3 clean + 1 disputed on both servers.",
+      "last_failure": "",
+      "first_seen": "2026-10-23"
+    },
+    {
+      "id": "B-051",
+      "kind": "bug",
+      "area": "ratchet",
+      "title": "the ratchet's touched-file check passed tools/guide.rs while clippy reported a result_large_err in it",
+      "must_fix": {
+        "misleads": true,
+        "blocks": false,
+        "common_no_workaround": false,
+        "evidence": "scripts/ratchet.sh with tools/guide.rs as a touched file: 'ratchet: OK'; `cargo clippy --all-targets --message-format=short` on the same code: 'warning: the `Err`-variant returned from this function is very large --> src/server/tools/guide.rs:48:78'; guide.rs is not in known_red.clippy_by_file, so the baseline allowed 0"
+      },
+      "status": "open",
+      "evidence": "Hypothesis, unconfirmed: measure_clippy_files attributes a warning to `.message.spans[0].file_name`, which need not be the primary span (result_large_err may list the large variant's span first). Fix: select the span with is_primary == true, then re-check that every per-file count still matches known_red. The guide.rs warning itself was fixed after the release.",
+      "last_failure": "",
+      "first_seen": "2026-10-23"
     }
   ]
 }

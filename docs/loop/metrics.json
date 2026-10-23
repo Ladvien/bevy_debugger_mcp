@@ -1,11 +1,11 @@
 {
-  "measured_at": "2026-10-22",
-  "sha": "adcbdf0",
+  "measured_at": "2026-10-23",
+  "sha": "a1ff3ae",
   "server": {
-    "loc": 51212,
+    "loc": 51187,
     "direct_dependencies": 53,
     "public_modules": 72,
-    "mcp_tools": 14,
+    "mcp_tools": 13,
     "release_binary_bytes": 99925248,
     "note": "The server half of the one crate, in src/server/. Its dependencies are all optional and behind the `server` feature."
   },
@@ -31,10 +31,18 @@
     "direct_dependencies_note": "The baseline said 50; the manifest at e93da67 actually had 51. The count is the number of entries in [dependencies], by name. The one added since is `schemars`, which `rmcp` already depended on and which resolves to 0.8.22 in the lockfile, so there is one copy, not two."
   },
   "evals": {
-    "dev_success_rate": null,
-    "heldout_success_rate": null,
-    "mean_tool_calls_per_solved_task": null,
-    "note": "No eval suite exists yet. The loop's bootstrapping rule makes creating it the first iteration's change."
+    "model": "claude-sonnet-5-5 (omp -p, isolated: only mcp__fairy_* tools declared in every request)",
+    "dev_success_rate": 1.0,
+    "heldout_success_rate": 1.0,
+    "heldout_clean_success_rate": 0.667,
+    "mean_tool_calls_per_solved_task": 11.8,
+    "dev_is_error_results_per_run": [
+      5,
+      7,
+      3
+    ],
+    "runs": "three dev runs on each of a497577 (before) and dcd9805 (after); one held-out run on each; 42 records in docs/loop/evals.jsonl",
+    "note": "First measurement. Before: dev 6/6 x3, mean calls 13.7/12.5/9.2, isError 0/0/1 with 2/3/2 refusals hidden in success bodies. After: dev 6/6 x3, mean calls 12.2/12.0/11.3, isError 5/7/3 (refusals now visible; 6 brp game refusals of agent guesses and 1 B-041). Held-out 3/3 on both, but entities_with_game_components passed on a hedge and its truth is disputed (B-049), so 2/3 clean."
   },
   "notes": [
     "known_red is the frozen debt the ratchet gate compares against. Recorded at sha e93da67 with `scripts/ratchet.sh --record`.",
@@ -48,7 +56,8 @@
     "server loc 51268 -> 51212 and plugin loc 2603 -> 2604. The merge moved files and did not write new logic; the plugin's one line is the `text` fence on its example.",
     "clippy 1452 -> 1451. The `unused_mut` in `get_active_feature_flags` is gone, and a doctest that was `ignore` is a text block now.",
     "direct dependencies 52 -> 53: `image`, promoted from the plugin crate. A game that takes the plugin compiles 4 direct dependencies, not 53 -- Cargo resolves dependencies per feature.",
-    "2026-10-22: the fixture game and its ground-truth tests exist. They are the only behavioural gate until the eval suite exists."
+    "2026-10-22: the fixture game and its ground-truth tests exist. They are the only behavioural gate until the eval suite exists.",
+    "2026-10-23: stress_test left tools/list (14 -> 13 tools); server loc 51212 -> 51187. The eval suite exists: dev and held-out success are measured from here on (see evals)."
   ],
   "known_red": {
     "recorded_at": "2026-10-21",

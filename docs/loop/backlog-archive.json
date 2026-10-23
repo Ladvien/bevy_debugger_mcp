@@ -237,6 +237,125 @@
       "last_failure": "",
       "first_seen": "2026-10-22",
       "fixed_at": "2026-10-22"
+    },
+    {
+      "id": "B-034",
+      "kind": "bug",
+      "area": "stress_test",
+      "title": "stress_test answered `success: true` while every operation it sent failed, reported random numbers as frame-time percentiles and CPU, and ignored `duration`",
+      "must_fix": {
+        "misleads": true,
+        "blocks": false,
+        "common_no_workaround": false,
+        "evidence": "src/server/stress_test_system.rs:784-797 pushed `16.67 + rand*10` into frame_times_ms and `50 + rand*30` into cpu_usage_percent; spawns used `Transform`, `Health`, `Component_0`; tests/fixture_ground_truth.rs (failing-first run) measured 30.12 s for `duration: 1.0`"
+      },
+      "status": "fixed",
+      "evidence": "Removed from tools/list (the loop's Phase 1 rule for a tool that cannot be made honest in one iteration); docs/tools/stress_test.md deleted with the human's OK; docs pruned. tests/tool_list.rs::stress_test_is_not_offered. The modules stay for a deletion iteration (B-038).",
+      "last_failure": "",
+      "first_seen": "2026-10-23",
+      "fixed_at": "2026-10-23"
+    },
+    {
+      "id": "B-035",
+      "kind": "bug",
+      "area": "server",
+      "title": "tools/list returned the tools in a different order on every launch",
+      "must_fix": {
+        "misleads": true,
+        "blocks": false,
+        "common_no_workaround": false,
+        "evidence": "4 launches gave 4 orders; rmcp 0.2.1 `#[tool_handler]` returns `ToolRouter::list_all()`, the values of a HashMap (rmcp-0.2.1/src/handler/server/router/tool.rs:248); the tool contract requires a deterministic order"
+      },
+      "status": "fixed",
+      "evidence": "list_tools written out and sorted by name. tests/tool_list.rs::tools_are_listed_by_name_and_in_the_same_order_every_launch failed first (unsorted list) and passes.",
+      "last_failure": "",
+      "first_seen": "2026-10-23",
+      "fixed_at": "2026-10-23"
+    },
+    {
+      "id": "B-036",
+      "kind": "bug",
+      "area": "screenshot, guide",
+      "title": "a missing bevy_fairy method gave no fix: screenshot said a bare 'Method not found', guide prescribed `--features debugger`, which this crate does not have",
+      "must_fix": {
+        "misleads": true,
+        "blocks": false,
+        "common_no_workaround": true,
+        "evidence": "live pass against the fixture (built without plugin-screenshot/plugin-guide); src/server/tools/guide.rs:69-71"
+      },
+      "status": "fixed",
+      "evidence": "server::brp::refusal_text names plugin / plugin-screenshot / plugin-guide on METHOD_NOT_FOUND. tests/fixture_ground_truth.rs::a_missing_{guide,screenshot}_method_names_the_feature_that_registers_it failed first and pass.",
+      "last_failure": "",
+      "first_seen": "2026-10-23",
+      "fixed_at": "2026-10-23"
+    },
+    {
+      "id": "B-037",
+      "kind": "bug",
+      "area": "observe, detect_anomaly, hypothesis, experiment, replay",
+      "title": "handler refusals (unknown action, unparseable query, game refusal) came back as successful tool results with an `error` key in the body",
+      "must_fix": {
+        "misleads": true,
+        "blocks": false,
+        "common_no_workaround": true,
+        "evidence": "live pass: observe 'Query parsing failed' with isError false; the tool contract says failures come back as tool errors"
+      },
+      "status": "fixed",
+      "evidence": "mcp_tools::handler_result sets isError when the body has a non-null top-level `error`. tests/tool_contract.rs::an_unparseable_observe_query_comes_back_as_a_tool_error and the isError assertion in an_unknown_action_is_refused_with_the_valid_ones failed first and pass. Not guide: its refusals were already Err, returned as a JSON-RPC error (B-048).",
+      "last_failure": "",
+      "first_seen": "2026-10-23",
+      "fixed_at": "2026-10-23"
+    },
+    {
+      "id": "B-046",
+      "kind": "bug",
+      "area": "release",
+      "title": "release.yml published with no token, and its verify step checked the local manifest, so it could not fail",
+      "must_fix": {
+        "misleads": true,
+        "blocks": true,
+        "common_no_workaround": false,
+        "evidence": ".github/workflows/release.yml Publish step had no CARGO_REGISTRY_TOKEN and a comment saying cargo mints one from OIDC; `cargo info bevy_fairy` inside the workspace prints `version: 0.2.0 (from ./)` while the crate is not on crates.io"
+      },
+      "status": "fixed",
+      "evidence": "763f93a: rust-lang/crates-io-auth-action@v1 supplies the token; the crates.io API decides whether the version exists (skip when already published, fail the verify when not).",
+      "last_failure": "",
+      "first_seen": "2026-10-23",
+      "fixed_at": "2026-10-23"
+    },
+    {
+      "id": "B-029",
+      "kind": "change",
+      "area": "release",
+      "title": "the `bevy_fairy` crate has never been published; publishing a new name is the human's decision",
+      "must_fix": {
+        "misleads": false,
+        "blocks": true,
+        "common_no_workaround": false,
+        "evidence": "crates.io returns 404 for `bevy_fairy`; `cargo publish --dry-run` passes"
+      },
+      "status": "fixed",
+      "evidence": "Prepared: the manifest, the changelog, the README's install section, and `.github/workflows/release.yml` for trusted publishing. The tag is not pushed and nothing is published. The human must (a) publish the crate name and (b) add the crates.io trusted publisher for the workflow. Published 2026-10-23 17:52 UTC by local publish (the human approved the first publish of the name); https://crates.io/crates/bevy_fairy/0.2.0. The trusted publisher for later versions is B-043.",
+      "last_failure": "",
+      "first_seen": "2026-10-21",
+      "fixed_at": "2026-10-23"
+    },
+    {
+      "id": "B-050",
+      "kind": "bug",
+      "area": "release",
+      "title": "release.yml's test step could not build on ubuntu-latest: no Wayland headers",
+      "must_fix": {
+        "misleads": false,
+        "blocks": true,
+        "common_no_workaround": false,
+        "evidence": "run 39995892130 (tag v0.2.0): 'failed to run custom build command for wayland-sys v0.31.8' in 'Run the test suite'; the apt step installed only libasound2-dev, libudev-dev and pkg-config"
+      },
+      "status": "fixed",
+      "evidence": "libwayland-dev and libxkbcommon-dev added to the apt step. The v0.2.0 tag's run stays red; 0.2.0 itself was published locally and is unaffected. The next tag's run is the check.",
+      "last_failure": "",
+      "first_seen": "2026-10-23",
+      "fixed_at": "2026-10-23"
     }
   ]
 }
