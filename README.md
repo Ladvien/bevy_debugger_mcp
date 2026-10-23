@@ -27,6 +27,24 @@ coding agent ──MCP over stdio──▶ bevy-fairy ──BRP over HTTP :15702
 > This crate was written by an AI agent working from a human's direction. It is tested against a
 > fixture game and used against a real one, but it has had no line-by-line human audit.
 
+## See it work
+
+**A scripted tour.** Every reply is the real server's output; every picture is the game frame its
+`screenshot` tool returned. The game runs at 10 fps here so the planted bug — the spinner stops at
+frame 120 — happens mid-tour.
+
+![MCP tool calls beside the game frames they captured](https://raw.githubusercontent.com/Ladvien/bevy_fairy/main/docs/media/mcp-tour.gif)
+
+**A real agent session.** Claude, with no tools but these, told that something in the game which
+should spin forever stops, and asked what it is, which of its values stops changing, and on what
+frame. The script runs that question as the `spinner_stops` eval up to three times and draws the
+first session that passes; it never draws one that failed.
+
+![An agent finding the frame the spinner stops on](https://raw.githubusercontent.com/Ladvien/bevy_fairy/main/docs/media/agent-session.gif)
+
+Both are recorded from [`examples/demo_game.rs`](https://github.com/Ladvien/bevy_fairy/blob/main/examples/demo_game.rs)
+by `python3 scripts/record_demo.py all`.
+
 ## Why
 
 An agent that debugs a game by reading source code is guessing. It needs to see the game's actual
@@ -285,6 +303,7 @@ None of these need a window or a GPU unless noted. Each prints what happened.
 | `cargo run --features plugin-guide --example plugin_guided_steps_land` | A three-step guide script, driven to completion |
 | `cargo run --features plugin-screenshot --example plugin_agent_scene` | A small game with a command and an offscreen capture target (opens a window) |
 | `cargo run --features plugin --example fixture_game` | The headless game the tests and evals check the tools against |
+| `cargo run --features plugin-screenshot --example demo_game` | The fixture game rendered offscreen, headless; the GIFs above are recorded from it |
 
 ## Development
 

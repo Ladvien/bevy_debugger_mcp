@@ -208,8 +208,8 @@ def kill_group(proc):
         pass
 
 
-def start_fixture(fixture_bin, port, log_path):
-    env = dict(os.environ, FIXTURE_PORT=str(port), FIXTURE_FPS=FIXTURE_FPS)
+def start_fixture(fixture_bin, port, log_path, fps=FIXTURE_FPS):
+    env = dict(os.environ, FIXTURE_PORT=str(port), FIXTURE_FPS=str(fps))
     log = open(log_path, "wb")
     proc = subprocess.Popen([str(fixture_bin)], env=env, stdin=subprocess.DEVNULL, stdout=log,
                             stderr=subprocess.STDOUT, start_new_session=True)

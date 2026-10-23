@@ -172,6 +172,13 @@ cargo run --example fixture_game --features plugin    # FIXTURE_PORT, FIXTURE_FP
 Things that need a window -- a UI button, a pickable object, a text field -- are not in it yet,
 because nothing headless can click them honestly.
 
+`examples/demo_game.rs` is the same world rendered offscreen, still headless, and it is what the
+README's GIFs are recorded from (`scripts/record_demo.py`). It includes `fixture_game.rs` by
+`#[path]` and calls its systems, which is why `spawn_world`, `move_mover`, `spin` and `env_or`
+are `pub`; it only adds meshes, a camera, a light and `demo/spawn_cube`, and must never write a
+fixture value. Rendering's first frames are black, so a capture taken in the first second or two
+shows only the clear colour.
+
 ## The evals ask an agent, not a test
 
 `evals/run.py` runs a fresh headless `omp` session per task, against the fixture, with only this
