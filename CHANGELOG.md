@@ -33,10 +33,10 @@ Bevy plugin that was not published at all until now.
   `bevy_debugger_mcp` 0.1.8 stays published and is not yanked. It will not receive further
   releases; this is the one that replaces it.
 
-- **The `experiment`, `hypothesis`, `detect_anomaly` and `stress_test` tools take different
-  arguments.** Each tool's parameters are now generated from the same Rust type its handler
-  parses, so the advertised schema and the handler cannot drift apart again. The old schemas
-  advertised `experiment_type`, `hypothesis`, `detection_type` and `test_type`; the handlers
+- **The `experiment`, `hypothesis` and `detect_anomaly` tools take different arguments.**
+  Each tool's parameters are now generated from the same Rust type its handler parses, so
+  the advertised schema and the handler cannot drift apart again. The old schemas advertised
+  `experiment_type`, `hypothesis` and `detection_type`; the handlers
   dispatched on `action`, so every one of those requests was dropped and a default ran
   instead. The new schema names the field the handler reads.
 
@@ -45,10 +45,15 @@ Bevy plugin that was not published at all until now.
   | `experiment` | `experiment_type`, `params`, `duration` | `action`, `actions` |
   | `hypothesis` | `hypothesis`, `confidence`, `context` | `action`, `description`, `success_condition`, `actions`, `variation_type`, `numeric_min`, `numeric_max`, `string_pool`, `parameter_name`, `parameter_values`, `iterations`, `timeout`, `seed`, `threshold` |
   | `detect_anomaly` | `detection_type`, `sensitivity`, `window` | `action`, `window_size`, `z_score_threshold`, `iqr_multiplier`, `min_samples`, `performance_threshold`, `entity_growth_threshold`, `min_severity` |
-  | `stress_test` | `test_type`, `intensity`, `duration` | `action`, `test_type`, `intensity`, `duration`, `ramp_up`, `entity_type`, `spawn_rate`, `max_entities`, `change_rate`, `component_types`, `target_entities`, `target_memory_mb`, `complexity` |
 
   An agent that learned the old names has to learn the new ones. Nothing that worked stops
   working: the old names were never read.
+
+- **`stress_test` is removed.** It could not be made honest: every spawn and change it sent
+  used a short type name (`Transform`) or a component no game has (`Health`, `Component_0`),
+  so against a real game every operation failed while the tool answered `"success": true`.
+  Its frame-time percentiles were `16.67 + rand * 10`, its CPU figures were random, and it
+  ran for 30 s whatever `duration` it was given.
 
 - **`bevy` is now 0.20.** The plugin is a Bevy 0.20 plugin.
 
@@ -88,7 +93,7 @@ Bevy plugin that was not published at all until now.
 - **Injected input was written as the fold rather than the source**, so `just_pressed`-based
   actions could never fire and no text field could be typed into.
 - **Four deadlocks and three correctness bugs** in the plugin's own internals.
-- **The four tools above now do what they are asked**, and `hypothesis` measures the entity and
+- **The three tools above now do what they are asked**, and `hypothesis` measures the entity and
   component counts from the game instead of reporting constants. The three metrics BRP cannot
   report — frame time, memory, CPU — are refused with a reason rather than answered with a
   number.
@@ -108,7 +113,7 @@ Bevy plugin that was not published at all until now.
 
 ### Migration
 
-An agent that calls the four tools above with the old field names will get a structured error
+An agent that calls the three tools above with the old field names will get a structured error
 naming the bad value, listing the valid ones, and giving one corrected call. Read the tool's
 schema from `tools/list` rather than from memory.
 

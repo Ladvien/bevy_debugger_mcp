@@ -17,7 +17,7 @@ use tracing::{error, info, debug};
 use schemars::JsonSchema;
 
 use crate::server::brp_client::BrpClient;
-use crate::server::tools::{observe, experiment, guide, hypothesis, anomaly, stress, replay};
+use crate::server::tools::{observe, experiment, guide, hypothesis, anomaly, replay};
 use crate::server::experiment_system::Action;
 use crate::server::brp::{BrpPayload, BrpRequest};
 use base64::Engine;
@@ -166,56 +166,6 @@ pub struct AnomalyRequest {
     /// How many anomalies to report at most.
     #[serde(default)]
     pub limit: Option<u64>,
-}
-
-/// `stress_test`: push the game until something breaks. The handler reads `test_type` as a string
-/// and `intensity` as a level; the tool sent `type` and a number, so every run was the default
-/// `spawn_many` at an intensity the handler could not read.
-#[derive(Debug, Deserialize, JsonSchema)]
-#[serde(deny_unknown_fields)]
-pub struct StressTestRequest {
-    /// The operation to run. One of `run`, `quick`, `spawn_many`, `rapid_changes`,
-    /// `memory_pressure`, `combined`.
-    pub action: String,
-    /// The kind of stress to apply.
-    #[serde(default)]
-    pub test_type: Option<String>,
-    /// How hard to push. One of `low`, `medium`, `high`, `extreme`.
-    #[serde(default)]
-    pub intensity: Option<String>,
-    /// How long to push for, in seconds.
-    #[serde(default)]
-    pub duration: Option<f32>,
-    /// Whether to ramp the load up over the run instead of applying it at once.
-    #[serde(default)]
-    pub ramp_up: Option<bool>,
-    /// For `spawn_many`: the type of entity to spawn.
-    #[serde(default)]
-    pub entity_type: Option<String>,
-    /// For `spawn_many`: how many entities to spawn per second.
-    #[serde(default)]
-    pub spawn_rate: Option<u64>,
-    /// For `spawn_many`: the ceiling on live entities.
-    #[serde(default)]
-    pub max_entities: Option<u64>,
-    /// For `rapid_changes`: how many changes to make per second.
-    #[serde(default)]
-    pub change_rate: Option<u64>,
-    /// For `rapid_changes`: which components to change.
-    #[serde(default)]
-    pub component_types: Option<Vec<String>>,
-    /// For `rapid_changes`: which entities to change. All of them when absent.
-    #[serde(default)]
-    pub target_entities: Option<Vec<u64>>,
-    /// For `memory_pressure`: how much memory to aim for.
-    #[serde(default)]
-    pub target_memory_mb: Option<u64>,
-    /// For `memory_pressure`: how complex the spawned entities are.
-    #[serde(default)]
-    pub complexity: Option<String>,
-    /// Whether to report the per-step metrics as well as the summary.
-    #[serde(default)]
-    pub detailed_metrics: bool,
 }
 
 #[derive(Debug, Deserialize, JsonSchema)]
@@ -490,8 +440,7 @@ pub const COLLABORATION_PROTOCOL: &str =
                  anomalies in it. `hypothesis` tests a claim about it -- it needs a `description` of \
                  the claim and a `success_condition` that decides it, or it cannot run. \
                  `experiment` changes it (spawn, modify, delete) and needs the `actions` to carry \
-                 out. `stress_test` pushes it until something breaks. `replay` records and replays \
-                 what it holds.\n\n\
+                 out. `replay` records and replays what it holds.\n\n\
                  Every one of these takes an `action` that picks what to do, and each has its own \
                  action names -- read them from the tool's schema. A tool asked for something it \
                  cannot do says so; it does not answer with a default.\n\n\
@@ -644,37 +593,6 @@ impl BevyDebuggerTools {
             Err(e) => {
                 error!("Anomaly detection error: {}", e);
                 Err(McpError::internal_error(format!("Anomaly detection error: {}", e), None))
-            }
-        }
-    }
-
-    /// Run stress tests
-    #[tool(description = "Run stress tests to find performance limits and bottlenecks. `action` picks the operation; `run` applies the kind named in `test_type` at the `intensity` level.")]
-    pub async fn stress_test(&self, Parameters(req): Parameters<StressTestRequest>) -> Result<CallToolResult, McpError> {
-        info!("Starting stress test action: {}", req.action);
-
-        let arguments = serde_json::json!({
-            "action": req.action,
-            "test_type": req.test_type,
-            "intensity": req.intensity,
-            "duration": req.duration,
-            "ramp_up": req.ramp_up,
-            "entity_type": req.entity_type,
-            "spawn_rate": req.spawn_rate,
-            "max_entities": req.max_entities,
-            "change_rate": req.change_rate,
-            "component_types": req.component_types,
-            "target_entities": req.target_entities,
-            "target_memory_mb": req.target_memory_mb,
-            "complexity": req.complexity,
-            "detailed_metrics": req.detailed_metrics,
-        });
-
-        match stress::handle(arguments, self.brp_client.clone()).await {
-            Ok(result) => Ok(CallToolResult::success(vec![Content::text(result.to_string())])),
-            Err(e) => {
-                error!("Stress test error: {}", e);
-                Err(McpError::internal_error(format!("Stress test error: {}", e), None))
             }
         }
     }

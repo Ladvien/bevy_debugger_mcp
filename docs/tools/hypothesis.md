@@ -390,11 +390,11 @@ Set reasonable expectations for effect sizes:
 3. Analyze results to confirm or reject hypothesis
 ```
 
-### Observe → Hypothesis → Stress Test
+### Observe → Hypothesis → Experiment
 ```
 1. Observe unusual behavior patterns
 2. Form hypothesis about the cause
-3. Use stress_test to validate hypothesis under extreme conditions
+3. Use experiment tool to validate hypothesis under controlled conditions
 ```
 
 ### Hypothesis → Replay
@@ -426,7 +426,6 @@ Set reasonable expectations for effect sizes:
 - **[experiment](experiment.md)**: Run controlled experiments to generate hypothesis test data
 - **[observe](observe.md)**: Gather initial observations to form hypotheses  
 - **[detect_anomaly](detect_anomaly.md)**: Automatically detect patterns that suggest hypotheses
-- **[stress_test](stress_test.md)**: Test hypotheses under extreme conditions
 
 ---
 

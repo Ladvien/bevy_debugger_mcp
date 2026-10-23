@@ -486,7 +486,8 @@ echo '{"jsonrpc": "2.0", "method": "initialize", "params": {"capabilities": {}},
 
 # Verify tools are available
 echo '{"jsonrpc": "2.0", "method": "tools/list", "id": 2}' | bevy-fairy --stdio
-# Should list: observe, experiment, stress, anomaly, replay, hypothesis, screenshot
+# Should list 13 tools, sorted by name: brp, commands, detect_anomaly, experiment, guide,
+# hypothesis, observe, quit, replay, run, scene, screenshot, status
 ```
 
 ### How Claude Uses the MCP Tools
@@ -529,17 +530,16 @@ Claude: [Uses anomaly tool with pattern matching]
         "Entity #42 is teleporting between positions, likely due to..."
 ```
 
-#### 📊 **Performance Analysis**
-Claude can profile and optimize:
+#### 📊 **Watching State Change**
+Claude can measure what the game does over time, from the game's own values:
 ```markdown
-You: "Why is my game running slowly?"
-Claude: [Uses stress tool to identify bottlenecks]
-        "The render system is taking 45ms per frame. The main issue is..."
-
-You: "Optimize the enemy AI system"
-Claude: [Uses performance profiling tools]
-        "The pathfinding is recalculating every frame. We can cache results..."
+You: "The enemy stops chasing me after a while"
+Claude: [Uses brp to read the enemy's Transform every few frames]
+        "Its translation stops changing after it reaches the wall; the chase target is..."
 ```
+
+The server cannot see frame time, CPU or memory: BRP does not report them, and a tool that
+would need them says so instead of answering with a number.
 
 ### Real-World Debugging Sessions
 
@@ -716,7 +716,6 @@ bevy_fairy/
 │   ├── tools/               # Debugging tool implementations
 │   │   ├── observe.rs       # Entity/component observation
 │   │   ├── experiment.rs    # Game state experimentation
-│   │   ├── stress.rs        # Performance stress testing
 │   │   └── ...
 │   └── ...
 ├── scripts/                 # Installation and management scripts
@@ -778,15 +777,23 @@ cargo install bevy_fairy --no-default-features --features server
 
 ### Core MCP Tools
 
-| Tool | Description | Example Usage |
-|------|-------------|---------------|
-| `observe` | Monitor game entities, components, and resources in real-time | "Show me all entities with Health component" |
-| `experiment` | Test changes to game state with automatic rollback | "Set player speed to 2x and test collision" |
-| `stress` | Performance testing and bottleneck identification | "Stress test the physics system with 500 objects" |
-| `anomaly` | Detect unusual patterns in game behavior | "Find any entities with abnormal velocities" |
-| `replay` | Record and replay debugging sessions | "Record the next 30 seconds of gameplay" |
-| `hypothesis` | Test specific assumptions about game behavior | "Test if framerate drops when spawning > 100 enemies" |
-| `screenshot` | Capture game window visuals with timing control | "Take a screenshot after 2 seconds warmup" |
+All 13, as `tools/list` returns them (sorted by name):
+
+| Tool | What it does |
+|------|--------------|
+| `brp` | Calls any Bevy Remote Protocol method the game serves (`world.query`, `registry.schema`, ...) |
+| `commands` | Lists the commands the game registered, each with its parameters and a working example |
+| `detect_anomaly` | Looks for anomalies in the game's state |
+| `experiment` | Spawns, modifies or deletes entities and reads back what changed |
+| `guide` | Shows the person at the keyboard one instruction at a time and watches for the state it asked for |
+| `hypothesis` | Tests a claim (`description` plus a `success_condition`) against the running game |
+| `observe` | Reads entities, components and resources |
+| `quit` | Asks the game to quit cleanly |
+| `replay` | Records and replays the game's entity state |
+| `run` | Runs one command the game registered, by name |
+| `scene` | Saves, shows or clears the commands recorded this session |
+| `screenshot` | Captures the game to a PNG on this machine (needs the `plugin-screenshot` feature) |
+| `status` | Reports whether the game is answering and ready, and its frame |
 
 ### Internal Debug Commands (11 Integrated Tools)
 
@@ -886,11 +893,13 @@ version:
   the BRP `RemotePlugin`, so a game adds `DebuggerPlugin` and never a second `RemotePlugin`.
 - Game-registered commands, capture from an offscreen target or the window, injectable input
   that really arrives, a guide channel, and replayable scenes.
-- The `experiment`, `hypothesis`, `detect_anomaly` and `stress_test` tools take the arguments
-  their handlers read. They used to advertise one set of names and dispatch on another, so
-  every request was dropped and a default ran instead.
+- The `experiment`, `hypothesis` and `detect_anomaly` tools take the arguments their handlers
+  read. They used to advertise one set of names and dispatch on another, so every request was
+  dropped and a default ran instead.
 - `hypothesis` measures the entity and component counts from the game instead of reporting
   constants, and `replay` records the game's entities instead of returning an empty map.
+- `stress_test` is removed: every operation it sent failed against a real game while it
+  reported success, and its frame-time percentiles were random numbers.
 
 ### v0.1.6 - Production Ready
 ## 📄 License

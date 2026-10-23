@@ -503,7 +503,6 @@ setInterval(async () => {
 - **[observe](observe.md)**: Investigate anomalies detected by the system
 - **[experiment](experiment.md)**: Reproduce conditions that trigger anomalies
 - **[hypothesis](hypothesis.md)**: Test theories about anomaly root causes
-- **[stress_test](stress_test.md)**: Verify anomaly detection under extreme conditions
 
 ---
 

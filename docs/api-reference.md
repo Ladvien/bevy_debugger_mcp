@@ -126,34 +126,6 @@ interface AnomalyResponse {
 }
 ```
 
-#### `stress_test`
-**Description**: Test performance limits and find bottlenecks.
-
-**Parameters**:
-```typescript
-interface StressTestRequest {
-  test_type: string;          // Type of stress test
-  intensity?: number;         // Test intensity multiplier (default: 2.0)
-  duration?: number;          // Duration in seconds (default: 60)
-  incremental?: boolean;      // Gradual vs immediate load (default: true)
-  safety_limits?: SafetyLimits; // Protection thresholds
-}
-```
-
-**Response**:
-```typescript
-interface StressTestResponse {
-  success: boolean;
-  data: {
-    breaking_point?: BreakingPoint;
-    performance_curve: PerformancePoint[];
-    bottleneck_analysis: BottleneckInfo;
-    recommendations: string[];
-    safety_triggered: boolean;
-  };
-}
-```
-
 #### `replay`
 **Description**: Record and replay game sessions.
 
@@ -508,13 +480,6 @@ interface StatisticalResults {
   sample_size: number;
 }
 
-interface BottleneckInfo {
-  primary_bottleneck: string;
-  contributing_factors: string[];
-  severity: 'low' | 'medium' | 'high';
-  optimization_suggestions: string[];
-}
-
 interface AnomalyAlert {
   timestamp: string;
   type: string;
@@ -534,7 +499,6 @@ interface AnomalyAlert {
 - **experiment**: 10 requests/minute  
 - **hypothesis**: 5 requests/minute
 - **detect_anomaly**: 20 requests/minute
-- **stress_test**: 2 requests/minute
 - **replay**: 5 requests/minute
 
 ### Custom Rate Limiting
@@ -542,8 +506,7 @@ interface AnomalyAlert {
 ```json
 {
   "rate_limits": {
-    "observe": {"requests_per_minute": 100, "burst": 10},
-    "stress_test": {"requests_per_minute": 1, "burst": 1}
+    "observe": {"requests_per_minute": 100, "burst": 10}
   },
   "rate_limit_mode": "sliding_window",
   "rate_limit_headers": true

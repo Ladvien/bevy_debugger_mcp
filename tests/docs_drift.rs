@@ -264,7 +264,8 @@ fn the_changelog_migration_table_names_the_fields_the_tools_take() {
     let tools = read("src/server/mcp_tools.rs");
 
     // The table row for each tool: `| `tool` | before | after |`.
-    for tool in ["experiment", "hypothesis", "detect_anomaly", "stress_test"] {
+    // `stress_test` is not here: it was removed from `tools/list` before 0.2.0 was published.
+    for tool in ["experiment", "hypothesis", "detect_anomaly"] {
         let row = changelog
             .lines()
             .find(|line| {
@@ -286,7 +287,6 @@ fn the_changelog_migration_table_names_the_fields_the_tools_take() {
             "experiment" => "ExperimentRequest",
             "hypothesis" => "HypothesisRequest",
             "detect_anomaly" => "AnomalyRequest",
-            "stress_test" => "StressTestRequest",
             _ => unreachable!("the list above is exhaustive"),
         };
         let start = tools

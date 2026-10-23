@@ -474,7 +474,6 @@ Game state is captured before dangerous experiments:
 
 - **[observe](observe.md)**: Examine entities before/after experiments
 - **[hypothesis](hypothesis.md)**: Form theories to test with experiments
-- **[stress_test](stress_test.md)**: Specialized high-intensity experiments
 - **[detect_anomaly](detect_anomaly.md)**: Automatically detect experiment side effects
 
 ---

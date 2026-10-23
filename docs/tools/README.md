@@ -10,7 +10,6 @@ Complete reference for all 6 debugging tools available in bevy-fairy.
 | **[experiment](experiment.md)** | Run controlled tests on game behavior | Bug reproduction, performance testing, feature validation |
 | **[hypothesis](hypothesis.md)** | Test theories with statistical analysis | Root cause analysis, performance investigation, A/B testing |
 | **[detect_anomaly](detect_anomaly.md)** | Automatically find unusual patterns | Automated monitoring, regression detection, anomaly alerts |
-| **[stress_test](stress_test.md)** | Find performance limits and bottlenecks | Scalability testing, optimization validation, breaking point analysis |
 | **[replay](replay.md)** | Record and replay game sessions | Time-travel debugging, bug reproduction, comparative analysis |
 
 ## Quick Start Examples
@@ -26,9 +25,8 @@ Complete reference for all 6 debugging tools available in bevy-fairy.
 ### Performance Investigation
 ```
 1. detect_anomaly "frame_time"                 # Monitor for issues
-2. stress_test "entity_spawn"                  # Find limits
-3. hypothesis "frame drops occur at 1000+ entities"  # Test theory
-4. experiment "optimize MovementSystem"       # Validate fixes
+2. hypothesis "frame drops occur at 1000+ entities"  # Test theory
+3. experiment "optimize MovementSystem"       # Validate fixes
 ```
 
 ### Bug Reproduction
@@ -48,7 +46,6 @@ Complete reference for all 6 debugging tools available in bevy-fairy.
 ### 🧪 **Testing Tools**  
 - **[experiment](experiment.md)**: Controlled behavior testing
 - **[hypothesis](hypothesis.md)**: Statistical validation
-- **[stress_test](stress_test.md)**: Performance limit testing
 
 ### 📹 **Recording Tools**
 - **[replay](replay.md)**: Session recording and playback
@@ -59,8 +56,8 @@ Complete reference for all 6 debugging tools available in bevy-fairy.
 
 ```
 ┌─────────────┐    ┌─────────────┐    ┌─────────────┐
-│ detect_anomaly │ → │ stress_test │ → │ hypothesis  │
-│ (find issues)  │   │ (find limits)│   │ (test fixes)│
+│ detect_anomaly │ → │   observe   │ → │ hypothesis  │
+│ (find issues)  │   │ (examine)   │   │ (test fixes)│
 └─────────────┘    └─────────────┘    └─────────────┘
         │                  │                  │
         ▼                  ▼                  ▼
@@ -89,13 +86,13 @@ Complete reference for all 6 debugging tools available in bevy-fairy.
 
 ```
 ┌─────────────┐    ┌─────────────┐    ┌─────────────┐
-│ stress_test │ → │   observe   │ → │ hypothesis  │
+│   observe   │ → │   observe   │ → │ hypothesis  │
 │ (baseline)  │   │ (profile)   │   │ (plan fix)  │
 └─────────────┘    └─────────────┘    └─────────────┘
         │                  │                  │
         ▼                  ▼                  ▼
 ┌─────────────┐    ┌─────────────┐    ┌─────────────┐
-│ experiment  │    │ stress_test │    │detect_anomaly│
+│ experiment  │    │   observe   │    │detect_anomaly│
 │ (implement) │    │  (verify)   │    │ (monitor)   │
 └─────────────┘    └─────────────┘    └─────────────┘
 ```
@@ -129,13 +126,6 @@ Complete reference for all 6 debugging tools available in bevy-fairy.
 - Get alerts about performance regressions
 - Detect unusual patterns in game behavior
 - Continuously validate system health
-
-### Choose **stress_test** when you need to:
-- Find maximum capacity limits
-- Identify performance bottlenecks
-- Test system stability under load
-- Validate scalability improvements
-- Understand breaking points
 
 ### Choose **replay** when you need to:
 - Capture bugs for later analysis
@@ -218,8 +208,7 @@ All tools return errors in a consistent format:
 **Performance Issues**:
 ```
 1. Reduce tool parameters (duration, intensity, detail)
-2. Check system resources: stress_test "system_health"
-3. Use incremental approach instead of full load
+2. Use incremental approach instead of full load
 ```
 
 **Resource Exhaustion**:
@@ -239,7 +228,6 @@ All tools return errors in a consistent format:
 | **experiment** | Medium (5-15%) | Medium (50-200MB) | Moderate use |
 | **hypothesis** | High (10-30%) | Medium (100-300MB) | Occasional use |
 | **detect_anomaly** | Low (2-5%) | Low (20-100MB) | Continuous OK |
-| **stress_test** | Very High (20-80%) | High (200MB-2GB) | Careful use |
 | **replay** | Medium (5-20%) | High (100MB-5GB) | Session-based |
 
 ### Optimization Tips
@@ -276,7 +264,7 @@ All tools return errors in a consistent format:
 ### 2. Use Tools in Combination
 ```
 ✅ observe → experiment → hypothesis → validate
-✅ detect_anomaly → stress_test → observe → fix
+✅ detect_anomaly → observe → fix
 ```
 
 ### 3. Document Your Process
@@ -289,7 +277,6 @@ All tools return errors in a consistent format:
 ### 4. Monitor Performance Impact
 ```
 ✅ Check system resources before heavy operations
-✅ Use safety limits on stress tests
 ✅ Clean up between test runs
 ```
 
@@ -315,7 +302,6 @@ const result = await vscode.debug.mcpClient.callTool("observe", {
 # GitHub Actions integration
 - name: Performance Regression Test
   run: |
-    bevy-fairy stress_test entity_spawn --max-entities=2000
     bevy-fairy hypothesis "performance within baseline"
 ```
 

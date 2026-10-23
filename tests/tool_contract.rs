@@ -1,10 +1,10 @@
 //! The tool contract: every tool's advertised arguments must reach the handler that reads them.
 //!
-//! This file is the failing-first check for the four tools whose schemas and handlers disagreed.
+//! This file is the failing-first check for the tools whose schemas and handlers disagreed.
 //! Before the fix, `experiment`, `hypothesis`, `detect_anomaly` and `stress_test` each advertised
 //! fields that no handler read, while the handlers dispatched on an `action` the tools never sent.
-//! An agent that asked for `stress_test` with `type: "memory_pressure"` got a `spawn_many` run
-//! instead, and a plausible-looking report saying so.
+//! `stress_test` has since been removed from `tools/list`: every operation it performed failed
+//! against a real game while it reported success, and its frame times were random numbers.
 //!
 //! The fake game below answers the BRP methods the handlers call, so the tests exercise the real
 //! handler paths rather than a stub of them.
@@ -15,7 +15,7 @@ use axum::{extract::State, routing::post, Json, Router};
 use bevy_fairy::server::brp_client::BrpClient;
 use bevy_fairy::server::config::Config;
 use bevy_fairy::server::mcp_tools::{
-    AnomalyRequest, BevyDebuggerTools, ExperimentRequest, HypothesisRequest, StressTestRequest,
+    AnomalyRequest, BevyDebuggerTools, ExperimentRequest, HypothesisRequest,
 };
 use rmcp::handler::server::tool::Parameters;
 use rmcp::model::CallToolResult;
@@ -112,43 +112,6 @@ async fn connect(tools: &BevyDebuggerTools) {
         .await
         .expect("status returns a result");
     assert!(!text_of(&result).contains("\"error\""), "the fake game should answer status");
-}
-
-/// The tool must act on the operation the caller asked for. Before the fix, `stress_test` always
-/// ran `spawn_many` because the tool sent `type` and the handler read `action`.
-#[tokio::test]
-async fn stress_test_runs_the_requested_test_type() {
-    let game: SharedGame = Arc::new(Mutex::new(FakeGame::default()));
-    let port = start_fake_game(game.clone()).await;
-    let tools = tools_for(port);
-    connect(&tools).await;
-
-    let result = tools
-        .stress_test(request::<StressTestRequest>(json!({
-            "action": "run",
-            "test_type": "memory_pressure",
-            "intensity": "low",
-            "duration": 0.1,
-        })))
-        .await
-        .expect("stress_test returns a result");
-
-    let text = text_of(&result);
-    let game = game.lock().expect("fake game lock");
-    let methods: Vec<&str> = game.calls.iter().map(|(method, _)| method.as_str()).collect();
-
-    assert!(
-        !text.contains("BRP client not connected"),
-        "the run must reach the game; text: {text}"
-    );
-    assert!(
-        !text.contains("\"test_type\":\"spawn_many\""),
-        "the run must not silently be the spawn_many test; text: {text}"
-    );
-    assert!(
-        methods.iter().any(|m| m.contains("component")) || text.contains("memory_pressure"),
-        "the memory_pressure test should have been the one that ran; calls were {methods:?}; text: {text}"
-    );
 }
 
 /// The action a caller asks for must reach the handler. Before the fix the tool never sent an
@@ -267,11 +230,11 @@ async fn an_unknown_action_is_refused_with_the_valid_ones() {
     connect(&tools).await;
 
     let result = tools
-        .stress_test(request::<StressTestRequest>(json!({"action": "teleport"})))
+        .hypothesis(request::<HypothesisRequest>(json!({"action": "teleport"})))
         .await
-        .expect("stress_test returns a result");
+        .expect("hypothesis returns a result");
 
     let text = text_of(&result);
     assert!(text.contains("Unknown action"), "text: {text}");
-    assert!(text.contains("spawn_many"), "the error should list the valid actions; text: {text}");
+    assert!(text.contains("quick_test"), "the error should list the valid actions; text: {text}");
 }

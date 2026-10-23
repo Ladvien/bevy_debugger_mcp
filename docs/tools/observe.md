@@ -336,11 +336,11 @@ The observe tool supports sophisticated natural language queries:
 2. screenshot with description "player at observed position"
 ```
 
-**Observe + Stress Test**:
+**Observe Over Time**:
 ```
 1. observe "entity count baseline" 
-2. stress_test "spawn 1000 entities"
-3. observe "entity count after stress test"
+2. (let the game run, or trigger the behavior under test)
+3. observe "entity count now"
 ```
 
 ### Continuous Monitoring
@@ -365,7 +365,6 @@ setInterval(async () => {
 - **[experiment](experiment.md)**: Test theories discovered through observation
 - **[hypothesis](hypothesis.md)**: Form hypotheses about observed behavior  
 - **[detect_anomaly](detect_anomaly.md)**: Automatically detect unusual patterns
-- **[stress_test](stress_test.md)**: Test system limits with many entities
 
 ---
 

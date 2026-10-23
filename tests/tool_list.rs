@@ -71,3 +71,17 @@ fn tools_are_listed_by_name_and_in_the_same_order_every_launch() {
         );
     }
 }
+
+/// `stress_test` stays out of `tools/list` until it can report what it did. Against the fixture
+/// game it answered `"success": true` while every spawn it sent failed (it used short type names
+/// like `Transform` and components no game has, like `Health`), reported `16.67 + rand * 10` as
+/// frame-time percentiles, and ran 30.1 s when asked for 1 s. Whoever brings it back replaces
+/// this test with a ground-truth one against the fixture.
+#[test]
+fn stress_test_is_not_offered() {
+    let names = tool_names();
+    assert!(
+        !names.iter().any(|name| name == "stress_test"),
+        "stress_test is listed again: {names:?}"
+    );
+}

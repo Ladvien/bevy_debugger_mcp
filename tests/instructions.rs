@@ -28,7 +28,6 @@ fn every_tool_named_in_the_instructions_exists() {
         "detect_anomaly",
         "hypothesis",
         "experiment",
-        "stress_test",
         "replay",
         "guide",
     ] {

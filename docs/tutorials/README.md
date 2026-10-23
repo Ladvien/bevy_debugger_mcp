@@ -119,10 +119,10 @@ Set up a performance budget to monitor my game. I want 60 FPS (16.67ms frame tim
 Start profiling my game systems to identify which ones are taking the most time.
 ```
 
-### Step 4: Run Stress Test
+### Step 4: Count Entities Over Time
 
 ```
-Run a stress test by spawning 1000 entities and see how it affects performance.
+Observe the entity count now, wait ten seconds, then observe it again and tell me whether it changed.
 ```
 
 ### Step 5: Analyze Results
@@ -452,11 +452,6 @@ async fn complex_debugging_workflow() -> Result<DebugReport> {
             phase.experiment("add_second_player")
                  .observe("entity synchronization")  
                  .monitor_network("packet_timing")
-        })
-        .phase("stress_test", |phase| {
-            phase.stress_test("network_latency", 200)
-                 .anomaly_detection("position_desync")
-                 .screenshot("stress_test_result.png")
         })
         .phase("analysis", |phase| {
             phase.hypothesis_test("desync_correlation_with_latency")

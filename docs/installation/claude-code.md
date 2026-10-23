@@ -129,7 +129,8 @@ Expected response:
 echo '{"jsonrpc": "2.0", "method": "tools/list", "id": 2}' | bevy-fairy --stdio
 ```
 
-Expected tools: `observe`, `experiment`, `stress_test`, `detect_anomaly`, `replay`, `hypothesis`
+Expected tools, sorted by name: `brp`, `commands`, `detect_anomaly`, `experiment`, `guide`,
+`hypothesis`, `observe`, `quit`, `replay`, `run`, `scene`, `screenshot`, `status`
 
 ### 3. Test with Claude Code
 
@@ -159,10 +160,10 @@ Found 5 entities in your game:
 ### Performance Analysis
 
 ```markdown
-You: My game is running slowly, can you help?
+You: My game gets slower the longer it runs. Can you help?
 
-Claude: I'll analyze your game's performance to identify bottlenecks.
-[Uses stress_test and observe tools]
+Claude: I'll count the entities over time and see what grows.
+[Uses observe and brp]
 I found the issue: 500 bullet entities are being created but not destroyed...
 ```
 
