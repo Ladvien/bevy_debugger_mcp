@@ -410,6 +410,9 @@ def main(argv=None):
     ap.add_argument("--transcripts", type=Path, default=None,
                     help="default: evals/transcripts/<date>-<sha>/")
     args = ap.parse_args(argv)
+    # The session runs in an empty temp dir, so a relative --server-bin would not resolve there.
+    args.server_bin = args.server_bin.resolve()
+    args.fixture_bin = args.fixture_bin.resolve()
 
     sha = args.sha or git_sha()
     date = datetime.date.today().isoformat()
