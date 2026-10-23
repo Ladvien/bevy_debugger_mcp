@@ -1,0 +1,10 @@
+id = "heavy_crates_total"
+prompt = """My Bevy game is running right now and you are connected to it through a debugger. Add up the weight of just the crates that are heavier than 2. What is that total? Work it out from the live game's values."""
+expected_tools = ["brp"]
+max_turns = 20
+timeout_s = 180
+
+[[facts]]
+name = "total_is_12"
+number_min = 11.95
+number_max = 12.05

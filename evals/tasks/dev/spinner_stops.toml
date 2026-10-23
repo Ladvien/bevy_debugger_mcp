@@ -1,0 +1,18 @@
+id = "spinner_stops"
+prompt = """My Bevy game is running right now and you are connected to it through a debugger. Something in it that should spin forever stops spinning after a little while. Find out what is going wrong: which thing is it, which of its values stops changing, and on what frame does it stop? Report what you actually observe in the running game."""
+expected_tools = ["brp", "observe"]
+max_turns = 25
+timeout_s = 240
+
+[[facts]]
+name = "names_the_spinner"
+regex = '\bspinner\b'
+
+[[facts]]
+name = "names_the_angle_field"
+regex = '\bangle\b'
+
+[[facts]]
+name = "stop_frame_in_110_130"
+number_min = 110
+number_max = 130

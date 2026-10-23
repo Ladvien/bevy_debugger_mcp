@@ -1,0 +1,17 @@
+id = "component_types"
+prompt = """My Bevy game is running right now and you are connected to it through a debugger. Which component types did the game's own code define? Leave out the ones that come with Bevy itself and list just ours, by name."""
+expected_tools = ["brp"]
+max_turns = 20
+timeout_s = 180
+
+[[facts]]
+name = "names_crate"
+regex = '\bCrate\b'
+
+[[facts]]
+name = "names_mover"
+regex = '\bMover\b'
+
+[[facts]]
+name = "names_spinner"
+regex = '\bSpinner\b'

@@ -56,3 +56,7 @@ claude_cache/
 # directory, simply running `bevy-debugger-mcp` dirtied the tree and tripped the clean-tree guard in
 # `scripts/mirror_crates.sh` — blocking the mirror of every other crate too.
 debug_sessions/
+
+# Raw agent transcripts written by evals/run.py
+evals/transcripts/
+__pycache__/

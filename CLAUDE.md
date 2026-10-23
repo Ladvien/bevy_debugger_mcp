@@ -170,4 +170,19 @@ cargo run --example fixture_game --features plugin    # FIXTURE_PORT, FIXTURE_FP
 Things that need a window -- a UI button, a pickable object, a text field -- are not in it yet,
 because nothing headless can click them honestly.
 
+## The evals ask an agent, not a test
+
+`evals/run.py` runs a fresh headless `omp` session per task, against the fixture, with only this
+server's tools: no repo, no files, no shell. It scores the final answer against the fixture's
+constants and appends one line per task to `docs/loop/evals.jsonl`. A tool change that passes
+every test can still leave an agent unable to answer; this is where that shows.
+
+```sh
+python3 evals/run.py --server-bin target/debug/bevy-fairy     # dev suite; --suite heldout
+```
+
+`evals/tasks/heldout/` exists to show a change generalised. Do not tune a tool description to
+it, and do not read its answers while working on a change. `evals/README.md` has the scoring
+and the isolation check.
+
 - Consult Bevy documentation often. It can be found at codex_fs/offline_reference_docs/bevy-0.20-book/

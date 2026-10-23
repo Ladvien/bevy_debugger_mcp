@@ -1,0 +1,10 @@
+id = "entities_with_game_components"
+prompt = """My Bevy game is running right now and you are connected to it through a debugger. Not counting Bevy's own built-in components, how many entities in the game carry at least one component that the game's own code defined? Give me one number."""
+expected_tools = ["brp"]
+max_turns = 25
+timeout_s = 240
+
+[[facts]]
+name = "eight_entities"
+number_min = 7.99
+number_max = 8.01

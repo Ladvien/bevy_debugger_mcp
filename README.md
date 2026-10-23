@@ -848,6 +848,16 @@ cargo fmt                       # Format code
 cargo clippy                    # Lint code
 ```
 
+### Agent evals
+
+`evals/` asks a fresh headless `omp` session, with only this server's tools, to answer
+debugging questions about `examples/fixture_game.rs`, and scores the answers against the
+fixture's constants: 6 dev tasks and 3 held-out ones. See [`evals/README.md`](evals/README.md).
+
+```bash
+python3 evals/run.py --server-bin target/debug/bevy-fairy
+```
+
 ### Running Screenshot Tests
 
 The screenshot functionality has comprehensive test coverage:

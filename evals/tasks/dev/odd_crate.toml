@@ -1,0 +1,10 @@
+id = "odd_crate"
+prompt = """My Bevy game is running right now and you are connected to it through a debugger. The game has a number of crates, and I think one of them has a value that no real crate could have. Look at the live game and tell me what that value is."""
+expected_tools = ["brp", "observe"]
+max_turns = 20
+timeout_s = 180
+
+[[facts]]
+name = "odd_value_is_minus_7_5"
+number_min = -7.51
+number_max = -7.49

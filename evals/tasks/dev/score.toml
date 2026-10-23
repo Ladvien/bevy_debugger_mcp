@@ -1,0 +1,10 @@
+id = "score"
+prompt = """My Bevy game is running right now and you are connected to it through a debugger. What is the player's score in the game at this moment?"""
+expected_tools = ["brp"]
+max_turns = 15
+timeout_s = 150
+
+[[facts]]
+name = "score_is_42"
+number_min = 41.5
+number_max = 42.5

@@ -1,0 +1,10 @@
+id = "stuck_angle"
+prompt = """My Bevy game is running right now and you are connected to it through a debugger. An object's rotation value has stopped updating. Once it has settled, what exact value, in radians, is it stuck at? Read it from the live game."""
+expected_tools = ["brp", "observe"]
+max_turns = 25
+timeout_s = 240
+
+[[facts]]
+name = "stuck_angle_about_6"
+number_min = 5.9
+number_max = 6.1

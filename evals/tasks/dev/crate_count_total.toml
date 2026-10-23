@@ -1,0 +1,16 @@
+id = "crate_count_total"
+prompt = """My Bevy game is running right now and you are connected to it through a debugger. How many crates are in the game, and what do they weigh all together? Give me the count and the total, from the live game."""
+expected_tools = ["brp"]
+max_turns = 20
+timeout_s = 180
+
+# "6" or "six" within a few words of "crate", in either order, so a bare 6 elsewhere in the
+# answer does not count.
+[[facts]]
+name = "six_crates"
+regex = '\b(6|six)\b[^.\n]{0,30}\bcrates?\b|\bcrates?\b[^.\n]{0,30}\b(6|six)\b'
+
+[[facts]]
+name = "total_weight_7_5"
+number_min = 7.49
+number_max = 7.51
