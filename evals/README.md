@@ -7,8 +7,9 @@ its final answer is scored against facts taken from those constants. It measures
 can answer from the tools alone, and how efficiently.
 
 - `tasks/dev/` — 6 tasks to iterate against.
-- `tasks/heldout/` — 3 tasks with different facts, not paraphrases of the dev ones. Run them to
-  check that a change generalised rather than fitted the dev set.
+- `tasks/heldout/` — 3 tasks that ask different questions about the same fixture. They are weak
+  evidence of generalisation: the dev sessions already read most of the state they ask about.
+  Held-out records in `docs/loop/evals.jsonl` carry no `answer`; it stays in the transcript.
 
 ## Run
 
@@ -43,8 +44,10 @@ could read files would be measuring something else.
 conventions and a line describing the workstation. It says nothing about the fixture, so it cannot
 supply an answer, but results from a different harness version are not strictly comparable.
 
-A task's `max_turns` is enforced by the runner: the session is killed after that many model
-requests, and the record says `"stopped": "max_turns"`.
+A task's `max_turns` is enforced by the runner: the session is killed when it makes one more model
+request than that, and the record says `"stopped": "max_turns"`. A session that reaches
+`timeout_s` is recorded as `timed_out` whether omp stopped itself or the runner killed it; the
+record also carries omp's `exit_code`. Neither kind of session can count as a success.
 
 ## Scoring
 

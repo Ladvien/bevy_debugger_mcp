@@ -247,9 +247,9 @@ def write_session_config(directory, server_bin, port):
 
 
 def run_agent(task, model, overlay, cwd, transcript):
-    """Run one headless omp session. Returns (timed_out, stopped_why). Tees the event stream into
-    `transcript`, and kills the session the moment a model request declares a foreign tool or the
-    task's turn limit is passed."""
+    """Run one headless omp session. Returns (timed_out, stopped_why, stderr, exit_code). Tees
+    the event stream into `transcript`, and kills the session the moment a model request declares
+    a foreign tool or the task's turn limit is passed."""
     cmd = ["omp", "-p", task["prompt"], *OMP_FLAGS, "--config", str(overlay), "--model", model,
            "--max-time", str(task["timeout_s"])]
     proc = subprocess.Popen(cmd, cwd=cwd, stdin=subprocess.DEVNULL, stdout=subprocess.PIPE,
@@ -284,6 +284,7 @@ def run_agent(task, model, overlay, cwd, transcript):
                threading.Thread(target=pump_stderr, daemon=True)]
     for t in threads:
         t.start()
+    started = time.monotonic()
     timed_out = False
     try:
         # --max-time asks omp to stop; the margin covers its shutdown.
@@ -294,10 +295,12 @@ def run_agent(task, model, overlay, cwd, transcript):
         kill_group(proc)
         for t in threads:
             t.join(timeout=10)
+    # omp stopping itself at --max-time is a timeout too, whatever its last message says.
+    timed_out = timed_out or time.monotonic() - started >= task["timeout_s"]
     err = b"".join(stderr_chunks).decode("utf-8", "replace").strip()
     if err:
         Path(str(transcript) + ".stderr").write_text(err)
-    return timed_out, state["stopped"], err
+    return timed_out, state["stopped"], err, proc.returncode
 
 
 # --------------------------------------------------------------------------- one task
@@ -320,7 +323,7 @@ def run_task(task, args, transcripts_dir, date, sha):
         fixture = start_fixture(args.fixture_bin, port,
                                 transcripts_dir / f"{task['suite']}-{task['id']}.fixture.log")
         overlay = write_session_config(tmp, args.server_bin, port)
-        timed_out, stopped, err = run_agent(task, args.model, overlay, tmp, transcript)
+        timed_out, stopped, err, exit_code = run_agent(task, args.model, overlay, tmp, transcript)
     finally:
         kill_group(fixture)
         shutil.rmtree(tmp, ignore_errors=True)
@@ -329,11 +332,14 @@ def run_task(task, args, transcripts_dir, date, sha):
     events = parse_events(transcript) if transcript.exists() else []
     tool_calls, invalid, loops, final = stream_metrics(events)
     answer = answer_text(final)
+    # Held-out answers stay out of the record: evals.jsonl is read while working on changes, and
+    # the held-out set exists to be answered by agents that never saw it. The transcript keeps it.
+    record_answer = answer if task["suite"] != "heldout" else None
     record.update(tool_calls=tool_calls, invalid_calls=invalid, loops=loops,
-                  tokens=usage_tokens(events), answer=answer,
+                  tokens=usage_tokens(events), answer=record_answer,
                   num_turns=len(assistant_messages(events)),
                   stop_reason=(final or {}).get("stopReason"),
-                  timed_out=timed_out, stopped=stopped)
+                  timed_out=timed_out, stopped=stopped, exit_code=exit_code)
     if final is not None:
         record["model"] = final.get("model")
 
