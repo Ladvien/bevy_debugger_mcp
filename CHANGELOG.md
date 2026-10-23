@@ -1,5 +1,29 @@
 # Changelog
 
+## 0.2.1 — 2026-10-23
+
+A patch: two tools that told an agent something untrue, and a tool reference generated from
+the server itself.
+
+### Fixed
+
+- **`brp` said "no game answering" when the game had answered.** A watching method such as
+  `world.get_components+watch` streams a new answer every time the value changes; `brp` read
+  it as one reply, timed out after 5 s, and reported the game as down. An agent in the evals
+  took that at its word. `brp` now refuses `+watch` methods and names the one-shot method to
+  call instead, and any other reply it cannot read is reported as an unreadable answer from
+  the game, not as silence.
+- **`detect_anomaly`'s description named a `detection_type` field the tool does not have**, and
+  refuses as unknown. It now says what `detect` does: read every entity once and run the
+  detectors over them with the advertised thresholds.
+
+### Added
+
+- **[`docs/mcp-tools.md`](docs/mcp-tools.md)**, every tool's description and arguments,
+  generated from the server's `tools/list` by `tests/tool_list.rs`. A test fails when it no
+  longer matches, and another fails when a description names a field or value the tool does
+  not have.
+
 ## 0.2.0 — 2026-10-21
 
 A minor bump, and a breaking one: the crate is renamed and merged, the tool schemas
