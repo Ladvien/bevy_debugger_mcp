@@ -1,5 +1,22 @@
 # Changelog
 
+## 0.2.2 — 2026-10-23
+
+A documentation release: the README crates.io shows is rewritten from scratch. No code changed.
+
+### Changed
+
+- **The README** now says what the crate is and why it exists, then gives a four-step quick
+  start in which every step has a check you can run, and a table of what to do when a step fails.
+  After that come short guides (game commands, capture, input, the guide channel, scenes), and
+  reference tables for the BRP methods, Cargo features, environment variables and examples, each
+  example with the feature flags it actually needs. It links the generated
+  [`docs/mcp-tools.md`](docs/mcp-tools.md) rather than copying it. The checkpoint example now
+  takes the `In<Value>` its `SystemId` type requires; the old one did not compile.
+- **`examples/plugin_agent_scene.rs`** gave a run command that did not work
+  (`-p bevy_fairy --example agent_scene`); it now says
+  `cargo run --features plugin-screenshot --example plugin_agent_scene`.
+
 ## 0.2.1 — 2026-10-23
 
 A patch: two tools that told an agent something untrue, and a tool reference generated from
