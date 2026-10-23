@@ -1,5 +1,23 @@
 # Changelog
 
+## 0.2.3 — 2026-10-23
+
+A documentation release: the README now shows the server working. The library and the server
+are unchanged.
+
+### Added
+
+- **Two GIFs in the README.** A scripted tour puts real MCP tool calls beside the game frames the
+  server's own `screenshot` tool captured, and runs long enough to show the fixture's planted bug:
+  the spinner stops turning at frame 120. A real agent session, Claude with no tools but this
+  server's, finds that bug and the frame it happens on.
+- **`examples/demo_game.rs`**, the fixture game rendered offscreen and headless: no window, no
+  display, one `demo/spawn_cube` command. It reuses the fixture's world unchanged, so every
+  answer it gives is the one the fixture's constants predict.
+- **`scripts/record_demo.py`**, which records both GIFs from it:
+  `python3 scripts/record_demo.py all`. A tool error aborts the recording, and the agent GIF is
+  drawn only from a session that passed the `spinner_stops` eval.
+
 ## 0.2.2 — 2026-10-23
 
 A documentation release: the README crates.io shows is rewritten from scratch. No code changed.
