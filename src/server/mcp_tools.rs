@@ -8,7 +8,7 @@
  * crate in the Bevy ecosystem cannot be adopted, and being adoptable is why it is published.
  */
 
-use rmcp::{model::*, tool, tool_router, tool_handler, handler::server::{ServerHandler, router::tool::ToolRouter, tool::Parameters}, schemars, Error as McpError};
+use rmcp::{model::*, tool, tool_router, handler::server::{ServerHandler, router::tool::ToolRouter, tool::Parameters}, schemars, Error as McpError};
 use serde::Deserialize;
 use serde_json::Value;
 use std::{sync::Arc, future::Future};
@@ -868,8 +868,29 @@ impl BevyDebuggerTools {
     }
 }
 
-#[tool_handler(router = self.tool_router)]
+// `#[tool_handler]` is not used: the `list_tools` it generates returns the router's `HashMap`
+// values, so the order changed on every launch. The two methods it would generate are written
+// out below, and `list_tools` sorts by name.
 impl ServerHandler for BevyDebuggerTools {
+    async fn call_tool(
+        &self,
+        request: CallToolRequestParam,
+        context: rmcp::service::RequestContext<rmcp::RoleServer>,
+    ) -> Result<CallToolResult, McpError> {
+        let call = rmcp::handler::server::tool::ToolCallContext::new(self, request, context);
+        self.tool_router.call(call).await
+    }
+
+    async fn list_tools(
+        &self,
+        _request: Option<PaginatedRequestParam>,
+        _context: rmcp::service::RequestContext<rmcp::RoleServer>,
+    ) -> Result<ListToolsResult, McpError> {
+        let mut tools = self.tool_router.list_all();
+        tools.sort_by(|a, b| a.name.cmp(&b.name));
+        Ok(ListToolsResult::with_all_items(tools))
+    }
+
     fn get_info(&self) -> ServerInfo {
         ServerInfo {
             protocol_version: ProtocolVersion::V_2024_11_05,

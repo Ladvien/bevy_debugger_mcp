@@ -95,6 +95,8 @@ Bevy plugin that was not published at all until now.
 - **`replay` records the game's entities** instead of returning an empty map. Events are not
   observable over BRP, so a frame says so rather than showing an empty list that reads as
   "nothing happened".
+- **`tools/list` returns the tools sorted by name.** The order came from a `HashMap` in the
+  router, so it changed on every launch — four launches gave four orders.
 - **The docs match the code.** `CLAUDE.md`, the README and `book/SCREENSHOT_SETUP.md` no
   longer tell a reader to hand-register a method the plugin already registers, and the
   capture description says what the code does: the fallback is to window capture, which is
