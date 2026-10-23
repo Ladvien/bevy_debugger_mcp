@@ -31,13 +31,14 @@ pub use bevy_remote::BrpPayload;
 
 pub use bevy_remote::builtin_methods;
 
-/// The plugin feature that registers a `bevy_fairy/*` method, or `None` for a method this crate
-/// does not own.
+/// The plugin feature that registers a `bevy_fairy/*` method, or `None` for a method the plugin
+/// does not register at all (a typo gets the game's bare "not found", not a feature to turn on).
 fn feature_registering(method: &str) -> Option<&'static str> {
     match method {
         "bevy_fairy/screenshot" | "bevy_fairy/capture" => Some("plugin-screenshot"),
         "bevy_fairy/guide" | "bevy_fairy/guide+watch" => Some("plugin-guide"),
-        other if other.starts_with("bevy_fairy/") => Some("plugin"),
+        "bevy_fairy/input" | "bevy_fairy/status" | "bevy_fairy/commands" | "bevy_fairy/scene"
+        | "bevy_fairy/quit" | "bevy_fairy/time" => Some("plugin"),
         _ => None,
     }
 }

@@ -298,6 +298,8 @@ fn agent_visible_text(outcome: Result<CallToolResult, rmcp::Error>) -> String {
 /// not registered. The error must name that cause. It used to tell the agent "the game needs
 /// `--features debugger`; the editor has it on by default" -- a feature this crate does not
 /// have, for an editor this crate does not ship.
+// With `plugin-guide` on, the fixture registers the method and there is nothing to refuse.
+#[cfg(not(feature = "plugin-guide"))]
 #[tokio::test(flavor = "multi_thread")]
 async fn a_missing_guide_method_names_the_feature_that_registers_it() {
     let port = start_fixture();
@@ -320,6 +322,8 @@ async fn a_missing_guide_method_names_the_feature_that_registers_it() {
 
 /// Same for capture: the fixture is built without `plugin-screenshot`. The error used to be
 /// the bare "Method `bevy_fairy/screenshot` not found", which names no cause and no fix.
+// With `plugin-screenshot` on, the fixture registers the method and there is nothing to refuse.
+#[cfg(not(feature = "plugin-screenshot"))]
 #[tokio::test(flavor = "multi_thread")]
 async fn a_missing_screenshot_method_names_the_feature_that_registers_it() {
     let port = start_fixture();
