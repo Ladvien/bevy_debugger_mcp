@@ -2,7 +2,7 @@
 //! and the BRP HTTP endpoint an agent talks to. Run it with
 //!
 //! ```text
-//! cargo run -p bevy_fairy --example agent_scene
+//! cargo run --features plugin-screenshot --example plugin_agent_scene
 //! ```
 //!
 //! then, from another shell, drive it with plain JSON-RPC over HTTP on port 15702:

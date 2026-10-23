@@ -339,6 +339,9 @@ fn no_doc_names_the_old_crate_or_the_old_package_path() {
             if is_history {
                 continue;
             }
+            // `crates/bevy_fairy` is the old in-repo package path. The crate's own crates.io page,
+            // `crates.io/crates/bevy_fairy`, contains the same characters and is not stale.
+            let checked = trimmed.replace("crates.io/crates/bevy_fairy", "");
             for stale in [
                 "bevy_debugger_mcp",
                 "bevy_debugger_bevy",
@@ -347,7 +350,7 @@ fn no_doc_names_the_old_crate_or_the_old_package_path() {
                 "bevy_debugger/",
             ] {
                 assert!(
-                    !trimmed.contains(stale),
+                    !checked.contains(stale),
                     "{what}:{} still names `{stale}`, which does not exist any more. The crate is \
                      `bevy_fairy`, the plugin lives in `src/plugin/`, and the BRP methods are \
                      `bevy_fairy/*`. Line: {trimmed}",
